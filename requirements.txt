@@ -1,0 +1,5 @@
+pypandoc
+jinja2
+pyyaml
+panflute
+python-frontmatter

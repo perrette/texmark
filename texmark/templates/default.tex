@@ -1,0 +1,54 @@
+% template.tex - Pandoc-based LaTeX template for scientific papers
+\documentclass[$if(documentclassoptions)$$documentclassoptions$$else$11pt,a4paper,cite$endif$]{article}
+
+% Package imports
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{geometry}
+\geometry{margin=1in}
+
+\graphicspath{{../images/}}
+
+\newenvironment{CSLReferences}[2] % #1 hanging-ident, #2 entry spacing
+ {% don't indent paragraphs
+  \setlength{\parindent}{0pt}
+  % turn on hanging indent if param 1 is 1
+  \ifodd #1 \everypar{\setbox0=\lastbox}\else \setlength{\parindent}{1.5em}\fi
+  % set entry spacing
+  \setlength{\parskip}{#2\baselineskip}}
+{}
+
+% Set up bibliography style
+$if(bibliography)$
+\bibliographystyle{$if(biblio-style)$$biblio-style$$else$plain$endif$}
+$endif$
+
+% Title block
+\title{$for(title)$$title$$sep$ \and $endfor$}
+\author{$for(author)$$author$$sep$ \and $endfor$}
+\date{$date$}
+
+\begin{document}
+\maketitle
+
+$if(abstract)$
+\begin{abstract}
+$abstract$
+\end{abstract}
+$endif$
+
+$body$
+
+$if(bibliography)$
+\bibliography{$for(bibliography)$$bibliography$$sep$,$endfor$}
+$endif$
+
+\end{document}
