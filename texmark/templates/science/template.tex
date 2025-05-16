@@ -19,7 +19,7 @@
 % Depending on your LaTeX fonts installation, you might get better results with one or both of these:
 %\usepackage{mathptmx}
 %\usepackage{txfonts}
-
+\usepackage{hyperref} % custom package
 % Allow external graphics files
 \usepackage{graphicx}
 
@@ -81,25 +81,41 @@
 \title{\bfseries \boldmath \scititle}
 
 % Author and institution list.
-% Institution numbers etc. should be hard-coded, do *not* use the \footnote command.
+% % Institution numbers etc. should be hard-coded, do *not* use the \footnote command.
 \author{
-	{% for author in authors %}
-		{{author.firstname}}~{{author.lastname}}$^{ {{author.affiliation}} }${% if not loop.last %},{% endif %}
-	{% endfor %}\and
+	{% for author in authors -%}
+		{{author.firstname}}~{{author.lastname}}$^{ {{author.affiliation}}\ast }${% if loop.last -%}\and{%else%},{% endif %}
+	{% endfor -%}
 	% You can write out first names or use initials - either way is acceptable, but be consistent
 	% First~Author$^{1\ast\dagger}$,
 	% A.~Scientist$^{2\dagger}$,
 	% Someone~E.~Else$^{2}$\and
 	% Additional lines of authors should be inserted using the \and command (not \\)
 	% Institution list, in a slightly smaller font
-	{% for affil in affiliations %}
+	{% for affil in affiliations -%}
 	\small$^{ {{loop.index}} }${{affil}}\and
-    {% endfor %}
+    {% endfor -%}
+	% \small$^{1}$Department, Institution, City \& Postal Code, Country.\and
+	% \small$^{2}$Another Department, Different Institution, City \& Postal Code, Country.\and
 	% Identify at least one corresponding author, with contact emailll$^\ast$Corresponding author. Email: example@mail.com\and
 	% Joint contributions can be indicated like this
+	\small$^\ast$Corresponding author. Email: {{ authors[0].email }}
 	% \small$^\dagger$These authors contributed equally to this work.
 }
-
+% \author{
+% 	% You can write out first names or use initials - either way is acceptable, but be consistent
+% 	First~Author$^{1\ast\dagger}$,
+% 	A.~Scientist$^{2\dagger}$,
+% 	Someone~E.~Else$^{2}$\and
+% 	% Additional lines of authors should be inserted using the \and command (not \\)
+% 	% Institution list, in a slightly smaller font
+% 	\small$^{1}$Department, Institution, City \& Postal Code, Country.\and
+% 	\small$^{2}$Another Department, Different Institution, City \& Postal Code, Country.\and
+% 	% Identify at least one corresponding author, with contact email address
+% 	\small$^\ast$Corresponding author. Email: example@mail.com\and
+% 	% Joint contributions can be indicated like this
+% 	\small$^\dagger$These authors contributed equally to this work.
+% }
 %%%%%%%%%%%%%%%%% END OF PREAMBLE %%%%%%%%%%%%%%%%
 
 
@@ -114,14 +130,14 @@
 % Consult the journal instructions to authors for details.
 % Do not cite any references in the abstract.
 \begin{abstract} \bfseries \boldmath
-{{abstract}}
+{{abstract | replace('\n', ' ')}}
 \end{abstract}
 
 
 % The first paragraph of any Science paper does NOT have a heading
 % Nor is it indented
 \noindent
-$body$
+{{body}}
 
 % If your text is very short you might need to uncomment the following line to avoid
 % layout problems with the figures and tables.

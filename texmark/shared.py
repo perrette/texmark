@@ -9,6 +9,25 @@ def _run_action(action, elem, doc):
         return elem
     return result
 
+class Processor:
+    def __init__(self, action=None, prepare=None, finalize=None):
+        self._action = action
+        self._prepare = prepare
+        self._finalize = finalize
+
+    def action(self, elem, doc):
+        if self._action:
+            return _run_action(self._action, elem, doc)
+        return elem
+    def prepare(self, doc):
+        if self._prepare:
+            return _run_action(self._prepare, doc, doc)
+        return doc
+    def finalize(self, doc):
+        if self._finalize:
+            return _run_action(self._finalize, doc, doc)
+        return doc
+
 class JournalFilter:
     def __init__(self, processors=None):
         self.processors = processors or []
