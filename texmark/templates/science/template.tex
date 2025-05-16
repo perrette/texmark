@@ -1,0 +1,330 @@
+% science_template.tex
+% See accompanying readme.txt for copyright statement, change log etc.
+
+% Any modification of this template, including writing a paper using it,
+% MUST rename the file i.e. use a different file name.
+
+%%%%%%%%%%%%%%%% START OF PREAMBLE %%%%%%%%%%%%%%%
+
+% Basic setup. Authors shouldn't need to adjust these commands.
+% It's annoying, but please do NOT strip these into a separate file.
+% They need to be included in this .tex for our production software to work.
+
+% Use the basic LaTeX article class, 12pt text
+\documentclass[12pt]{article}
+
+% Science uses Times font. If you don't have this installed (most LaTeX installations will be
+% fine) or prefer the old Computer Modern fonts, comment out the following line
+\usepackage{newtxtext,newtxmath}
+% Depending on your LaTeX fonts installation, you might get better results with one or both of these:
+%\usepackage{mathptmx}
+%\usepackage{txfonts}
+
+% Allow external graphics files
+\usepackage{graphicx}
+
+% Use US letter sized paper with 1 inch margins
+\usepackage[letterpaper,margin=1in]{geometry}
+
+% Double line spacing, including in captions
+\linespread{1.5} % For some reason double spacing is 1.5, not 2.0!
+
+% One space after each sentence
+\frenchspacing
+
+% Abstract formatting and spacing - no heading
+\renewenvironment{abstract}
+	{\quotation}
+	{\endquotation}
+
+% No date in the title section
+\date{}
+
+% Reference section heading
+\renewcommand\refname{References and Notes}
+
+% Figure and Table labels in bold
+\makeatletter
+\renewcommand{\fnum@figure}{\textbf{Figure \thefigure}}
+\renewcommand{\fnum@table}{\textbf{Table \thetable}}
+\makeatother
+
+% Call the accompanying scicite.sty package.
+% This formats citation numbers in Science style.
+\usepackage{scicite}
+
+% Provides the \url command, and fixes a crash if URLs or DOIs contain underscores
+\usepackage{url}
+
+%%%%%%%%%%%% CUSTOM COMMANDS AND PACKAGES %%%%%%%%%%%%
+
+% Authors can define simple custom commands e.g. as shortcuts to save on typing
+% Use \newcommand (not \def) to avoid overwriting existing commands.
+% Keep them as simple as possible and note the warning in the text below.
+% Example:
+\newcommand{\pcc}{\,cm$^{-3}$}	% per cm-cubed
+
+% Please DO NOT import additional external packages or .sty files.
+% Those are unlikely to work with our conversion software and will cause problems later.
+% Don't add any more \usepackage{} commands.
+
+
+%%%%%%%%%%%%%%%% TITLE AND AUTHORS %%%%%%%%%%%%%%%%
+
+% Title of the paper.
+% Keep it short and understandable by any reader of Science.
+% Avoid acronyms or jargon. Use sentence case.
+\def\scititle{
+	{{title}}
+}
+% Store the title in a variable for reuse in the supplement (otherwise \maketitle deletes it)
+\title{\bfseries \boldmath \scititle}
+
+% Author and institution list.
+% Institution numbers etc. should be hard-coded, do *not* use the \footnote command.
+\author{
+	{% for author in authors %}
+		{{author.firstname}}~{{author.lastname}}$^{ {{author.affiliation}} }${% if not loop.last %},{% endif %}
+	{% endfor %}\and
+	% You can write out first names or use initials - either way is acceptable, but be consistent
+	% First~Author$^{1\ast\dagger}$,
+	% A.~Scientist$^{2\dagger}$,
+	% Someone~E.~Else$^{2}$\and
+	% Additional lines of authors should be inserted using the \and command (not \\)
+	% Institution list, in a slightly smaller font
+	{% for affil in affiliations %}
+	\small$^{ {{loop.index}} }${{affil}}\and
+    {% endfor %}
+	% Identify at least one corresponding author, with contact emailll$^\ast$Corresponding author. Email: example@mail.com\and
+	% Joint contributions can be indicated like this
+	% \small$^\dagger$These authors contributed equally to this work.
+}
+
+%%%%%%%%%%%%%%%%% END OF PREAMBLE %%%%%%%%%%%%%%%%
+
+
+%%%%%%%%%%%%%%%% START OF MAIN TEXT %%%%%%%%%%%%%%%
+\begin{document}
+
+% Insert the title and author list
+\maketitle
+
+% Abstract, in bold
+% There are strict length limits, and not all formats have abstracts.
+% Consult the journal instructions to authors for details.
+% Do not cite any references in the abstract.
+\begin{abstract} \bfseries \boldmath
+{{abstract}}
+\end{abstract}
+
+
+% The first paragraph of any Science paper does NOT have a heading
+% Nor is it indented
+\noindent
+$body$
+
+% If your text is very short you might need to uncomment the following line to avoid
+% layout problems with the figures and tables.
+%\newpage
+
+
+% %%%%%%%%%%%%%%%% MAIN TEXT FIGURES %%%%%%%%%%%%%%%
+
+% \begin{figure} % Do NOT use \begin{figure*}
+% 	\centering
+% 	\includegraphics[width=0.6\textwidth]{example_figure} % for an image file named example_figure.*
+% 	% Pick an appropriate width - in print, figures are usually one or two columns wide, which can
+% 	% be approximated by 0.3\textwidth or 0.6\textwidth respectively. Use appropriate label sizes.
+
+% 	% Captions go below figures
+% 	\caption{\textbf{All captions must start with a short bold sentence, acting as a title.}
+% 		Then explain what is being shown, the meanings of any line styles, plotting symbols etc.
+% 		Multi-panel figures must label the panels A, B, C, etc. and refer to them in the caption
+% 		like this: (\textbf{A}) Description of panel A. (\textbf{B}) Description of panel B.
+% 		Captions are placed below figures.}
+% 	\label{fig:example} % give each figure a logical label name
+% \end{figure}
+
+
+% %%%%%%%%%%%%%%%% MAIN TEXT TABLES %%%%%%%%%%%%%%%
+
+% \begin{table} % Do NOT use \begin{table*}
+% 	\centering
+% 	% Captions go above tables
+% 	\caption{\textbf{All captions must start with a short bold sentence, acting as a title.}
+% 		Then explain what is being listed in the table, the meaning of each column etc.
+% 		Captions are placed above tables.}
+% 	\label{tab:example} % give each table a logical label name
+
+% 	\begin{tabular}{lccc} % four columns, alignment for each
+% 		\\
+% 		\hline
+% 		Sample & $A$ & $B$ & $C$\\
+% 		 & (unit) & (unit) & (unit)\\
+% 		\hline
+% 		First & 1 & 2 & 3\\
+% 		Second & 4 & 6 & 8\\
+% 		Third & 5 & 7 & 9\\
+% 		\hline
+% 	\end{tabular}
+% \end{table}
+
+
+
+%%%%%%%%%%%%%%%% REFERENCES %%%%%%%%%%%%%%%
+
+\clearpage % Clear all remaining figures and tables then start a new page
+
+% The list of references goes after the main text and before the acknowledgements
+% When preparing an initial submission, we recommend you use BibTeX, like this:
+%
+\bibliographystyle{sciencemag}
+{% if bibliography is defined -%}
+\bibliography{ {{bibliography}} }
+{% endif -%}
+
+
+% After the paper has completed peer review and been revised ready for acceptance,
+% you should comment out the lines above and copy-paste the contents of your .bbl
+% file here instead. This will help ensure that our conversion software works correctly.
+% Remember to re-run BibTeX first - check the timestamp!
+%
+% Example of the first three entries copy-pasted from science_template.bbl:
+%
+%\begin{thebibliography}{1}
+%
+%\bibitem{example}
+%A.~N. {Author}, An example reference. \emph{Journal of Improbable Research}
+%  \textbf{1}, 67 (2020).
+%
+%\bibitem{example2}
+%F.~M. {Surname}, S.~{Author}, A second example. \emph{Interesting Research
+%  Letters} \textbf{32}, 897 (2019).
+%
+%\bibitem{example_preprint}
+%P.~{One}, P.~{Two}, P.~{Three}, {An unpublished preprint}. \emph{preprint}
+%  (2021), arXiv:2101.12345.
+%
+%\end{thebibliography}
+
+
+%%%%%%%%%%%%%%%% ACKNOWLEDGEMENTS %%%%%%%%%%%%%%%
+
+\section*{Acknowledgments}
+{{acknowledgements}}
+\paragraph*{Funding:}
+{{funding}}
+\paragraph*{Author contributions:}
+{{authorcontribution}}
+\paragraph*{Competing interests:}
+{{competinginterests | default('There are no competing interests to declare.')}}
+\paragraph*{Data and materials availability:}
+\dataavailability{ {{dataavailability | default('please add a "data availability" section')}} } %% use this section when having only data sets available
+
+
+%%%%%%%%%%%%%%%% SUPPLEMENT LIST %%%%%%%%%%%%%%%
+
+% List the contents of your Supplementary Materials, including the numbers of any
+% supplementary figures, tables, external data files etc. and any references that are
+% cited only in the supplement. In this example, refs. 7-8 are cited only in the supplement.
+% Fill out your numbers accordingly and delete any lines that aren't applicable.
+\subsection*{Supplementary materials}
+Materials and Methods\\
+Supplementary Text\\
+Figs. S1 to S3\\
+Tables S1 to S4\\
+References \textit{(7-\arabic{enumiv})}\\ % automatically fills out the last reference number
+% (filling out the other numbers automatically is possible but fiddly and liable to break)
+Movie S1\\
+Data S1
+
+%%%%%%%%%%%%%%%% END OF MAIN TEXT %%%%%%%%%%%%%%%
+
+\newpage
+
+%%%%%%%%%%%%%%%% START OF SUPPLEMENT %%%%%%%%%%%%%%%
+
+% Figures, tables, equations and pages in the supplement are numbered S1, S2 etc.
+\renewcommand{\thefigure}{S\arabic{figure}}
+\renewcommand{\thetable}{S\arabic{table}}
+\renewcommand{\theequation}{S\arabic{equation}}
+\renewcommand{\thepage}{S\arabic{page}}
+\setcounter{figure}{0}
+\setcounter{table}{0}
+\setcounter{equation}{0}
+\setcounter{page}{1} % not 0 as \newpage already started a supplementary page
+% References continue the numbering from the main text.
+
+
+%%%%%%%%%%%%%%%% SUPPLEMENT TITLE PAGE %%%%%%%%%%%%%%%
+
+\begin{center}
+\section*{Supplementary Materials for\\ \scititle}
+
+% Author list for the supplement
+% Indicate the corresponding authors, but do NOT include institutions here
+% It would be nice if the template auto-generated this, but doing so is complicated...
+First~Author$^{\ast\dagger}$,
+A.~Scientist$^\dagger$,
+Someone~E.~Else\\ % we're not in a \author{} environment this time, so use \\ for a new line
+\small$^\ast$Corresponding author. Email: example@mail.com\\
+\small$^\dagger$These authors contributed equally to this work.
+\end{center}
+
+% Fill out the numbers for each type of supplementary material,
+% and delete any lines that aren't applicable.
+% These are just example numbers that don't match the rest of this template.
+\subsubsection*{This PDF file includes:}
+Materials and Methods\\
+Supplementary Text\\
+Figures S1 to S3\\
+Tables S1 to S4\\
+Captions for Movies S1 to S2\\
+Captions for Data S1 to S2
+
+\subsubsection*{Other Supplementary Materials for this manuscript:}
+Movies S1 to S2\\
+Data S1 to S2
+
+\newpage
+
+%%%%%%%%%%%%%%%% MATERIALS AND METHODS %%%%%%%%%%%%%%%
+
+\subsection*{Materials and Methods}
+
+{{materialsandmethods | default('Please add a "Materials and Methods" section.')}} % use this section when having only methods available
+
+%%%%%%%%%%%%%%%% SUPPLEMENTARY TEXT %%%%%%%%%%%%%%%
+
+{% if supplementarytext is defined -%}
+\subsection*{Supplementary Text}
+{{appendix | default('Please add an "Appendix" or "Supplementary Text" section.')}} % use this section when having only methods available
+{% endif -%}
+
+% %%%%%%%%%%% CAPTIONS FOR OTHER SUPPLEMENTARY FILES %%%%%%%%%%
+
+% \clearpage % Clear all remaining figures and tables then start a new page
+
+% \paragraph{Caption for Movie S1.}
+% \textbf{All captions must start with a short bold sentence, acting as a title.}
+% Then explain what is shown in the supplementary video file.
+% Give as much detail as you would for a figure e.g. explain axes, color maps etc.
+% If the video is an animated equivalent of one of the static figures, state e.g.
+% `Animated version of Figure~\ref{fig:example}.'
+
+% \paragraph{Caption for Data S1.}
+% \textbf{All captions must start with a short bold sentence, acting as a title.}
+% Then explain what is included in the supplementary data file.
+% Give as much detail as you would for a table e.g. explain the meaning of every column,
+% units used, any special notation etc.
+
+
+%%%%%%%%%%%%%%%% SUPPLEMENTARY REFERENCES %%%%%%%%%%%%%%%
+
+% Do NOT include a reference list in the supplement.
+% All references must be in a single list at the end of the main text.
+% The copyeditors will ensure that the correct reference list appears with each version of the paper
+% (print, HTML, PDF, mobile app, metadata for bibliographic databases etc.)
+
+\end{document}
+% End of science_template.tex
