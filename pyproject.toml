@@ -7,25 +7,18 @@ name = "texmark"
 authors = [
     {name = "Mahé Perrette", email = "mahe.perrette@gmail.com"},
 ]
-description='Download data to build a Climate Harzard Map'
+description='Write scientific articles in markdown'
 readme = "README.md"
 requires-python = ">=3.9"
-version = "0.1.0"
 # license = {text = "MIT"}
 
-# dynamic = ["version", "dependencies"]
-dynamic = ["dependencies"]
+dynamic = ["version", "dependencies"]
 
 [tool.setuptools.dynamic]
 dependencies =  {file = ["requirements.txt"]}
 
-# [project.optional-dependencies]
-
 [project.urls]
 homepage = "https://github.com/perrette/texmark"
-
-# [tool.setuptools_scm]
-# write_to = "hazardmap/_version.py"
 
 [tool.setuptools.packages.find]
 where = ["."]
