@@ -14,7 +14,7 @@ date: "2025-07-15"
 bibliography: references.bib
 journal:
     short: cp
-    family: copernicus
+    template: copernicus
 ---
 
 # Abstract

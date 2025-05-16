@@ -13,6 +13,7 @@ import texmark
 import json
 import panflute as pf
 import io
+from texmark.logs import logger
 
 rootpath = Path(texmark.__file__).resolve().parent
 
@@ -41,7 +42,7 @@ def normalize_metadata(meta):
         return meta
 
 
-def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build'):
+def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build', filters=None):
     # 1. Parse Markdown
     input_text = open(input_md).read()
     post = frontmatter.loads(input_text)
@@ -49,14 +50,14 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build')
     content = post.content
 
     if not template:
+        # can be provided in the metadata (-> jinja2 template)
         template = metadata.get('template', '')
 
     if not template:
-        if metadata.get('journal.family', 'default') == 'copernicus':
-            template = 'templates/copernicus/template.tex'
-
-        else:
-            template = 'templates/copernicus/template.tex'
+        journal_template = metadata.get('journal', {}).get('template', 'default')
+        if not journal_template:
+            journal_template = "default"
+        template = f'templates/{journal_template}/template.tex'
 
     template_folder = Path(template).parent
     template_name = Path(template).name
@@ -72,7 +73,7 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build')
 
     filters = [
         "texmark-filter",
-        ]
+        ] + (filters or [])
 
     # Step 1: Run pandoc to get JSON AST with filters applied, and updated metadata
     cmd_json = []
@@ -144,7 +145,8 @@ def main():
 
     parser = argparse.ArgumentParser(description='Two-step build: Markdown → LaTeX → PDF')
     parser.add_argument('input', help='Input markdown file')
-    parser.add_argument('-t', '--template', help='Pandoc LaTeX template')
+    parser.add_argument('-t', '--template', help='Pandoc LaTeX template (by default use journal -> template yaml field)')
+    parser.add_argument('-f', '--filters', nargs='*', help='Additional, custom filters. By default the pre-defined, custom filters for the journal are used via the `texmark-filter` utility.')
     parser.add_argument('-o', '--output', help='Final PDF output filename')
     parser.add_argument('-e', '--engine', default='pdflatex', help='LaTeX engine (e.g. pdflatex, xelatex)')
     parser.add_argument('-d', '--build', default='build', help='build directory')
@@ -159,7 +161,7 @@ def main():
     tex_file = args.tex or build_dir / Path(args.input).with_suffix(".tex").name
     pdf_file = args.output or build_dir / Path(args.input).with_suffix(".pdf").name
 
-    metadata = build_tex(args.input, tex_file, args.template, bib_file=args.bib)
+    metadata = build_tex(args.input, tex_file, template=args.template, bib_file=args.bib, filters=args.filters)
 
     if args.pdf:
         compile_pdf(tex_file, pdf_file, args.engine, args.build, args.images, bib_file=metadata.get('bibliography'), resource_path=metadata.get('resource_path'))

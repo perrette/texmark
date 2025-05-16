@@ -13,13 +13,13 @@ def run_filters(doc):
     if doc is not None:
         journal = doc.get_metadata('journal')
     else:
-        journal = {'family': 'default'}
+        journal = {'template': 'default'}
 
     logger.warning(f'doc:: {doc}')
     logger.warning(f'journal:: {journal}')
     logger.warning(f'filters:: {filters.keys()}')
-    logger.warning(f'Journal family: {journal.get("family")}')
-    filters_ = filters.get(journal.get("family"), [default_filter])
+    logger.warning(f'Journal template: {journal.get("template")}')
+    filters_ = filters.get(journal.get("template"), [default_filter])
 
     for filter in filters_:
         doc = pf.run_filter(action=filter.action,
