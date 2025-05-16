@@ -5,8 +5,12 @@ authors:
     lastname: Perrette
     affiliation: 1
     email: mahe.perrette@gmail.com
+  - firstname: Another
+    lastname: Author
+    affiliation: 2
 affiliations:
   - "Alfred Wegener Institut fur Meeres und Polarforschung (AWI)"
+  - "Another Institution in a Remote Country"
 running:
     title: LGM data assimilation
     author: Perrette et al
@@ -22,11 +26,12 @@ journal:
 The abstract will be identified and moved to the metadata,
 so that it can be used as in the journal templates.
 
-Each journal has its own template. For now only Copernicus is covered.
-The journal templates can be edited in [texmark/templates](/texmark/templates)
-and journal-specific filters can be added such as for [copernicus](/texmark/copernicus.py)
+Each journal has its own template. For now only Copernicus and Science are covered.
 
 # Introduction
+
+The journal templates can be edited in [texmark/templates](/texmark/templates)
+and journal-specific filters can be added such as for [copernicus](/texmark/copernicus.py).
 
 Lots of research has been done on that topic.
 We focus mostly on @tierney_zhu2020
