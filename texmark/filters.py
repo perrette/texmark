@@ -35,6 +35,22 @@ def force_cite(elem, doc):
         # Build as raw LaTeX \cite{}
         return pf.RawInline(f'\\cite{{{key_str}}}', format='latex')
 
+def header_to_unnumbered(elem, doc):
+    if isinstance(elem, pf.Header):
+        # Convert header to raw LaTeX \section*{...}
+        level = elem.level
+        content = pf.stringify(elem)
+        latex_cmd = f'\\{"sub" * (level - 1)}section*{{{content}}}'
+        return pf.RawBlock(latex_cmd, format='latex')
+
+def header_to_paragraph(elem, doc):
+    if isinstance(elem, pf.Header):
+        # Convert header to raw LaTeX \section*{...}
+        level = elem.level
+        content = pf.stringify(elem)
+        latex_cmd = f'\\paragraph*{{{content+"."}}}'
+        return pf.RawBlock(latex_cmd, format='latex')
+
 
 science_filter = JournalFilter(
         processors = [
@@ -49,13 +65,11 @@ science_filter = JournalFilter(
                     'materials-and-methods': 'materialsandmethods',
                 },
                 remap_command_sections={
-                    'introduction': r'\introduction',
-                    'conclusions': r'\conclusions'
+                    # 'introduction': r'\section*{Introduction}',
                 }
             ),
-            Processor(
-                action=force_cite,
-            )
+            force_cite,
+            header_to_paragraph,
         ])
 
 filters['science'] = [science_filter]

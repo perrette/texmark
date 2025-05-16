@@ -96,7 +96,7 @@ class SectionProcessor:
             if tracker.active_section and elem.level <= tracker.section_level:
                 # logger.warning(f"Exit {tracker.active_section} with {elem} {stringify(elem)}")
                 # logger.warning(f"Last element of {tracker.active_section} {tracker.section_content[-1]}")
-                logger.warning(f"Remove last: {tracker.section_content[-1]} {stringify(tracker.section_content[-1])}")
+                # logger.warning(f"Remove last: {tracker.section_content[-1]} {stringify(tracker.section_content[-1])}")
                 tracker.section_content = tracker.section_content[:-1]
                 tracker.reset()
 

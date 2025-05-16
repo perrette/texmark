@@ -53,7 +53,7 @@ class JournalFilter:
         # if isinstance(elem, Header):
         #     return self.transform_header(elem, doc)
         for processor in self.processors:
-            elem = _run_action(processor.action, elem, doc)
+            elem = _run_action(processor if callable(processor) else processor.action, elem, doc)
 
         return elem
 
