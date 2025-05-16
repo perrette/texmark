@@ -2,6 +2,7 @@
 
 import sys
 import json
+import importlib
 import panflute as pf
 from texmark.logs import logger
 from texmark.shared import filters, default_filter
@@ -64,13 +65,22 @@ def run_filters(doc):
     if doc is not None:
         journal = doc.get_metadata('journal')
     else:
+        logger.warning(f'doc is None')
         journal = {'template': 'default'}
 
-    logger.warning(f'doc:: {doc}')
-    logger.warning(f'journal:: {journal}')
-    logger.warning(f'filters:: {filters.keys()}')
-    logger.warning(f'Journal template: {journal.get("template")}')
-    filters_ = filters.get(journal.get("template"), [default_filter])
+    if doc.get_metadata('filters_module'):
+        filters_module = doc.get_metadata('filters_module')
+        logger.warning(f"Loading filters module: {filters_module}")
+        importlib.import_module(filters_module)
+
+
+    if journal.get("template") is None:
+        logger.warning(f'doc is None')
+
+    filters_ = filters.get(journal.get("template"))
+    if filters_ is None:
+        logger.warning(f'No filters found for journal template: {journal.get("template")}. Using default filter.')
+        filters_ = [default_filter]
 
     for filter in filters_:
         doc = pf.run_filter(action=filter.action,

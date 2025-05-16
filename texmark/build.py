@@ -42,7 +42,7 @@ def normalize_metadata(meta):
         return meta
 
 
-def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build', filters=None, journal_template=None):
+def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build', filters=None, journal_template=None, filters_module=None):
     # 1. Parse Markdown
     input_text = open(input_md).read()
     post = frontmatter.loads(input_text)
@@ -55,6 +55,9 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
             journal_template = "default"
 
     metadata.setdefault('journal', {})['template'] = journal_template
+
+    if filters_module:
+        metadata['filters_module'] = filters_module
 
     if not template:
         template = metadata.get('template')
@@ -75,7 +78,7 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
 
     filters = [
         "texmark-filter",
-        ] + (filters or [])
+        ] + (filters or metadata.get('filters', []))
 
     # Step 1: Run pandoc to get JSON AST with filters applied, and updated metadata
     cmd_json = []
@@ -150,6 +153,7 @@ def main():
     parser.add_argument('-j', '--journal-template', help='Pandoc LaTeX + filter template family. Update journal -> template yaml field)')
     parser.add_argument('-t', '--template', help='Pandoc LaTeX template. Update template yaml field)')
     parser.add_argument('-f', '--filters', nargs='*', help='Additional, custom filters. By default the pre-defined, custom filters for the journal are used via the `texmark-filter` utility.')
+    parser.add_argument('--filters-module', help='Load a custom filter module. This is a Python module that may extend the filters dict defined in the `texmark.shared` module.')
     parser.add_argument('-o', '--output', help='Final PDF output filename')
     parser.add_argument('-e', '--engine', default='pdflatex', help='LaTeX engine (e.g. pdflatex, xelatex)')
     parser.add_argument('-d', '--build', default='build', help='build directory')
@@ -164,7 +168,7 @@ def main():
     tex_file = args.tex or build_dir / Path(args.input).with_suffix(".tex").name
     pdf_file = args.output or build_dir / Path(args.input).with_suffix(".pdf").name
 
-    metadata = build_tex(args.input, tex_file, template=args.template, bib_file=args.bib, filters=args.filters, journal_template=args.journal_template)
+    metadata = build_tex(args.input, tex_file, template=args.template, bib_file=args.bib, filters=args.filters, journal_template=args.journal_template, filters_module=args.filters_module)
 
     if args.pdf:
         compile_pdf(tex_file, pdf_file, args.engine, args.build, args.images, bib_file=metadata.get('bibliography'), resource_path=metadata.get('resource_path'))
