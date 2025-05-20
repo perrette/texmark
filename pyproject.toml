@@ -10,7 +10,7 @@ authors = [
 description='Write scientific articles in markdown'
 readme = "README.md"
 requires-python = ">=3.9"
-# license = {text = "MIT"}
+license = { file="LICENSE" }
 
 dynamic = ["version", "dependencies"]
 
@@ -32,3 +32,6 @@ texmark = ["templates/**/*"]
 [project.scripts]
 texmark = "texmark.build:main"
 texmark-filter = "texmark.filters:main"
+
+[tool.setuptools_scm]
+write_to = "texmark/_version.py"
