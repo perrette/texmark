@@ -9,13 +9,17 @@ from texmark.shared import filters, default_filter
 from texmark.shared import JournalFilter, filters, logger, Processor
 from texmark.sectiontracker import SectionProcessor
 
+si_sections = ["appendix", "supplementary-material", "supplementary-information"]
+method_sections = ["methods", "materials-and-methods", "methodology"]
+
 copernicus_filter = JournalFilter(
         processors = [
             SectionProcessor(
-                extract_sections=['abstract', 'appendix', 'acknowledgements', 'author-contributions', 'competing-interests'],
+                extract_sections=['abstract', 'acknowledgements', 'author-contributions', 'competing-interests'] + si_sections,
                 sections_map={
                     'author-contributions': 'authorcontribution',
                     'competing-interests': 'competinginterests',
+                    **{section: 'appendix' for section in si_sections},
                 },
                 remap_command_sections={
                     'introduction': r'\introduction',
@@ -55,14 +59,13 @@ def header_to_paragraph(elem, doc):
 science_filter = JournalFilter(
         processors = [
             SectionProcessor(
-                extract_sections=['abstract', 'appendix', 'acknowledgements', 'author-contributions',
-                                  'competing-interests', 'methods', 'materials-and-methods', 'supplementary-material'],
+                extract_sections=['abstract', 'acknowledgements', 'author-contributions',
+                                  'competing-interests', 'methods', 'materials-and-methods'] + si_sections,
                 sections_map={
                     'author-contributions': 'authorcontribution',
                     'competing-interests': 'competinginterests',
-                    'supplementary-material': 'appendix',
-                    'methods': 'materialsandmethods',
-                    'materials-and-methods': 'materialsandmethods',
+                    **{section: 'materialandmethods' for section in method_sections},
+                    **{section: 'appendix' for section in si_sections},
                 },
                 remap_command_sections={
                     # 'introduction': r'\section*{Introduction}',
@@ -73,6 +76,7 @@ science_filter = JournalFilter(
         ])
 
 filters['science'] = [science_filter]
+
 
 def run_filters(doc):
 
