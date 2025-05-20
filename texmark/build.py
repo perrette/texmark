@@ -42,6 +42,12 @@ def normalize_metadata(meta):
         return meta
 
 
+def join_if_list(value, sep='\n\n'):
+    if isinstance(value, list):
+        return sep.join(value)
+    return value
+
+
 def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build', filters=None, journal_template=None, filters_module=None):
     # 1. Parse Markdown
     input_text = open(input_md).read()
@@ -100,6 +106,7 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
 
     # Step 2. Render Jinja2 Template
     env = jinja2.Environment(loader=jinja2.FileSystemLoader(resource_path))
+    env.filters['join_if_list'] = join_if_list
     template = env.get_template(template_name)
 
     build_dir = Path(build_dir)

@@ -116,10 +116,11 @@ class SectionProcessor:
         # Convert collected sections to LaTeX
         for section in self.extract_sections:
             meta_key = self.sections_map.get(section, section)
+            doc.metadata.setdefault(meta_key, [])
             if section in tracker.sections:
                 inline_elements = tracker.sections[section]['content']
                 latex = panflute2latex(inline_elements)
-                doc.metadata[meta_key] = RawInline(latex, format='latex')
+                doc.metadata[meta_key].append(RawInline(latex, format='latex'))
 
 
 def main(doc=None):

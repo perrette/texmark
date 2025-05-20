@@ -130,7 +130,7 @@
 % Consult the journal instructions to authors for details.
 % Do not cite any references in the abstract.
 \begin{abstract} \bfseries \boldmath
-{{abstract | replace('\n', ' ')}}
+{{abstract | join_if_list | replace('\n', ' ')}}
 \end{abstract}
 
 
@@ -195,8 +195,8 @@
 % The list of references goes after the main text and before the acknowledgements
 % When preparing an initial submission, we recommend you use BibTeX, like this:
 %
+{% if bibliography -%}
 \bibliographystyle{sciencemag}
-{% if bibliography is defined -%}
 \bibliography{ {{bibliography}} }
 {% endif -%}
 
@@ -227,16 +227,24 @@
 
 %%%%%%%%%%%%%%%% ACKNOWLEDGEMENTS %%%%%%%%%%%%%%%
 
+{% if acknowledgements -%}
 \section*{Acknowledgments}
-{{acknowledgements}}
+{{acknowledgements | join_if_list}}
+{% endif -%}
+{% if funding -%}
 \paragraph*{Funding:}
-{{funding}}
+{{funding | join_if_list}}
+{% endif -%}
+{% if authorcontribution -%}
 \paragraph*{Author contributions:}
-{{authorcontribution}}
+{{authorcontribution | join_if_list}}
+{% endif -%}
+{% if competinginterests -%}
 \paragraph*{Competing interests:}
-{{competinginterests | default('There are no competing interests to declare.')}}
+{{competinginterests | join_if_list | default('There are no competing interests to declare.')}}
+{% endif -%}
 \paragraph*{Data and materials availability:}
-\dataavailability{ {{dataavailability | default('please add a "data availability" section')}} } %% use this section when having only data sets available
+\dataavailability{ {{dataavailability | join_if_list | default('please add a "data availability" section')}} } %% use this section when having only data sets available
 
 
 %%%%%%%%%%%%%%%% SUPPLEMENT LIST %%%%%%%%%%%%%%%
@@ -309,13 +317,13 @@ Data S1 to S2
 
 \subsection*{Materials and Methods}
 
-{{materialsandmethods | default('Please add a "Materials and Methods" section.')}} % use this section when having only methods available
+{{materialsandmethods | join_if_list | default('Please add a "Materials and Methods" section.')}} % use this section when having only methods available
 
 %%%%%%%%%%%%%%%% SUPPLEMENTARY TEXT %%%%%%%%%%%%%%%
 
-{% if supplementarytext is defined -%}
+{% if supplementarytext -%}
 \subsection*{Supplementary Text}
-{{appendix | default('Please add an "Appendix" or "Supplementary Text" section.')}} % use this section when having only methods available
+{{appendix | join_if_list | default('Please add an "Appendix" or "Supplementary Text" section.')}} % use this section when having only methods available
 {% endif -%}
 
 % %%%%%%%%%%% CAPTIONS FOR OTHER SUPPLEMENTARY FILES %%%%%%%%%%

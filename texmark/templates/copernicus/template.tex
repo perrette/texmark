@@ -101,14 +101,14 @@
 \affil[{{ loop.index }}]{ {{ affil }} }
 {% endfor %}
 
-{% if running is defined and running.title -%}
+{% if running and running.title -%}
 \runningtitle{ {{running.title}} }
 {% else %}
 {% set words = title.split() %}
 \runningtitle{ {{words[:3] }}...}
 {% endif -%}
 
-{% if running.author is defined and running.author -%}
+{% if running.author and running.author -%}
 \runningauthor{ {{running.author}} }
 {% else %}
 {% if len(authors) == 1 -%}
@@ -132,11 +132,11 @@
 \maketitle
 
 \begin{abstract}
-{{abstract}}
+{{abstract | join_if_list }}
 \end{abstract}
 
-{% if copyright is defined -%}
-\copyrightstatement{ {{copyright}} }    %% This section is optional and can be used for copyright transfers.
+{% if copyright -%}
+\copyrightstatement{ {{copyright | join_if_list}} }    %% This section is optional and can be used for copyright transfers.
 {% endif %}
 
 {{body}}
@@ -162,29 +162,32 @@
 %% The following commands are for the statements about the availability of data sets and/or software code corresponding to the manuscript.
 %% It is strongly recommended to make use of these sections in case data sets and/or software code have been part of your research the article is based on.
 
-{% if codeavailability is defined -%}
-\codeavailability{ {{codeavailability}} } %% use this section when having only software code available
+{% if codeavailability -%}
+\codeavailability{ {{codeavailability | join_if_list}} } %% use this section when having only software code available
 {% endif -%}
 
-{% if dataavailability is defined -%}
-\dataavailability{ {{dataavailability}} } %% use this section when having only data sets available
+{% if dataavailability -%}
+\dataavailability{ {{dataavailability | join_if_list}} } %% use this section when having only data sets available
 {% endif -%}
 
-{% if codedataavailability is defined -%}
-\codedataavailability{ {{codedataavailability}} } %% use this section when having data sets and software code available
+{% if codedataavailability -%}
+\codedataavailability{ {{codedataavailability | join_if_list}} } %% use this section when having data sets and software code available
 {% endif -%}
 
-{% if sampleavailability is defined -%}
-\sampleavailability{ {{sampleavailability}} } %% use this section when having geoscientific samples available
+{% if sampleavailability -%}
+\sampleavailability{ {{sampleavailability | join_if_list}} } %% use this section when having geoscientific samples available
 {% endif -%}
 
-{% if videoavailability is defined -%}
-\videoavailability{ {{videoavailability}} } %% use this section when having video supplements available
+{% if videoavailability -%}
+\videoavailability{ {{videoavailability | join_if_list}} } %% use this section when having video supplements available
 {% endif -%}
-
 
 \appendix
-{{appendix}}
+
+{% for section in appendix -%}
+\section{} %% Appendix A
+{{section}}
+{% endfor -%}
 %% \section{}    %% Appendix A
 %%
 %% \subsection{}     %% Appendix A1, A2, etc.
@@ -201,23 +204,23 @@
 
 
 %% Please add \clearpage between each table and/or figure. Further guidelines on figures and tables can be found below.
-{% if authorcontribution is not defined -%}
-{% set authorcontribution = "Please document 'authorcontribution' in the metadata or as a section" -%}
+{% if not authorcontribution -%}
+{% set authorcontribution = ["Please document 'authorcontribution' in the metadata or as a section"] -%}
 {% endif -%}
-\authorcontribution{ {{ authorcontribution }}} %% this section is mandatory
+\authorcontribution{ {{ authorcontribution | join_if_list }}} %% this section is mandatory
 
-{% if competinginterests is not defined -%}
-{% set competinginterests = "The authors declare that they have no conflict of interest." -%}
+{% if not competinginterests -%}
+{% set competinginterests = ["The authors declare that they have no conflict of interest."] -%}
 {% endif -%}
-\competinginterests{ {{competinginterests}} } %% this section is mandatory even if you declare that no competing interests are present
+\competinginterests{ {{competinginterests | join_if_list}} } %% this section is mandatory even if you declare that no competing interests are present
 
-{% if disclaimer is defined -%}
-\disclaimer{ {{disclaimer}} } %% optional section
+{% if disclaimer -%}
+\disclaimer{ {{disclaimer | join_if_list}} } %% optional section
 {% endif -%}
 
-{% if acknowledgements is defined -%}
+{% if acknowledgements -%}
 \begin{acknowledgements}
-{{acknowledgements}}
+{{acknowledgements | join_if_list}}
 \end{acknowledgements}
 {% endif -%}
 
@@ -240,7 +243,7 @@
 %%
 
 \bibliographystyle{copernicus}
-{% if bibliography is defined -%}
+{% if bibliography -%}
 \bibliography{ {{bibliography}} }
 {% endif -%}
 
@@ -272,14 +275,14 @@
 
 % The figure files should be labelled correctly with Arabic numerals (e.g. fig01.jpg, fig02.png).
 
-{% if figures is defined -%}
+{% if figures -%}
 {%for figure in figures -%}
 {{figure}}
 \clearpage
 {% endfor -%}
 {% endif -%}
 
-{% if appendixfigures is defined -%}
+{% if appendixfigures -%}
 \appendixfigures  %% needs to be added in front of appendix figures
 {%for figure in appendixfigures -%}
 {{figure}}
@@ -287,14 +290,14 @@
 {% endfor -%}
 {% endif -%}
 
-{% if tables is defined -%}
+{% if tables -%}
 {%for table in tables -%}
 {{table}}
 \clearpage
 {% endfor -%}
 {% endif -%}
 
-{% if appendixtables is defined -%}
+{% if appendixtables -%}
 \appendixtables   %% needs to be added in front of appendix tables
 {%for table in appendixtables -%}
 {{table}}
