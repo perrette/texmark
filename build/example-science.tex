@@ -128,13 +128,21 @@
 % Consult the journal instructions to authors for details.
 % Do not cite any references in the abstract.
 \begin{abstract} \bfseries \boldmath
-The abstract will be identified and moved to the metadata, so that it can be used as in the journal templates.  Each journal has its own template. For now only Copernicus and Science are covered.
+
 \end{abstract}
 
 
 % The first paragraph of any Science paper does NOT have a heading
 % Nor is it indented
 \noindent
+
+\paragraph*{Abstract.}
+
+The abstract will be identified and moved to the metadata, so that it
+can be used as in the journal templates.
+
+Each journal has its own template. For now only Copernicus and Science
+are covered.
 
 \paragraph*{Introduction.}
 
@@ -166,6 +174,18 @@ Both latex and markdown commands are supported.
 \paragraph*{Conclusions.}
 
 This is also a special section.
+
+\paragraph*{Appendix.}
+
+That is an appendix.
+
+\begin{figure}
+\centering
+\includegraphics[width=1\linewidth,height=\textheight,keepaspectratio]{images/eof_mean.png}
+\caption{This is an appendix figure.}\label{fig:appendix}
+\end{figure}
+
+And can be cited as Figure \ref{fig:appendix}.
 
 % If your text is very short you might need to uncomment the following line to avoid
 % layout problems with the figures and tables.

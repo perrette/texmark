@@ -58,7 +58,10 @@ Both latex and markdown commands are supported.
 
 This is also a special section.
 
-
 # Appendix
 
 That is an appendix.
+
+![This is an appendix figure.](/images/eof_mean.png){#fig:appendix width=100%}
+
+And can be cited as Figure \ref{fig:appendix}.
