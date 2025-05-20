@@ -218,7 +218,7 @@ class SectionFilter:
 
 def main(doc=None):
     extractor = SectionFilter(
-        extract_sections=["introduction", "methods", "conclusions", "acknowledgements"],
+        extract_sections=[],
     )
     return run_filter(extractor.action, prepare=extractor.prepare, finalize=extractor.finalize, doc=doc)
 
