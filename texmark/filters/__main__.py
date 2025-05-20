@@ -5,9 +5,8 @@ import json
 import importlib
 import panflute as pf
 from texmark.logs import logger
-from texmark.shared import filters, Filter
+from texmark.shared import filters
 from texmark.sectiontracker import SectionFilter
-from texmark.filters import wrap_sections, unwrap_sections
 
 
 def strip_leading_slash(elem, doc):
