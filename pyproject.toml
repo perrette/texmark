@@ -31,7 +31,7 @@ texmark = ["templates/**/*"]
 
 [project.scripts]
 texmark = "texmark.build:main"
-texmark-filter = "texmark.filters:main"
+texmark-journal = "texmark.filters.__main__:main"
 
 [tool.setuptools_scm]
 write_to = "texmark/_version.py"

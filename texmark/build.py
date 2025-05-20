@@ -83,14 +83,13 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     ]
 
     filters = [
-        "texmark-filter",
+        "texmark-journal",
         ] + (filters or metadata.get('filters', []))
 
     # Step 1: Run pandoc to get JSON AST with filters applied, and updated metadata
-    cmd_json = []
+    cmd_json = args
     for f in filters:
         cmd_json.extend(['--filter', f])
-    cmd_json.extend(args)
 
     post.metadata = metadata
 

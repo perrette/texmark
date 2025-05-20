@@ -64,7 +64,7 @@ class SectionTracker:
         self.section_level = 0
 
 
-class SectionProcessor:
+class SectionFilter:
     def __init__(self, extract_sections, sections_map={}, remap_command_sections={}):
         self.extract_sections = extract_sections
         self.sections_map = sections_map or {}
@@ -123,7 +123,7 @@ class SectionProcessor:
 
 
 def main(doc=None):
-    extractor = SectionProcessor(
+    extractor = SectionFilter(
         extract_sections=["introduction", "methods", "conclusions", "acknowledgements"],
     )
     return run_filter(extractor.action, prepare=extractor.prepare, finalize=extractor.finalize, doc=doc)
