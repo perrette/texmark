@@ -88,6 +88,10 @@ class SectionProcessor:
         if isinstance(elem, Header):
             title = elem.identifier
 
+            # Check if we're exiting a section
+            if tracker.active_section and elem.level <= tracker.section_level:
+                tracker.reset()
+
             # Check if we're entering a target section
             if title in doc.extract_sections:
                 tracker.reset()
@@ -95,14 +99,6 @@ class SectionProcessor:
                 tracker.section_level = elem.level
                 # logger.warning(f"!!Remove {elem}")
                 return []  # Remove original header
-
-            # Check if we're exiting a section
-            if tracker.active_section and elem.level <= tracker.section_level:
-                # logger.warning(f"Exit {tracker.active_section} with {elem} {stringify(elem)}")
-                # logger.warning(f"Last element of {tracker.active_section} {tracker.section_content[-1]}")
-                # logger.warning(f"Remove last: {tracker.section_content[-1]} {stringify(tracker.section_content[-1])}")
-                tracker.section_content = tracker.section_content[:-1]
-                tracker.reset()
 
             # Check if the header is a target section for remap header command
             if title in self.remap_command_sections:
