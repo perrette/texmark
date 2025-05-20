@@ -46,7 +46,6 @@ def panflute2latex(elements, wrap='none') -> str:
     return latex
 
 
-
 class SectionTracker:
     def __init__(self):
         self.active_section = None

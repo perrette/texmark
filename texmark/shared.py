@@ -19,14 +19,14 @@ class Processor:
         if self._action:
             return _run_action(self._action, elem, doc)
         return elem
+
     def prepare(self, doc):
         if self._prepare:
-            return _run_action(self._prepare, doc, doc)
-        return doc
+            self._prepare(doc)
+
     def finalize(self, doc):
         if self._finalize:
-            return _run_action(self._finalize, doc, doc)
-        return doc
+            self._finalize(doc)
 
 class JournalFilter:
     def __init__(self, processors=None):
@@ -61,6 +61,7 @@ class JournalFilter:
         for processor in self.processors:
             if hasattr(processor, "finalize"):
                 processor.finalize(doc)
+        return
 
     # def transform_header(self, elem, doc):
     #     pass
