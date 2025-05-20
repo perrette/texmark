@@ -28,7 +28,16 @@ def tag_figures(elem, doc):
             elem.identifier = f'fig:{Path(image.url).stem}'
     return elem
 
-basic_filters = [strip_leading_slash, tag_figures]
+def figure_width_100pct(elem, doc):
+    """Set figure width to 100%"""
+    if isinstance(elem, pf.Figure):
+        # Set width to 100%
+        target = elem.content[0].content[0]
+        if "width" not in target.attributes:
+            target.attributes['width'] = '100%'
+    return elem
+
+basic_filters = [strip_leading_slash, tag_figures, figure_width_100pct]
 
 default_filters = basic_filters
 

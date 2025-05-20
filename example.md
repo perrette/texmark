@@ -37,11 +37,11 @@ Lots of research has been done on that topic.
 We focus mostly on @tierney_zhu2020
 but also on \cite{tierney_zhu2020}
 
-![My figure \label{fig:eofmean}. The leading / in images and links is removed, but it is convenient for proper formatting in github.](/images/eof_mean.png){width=100%}
+![My figure \label{fig:eofmean}. The leading / in images and links is removed, but it is convenient for proper formatting in github.](/images/eof_mean.png)
 
 The figures can also point to an http(s) address:
 
-![The gulf Stream. Source: Jeremy White/The New York Times.](https://static01.nyt.com/images/2021/03/03/climate/gulf-stream-promo/gulf-stream-promo-superJumbo.jpg){width=100%}
+![The gulf Stream. Source: Jeremy White/The New York Times.](https://static01.nyt.com/images/2021/03/03/climate/gulf-stream-promo/gulf-stream-promo-superJumbo.jpg)
 
 And it can be referred to as Fig. \ref{fig:gulf-stream-promo-superJumbo}.
 
@@ -68,6 +68,6 @@ This is also a special section.
 
 That is an appendix.
 
-![This is an appendix figure.](/images/eof_mean.png){#fig:appendix width=100%}
+![This is an appendix figure.](/images/eof_mean.png){#fig:appendix}
 
 And can be cited as Figure \ref{fig:appendix}.
