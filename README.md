@@ -37,6 +37,15 @@ Only partial support is provided. Upon submission you'll most likely need
 to rework the final latex version, especially to handle things like appendix or special sections.
 Alternatively, you may write your custom template (see the advanced section)
 
+## Collect figures and tables at the end of the document
+
+Just add
+```yaml
+collect_figures_and_tables: true
+```
+to your markdown yaml metadata.
+
+
 ## Advanced: latex template
 
 The templates are written in [jinja2](https://jinja.palletsprojects.com).

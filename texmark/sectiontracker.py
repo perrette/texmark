@@ -124,6 +124,7 @@ class SectionFilter:
         self.extract_sections.extend(doc.get_metadata('extract_sections', []))
         self.sections_map.update(doc.get_metadata('sections_map', {}))
         self.remap_command_sections.update(doc.get_metadata('remap_command_sections', {}))
+        self.collect_figures_and_tables = doc.get_metadata('collect_figures_and_tables', False)
 
     def action(self, elem, doc):
         # Only record section headers
@@ -136,9 +137,15 @@ class SectionFilter:
         current = None
         collecting = False
         section_level = None
+        figure_blocks = []
+        tables_blocks = []
 
         # Ensure section storage
         collected = {key: [] for key in self.extract_sections}
+        collected_figures = {key: [] for key in self.extract_sections}
+        collected_tables = {key: [] for key in self.extract_sections}
+
+        logger.warning(f"Figure at end: {self.collect_figures_and_tables}")
 
         for blk in doc.content:
             if isinstance(blk, pf.Header):
@@ -153,11 +160,42 @@ class SectionFilter:
                     continue  # skip header from main doc
 
             if collecting:
-                collected[current].append(blk)
+                if self.collect_figures_and_tables and isinstance(blk, pf.Figure):
+                    # Store figure blocks separately
+                    collected_figures[current].append(blk)
+                elif self.collect_figures_and_tables and isinstance(blk, pf.Table):
+                    # Store figure blocks separately
+                    collected_tables[current].append(blk)
+                else:
+                    collected[current].append(blk)
             else:
-                new_blocks.append(blk)
+                if self.collect_figures_and_tables and isinstance(blk, pf.Figure):
+                    figure_blocks.append(blk)
+                elif self.collect_figures_and_tables and isinstance(blk, pf.Table):
+                    tables_blocks.append(blk)
+                else:
+                    new_blocks.append(blk)
+
+        # add figures to the end of the document, preceded by '\clearpage'
+        for blk in tables_blocks + figure_blocks:
+            # Add a \clearpage before each figure
+            new_blocks.append(pf.RawBlock('\\clearpage', format='latex'))
+            new_blocks.append(blk)
 
         doc.content = new_blocks
+
+        # Add collected_figures to collected, preceded by '\clearpage'
+        for sec_id, blocks in collected_tables.items():
+            for blk in blocks:
+                # Add a \clearpage before each figure
+                collected[sec_id].append(pf.RawBlock('\\clearpage', format='latex'))
+                collected[sec_id].append(blk)
+
+        for sec_id, blocks in collected_figures.items():
+            for blk in blocks:
+                # Add a \clearpage before each figure
+                collected[sec_id].append(pf.RawBlock('\\clearpage', format='latex'))
+                collected[sec_id].append(blk)
 
         # Inject extracted sections into metadata
         for sec_id, blocks in collected.items():
