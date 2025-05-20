@@ -28,17 +28,13 @@ def panflute2latex(elements, wrap='none') -> str:
 
     doc = pf.Doc(*blocks)
 
-    # Safer output buffering
-    buffer = io.BytesIO()
-    writer = io.TextIOWrapper(buffer, encoding='utf-8')
-    pf.dump(doc, writer)
-    writer.flush()
+    # Convert doc → markdown
+    markdown = pf.convert_text(doc, input_format='panflute', output_format='markdown')
 
-    json_ast_str = buffer.getvalue().decode('utf-8')
-
+    # Now render that markdown as LaTeX using Pandoc (with promotion logic)
     latex = pf.convert_text(
-        json_ast_str,
-        input_format='json',
+        markdown,
+        input_format='markdown',
         output_format='latex',
         extra_args=[f'--wrap={wrap}']
     )
