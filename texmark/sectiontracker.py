@@ -80,6 +80,10 @@ class SectionProcessor:
         tracker = doc.tracker
         # logger.warning(f"check elem {elem} {stringify(elem)}")
 
+        # Skip if not a block element --> this is handled in finalize + `isinstance(elem, pf.Block)` in this action
+        # if isinstance(elem, pf.Doc):
+        #     tracker.reset()
+
         # Header processing
         if isinstance(elem, Header):
             title = elem.identifier
@@ -108,7 +112,7 @@ class SectionProcessor:
 
 
         # Content collection
-        if tracker.active_section:
+        if tracker.active_section and isinstance(elem, pf.Block):
             tracker.section_content.append(elem)
             return []  # Remove from main flow
 
