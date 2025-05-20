@@ -2,6 +2,7 @@
 
 import sys
 import json
+from pathlib import Path
 import importlib
 import panflute as pf
 from texmark.logs import logger
@@ -15,7 +16,19 @@ def strip_leading_slash(elem, doc):
             # Remove leading slash to make it repo-root relative (like GitHub)
             elem.url = elem.url.lstrip('/')
 
-basic_filters = [strip_leading_slash]
+def tag_figures(elem, doc):
+    if isinstance(elem, pf.Figure):
+        # if it does not already exist, add an identifier to the figure so that it can be referenced
+        # in the text using \ref{fig:figure-id}
+        # use the content image url as the identifier, e.g. /image/figure.png -> fig:figure
+        if not elem.identifier:
+            # Generate a unique identifier for the figure
+            logger.warning(f"Tagging figure: {elem}")
+            image = elem.content[0].content[0]
+            elem.identifier = f'fig:{Path(image.url).stem}'
+    return elem
+
+basic_filters = [strip_leading_slash, tag_figures]
 
 default_filters = basic_filters
 
