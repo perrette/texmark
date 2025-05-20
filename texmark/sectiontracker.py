@@ -72,13 +72,10 @@ class SectionProcessor:
         self.remap_command_sections = remap_command_sections or {}
 
     def prepare(self, doc):
-        doc.tracker = SectionTracker()
-        doc.extract_sections = self.extract_sections
-        doc.sections_map = self.sections_map
+        self.tracker = SectionTracker()
 
     def action(self, elem, doc):
-        tracker = doc.tracker
-        # logger.warning(f"check elem {elem} {stringify(elem)}")
+        tracker = self.tracker
 
         # Skip if not a block element --> this is handled in finalize + `isinstance(elem, pf.Block)` in this action
         # if isinstance(elem, pf.Doc):
@@ -93,11 +90,10 @@ class SectionProcessor:
                 tracker.reset()
 
             # Check if we're entering a target section
-            if title in doc.extract_sections:
+            if title in self.extract_sections:
                 tracker.reset()
                 tracker.active_section = title
                 tracker.section_level = elem.level
-                # logger.warning(f"!!Remove {elem}")
                 return []  # Remove original header
 
             # Check if the header is a target section for remap header command
@@ -114,12 +110,12 @@ class SectionProcessor:
 
 
     def finalize(self, doc):
-        tracker = doc.tracker
+        tracker = self.tracker
         tracker.reset()  # Capture last section
 
         # Convert collected sections to LaTeX
-        for section in doc.extract_sections:
-            meta_key = doc.sections_map.get(section, section)
+        for section in self.extract_sections:
+            meta_key = self.sections_map.get(section, section)
             if section in tracker.sections:
                 inline_elements = tracker.sections[section]['content']
                 latex = panflute2latex(inline_elements)
