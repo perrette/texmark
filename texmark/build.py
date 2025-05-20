@@ -61,6 +61,7 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
             journal_template = "default"
 
     metadata.setdefault('journal', {})['template'] = journal_template
+    metadata.setdefault('longtable', False)
 
     if filters_module:
         metadata['filters_module'] = filters_module
@@ -83,6 +84,7 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     ]
 
     filters = [
+        "texmark-download-images",
         "texmark-journal",
         ] + (filters or metadata.get('filters', []))
 

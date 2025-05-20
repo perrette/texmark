@@ -39,6 +39,12 @@ but also on \cite{tierney_zhu2020}
 
 ![My figure \label{fig:eofmean}. The leading / in images and links is removed, but it is convenient for proper formatting in github.](/images/eof_mean.png){width=100%}
 
+The figures can also point to an http(s) address:
+
+![The gulf Stream. Source: Jeremy White/The New York Times.](https://static01.nyt.com/images/2021/03/03/climate/gulf-stream-promo/gulf-stream-promo-superJumbo.jpg){width=100%}
+
+And it can be referred to as Fig. \ref{fig:gulf-stream-promo-superJumbo}.
+
 That's an inline equation $a + 1 = 3$.
 And a block equation
 $$

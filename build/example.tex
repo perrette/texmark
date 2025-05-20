@@ -132,8 +132,20 @@ Lots of research has been done on that topic. We focus mostly on
 \centering
 \includegraphics[width=1\linewidth,height=\textheight,keepaspectratio]{images/eof_mean.png}
 \caption{My figure \label{fig:eofmean}. The leading / in images and
-links is removed, but it is convenient for proper formatting in github.}
+links is removed, but it is convenient for proper formatting in
+github.}\label{fig:eof_mean}
 \end{figure}
+
+The figures can also point to an http(s) address:
+
+\begin{figure}
+\centering
+\includegraphics[width=1\linewidth,height=\textheight,keepaspectratio]{images/41b90be06c/gulf-stream-promo-superJumbo.jpg}
+\caption{The gulf Stream}\label{fig:gulf-stream-promo-superJumbo}
+\end{figure}
+
+And it can be referred to as Fig.
+\ref{fig:gulf-stream-promo-superJumbo}.
 
 That's an inline equation \(a + 1 = 3\). And a block equation \[
 a + \Sigma_i i^2
