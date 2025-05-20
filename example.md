@@ -37,7 +37,7 @@ Lots of research has been done on that topic.
 We focus mostly on @tierney_zhu2020
 but also on \cite{tierney_zhu2020}
 
-![My figure \label{fig:eofmean}. The leading / in images and links is removed, but it is convenient for proper formatting in github.](/images/eof_mean.png)
+![My figure \label{fig:eofmean}. The leading / in images and links is removed, but it is convenient for proper formatting in github.](/images/eof_mean.png){width=100%}
 
 That's an inline equation $a + 1 = 3$.
 And a block equation
@@ -57,3 +57,8 @@ Both latex and markdown commands are supported.
 # Conclusions
 
 This is also a special section.
+
+
+# Appendix
+
+That is an appendix.
