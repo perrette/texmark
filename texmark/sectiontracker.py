@@ -5,41 +5,37 @@ from texmark.logs import logger
 import io
 
 def panflute2latex(elements, wrap='none') -> str:
-    blocks = []
-    inline_buffer = []
 
-    for el in elements:
-        if isinstance(el, pf.Block):
-            # Flush any accumulated inlines before adding a block
-            if inline_buffer:
-                blocks.append(pf.Para(*inline_buffer))
-                inline_buffer = []
-            blocks.append(el)
+    # logger.warning(f"Converting {len(elements)} elements to LaTeX")
+    # for i, elem in enumerate(elements):
+    #     logger.warning(f"Element: {i}: {type(elem)} {stringify(elem)}")
 
-        elif isinstance(el, pf.Inline):
-            inline_buffer.append(el)
+    doc = pf.Doc(*elements)
 
-        else:
-            raise TypeError(f"Unsupported element type: {type(el)}")
-
-    # Flush remaining inlines into a final paragraph
-    if inline_buffer:
-        blocks.append(pf.Para(*inline_buffer))
-
-    doc = pf.Doc(*blocks)
-
-    # Convert doc → markdown
-    markdown = pf.convert_text(doc, input_format='panflute', output_format='markdown')
-
-    # Now render that markdown as LaTeX using Pandoc (with promotion logic)
-    latex = pf.convert_text(
-        markdown,
-        input_format='markdown',
+    # This breaks the figure environment
+    return pf.convert_text(
+        doc,
+        input_format='panflute',
         output_format='latex',
-        extra_args=[f'--wrap={wrap}']
+        # extra_args=[f'--wrap={wrap}']
     )
 
-    return latex
+    # # This also breaks the figure environment (no Fig ID, caption duplicated and added after the figure outside the figure environment)
+
+    # # Convert doc → markdown
+    # markdown = pf.convert_text(doc, input_format='panflute', output_format='markdown')
+
+    # logger.warning(f"Markdown: {markdown}")
+
+    # # Now render that markdown as LaTeX using Pandoc (with promotion logic)
+    # latex = pf.convert_text(
+    #     markdown,
+    #     input_format='markdown',
+    #     output_format='latex',
+    #     extra_args=[f'--wrap={wrap}']
+    # )
+
+    # return latex
 
 
 class SectionTracker:
@@ -60,6 +56,63 @@ class SectionTracker:
         self.section_level = 0
 
 
+# class SectionFilter:
+#     def __init__(self, extract_sections, sections_map={}, remap_command_sections={}):
+#         self.extract_sections = extract_sections
+#         self.sections_map = sections_map or {}
+#         self.remap_command_sections = remap_command_sections or {}
+
+#     def prepare(self, doc):
+#         self.tracker = SectionTracker()
+
+#     def action(self, elem, doc):
+#         tracker = self.tracker
+
+#         # Skip if not a block element --> this is handled in finalize + `isinstance(elem, pf.Block)` in this action
+#         # if isinstance(elem, pf.Doc):
+#         #     tracker.reset()
+
+#         # Header processing
+#         if isinstance(elem, Header):
+#             title = elem.identifier
+
+#             # Check if we're exiting a section
+#             if tracker.active_section and elem.level <= tracker.section_level:
+#                 tracker.reset()
+
+#             # Check if we're entering a target section
+#             if title in self.extract_sections:
+#                 tracker.reset()
+#                 tracker.active_section = title
+#                 tracker.section_level = elem.level
+#                 return []  # Remove original header
+
+#             # Check if the header is a target section for remap header command
+#             if title in self.remap_command_sections:
+#                 # Replace header with the remapped command
+#                 command = self.remap_command_sections[title]
+#                 return RawBlock(command, format='latex')
+
+
+#         # Content collection
+#         if tracker.active_section and isinstance(elem, pf.Block):
+#             tracker.section_content.append(elem)
+#             return []  # Remove from main flow
+
+
+#     def finalize(self, doc):
+#         tracker = self.tracker
+#         tracker.reset()  # Capture last section
+
+#         # Convert collected sections to LaTeX
+#         for section in self.extract_sections:
+#             meta_key = self.sections_map.get(section, section)
+#             doc.metadata.setdefault(meta_key, [])
+#             if section in tracker.sections:
+#                 inline_elements = tracker.sections[section]['content']
+#                 latex = panflute2latex(inline_elements)
+#                 doc.metadata[meta_key].append(RawInline(latex, format='latex'))
+
 class SectionFilter:
     def __init__(self, extract_sections, sections_map={}, remap_command_sections={}):
         self.extract_sections = extract_sections
@@ -67,55 +120,62 @@ class SectionFilter:
         self.remap_command_sections = remap_command_sections or {}
 
     def prepare(self, doc):
-        self.tracker = SectionTracker()
+        self.sections = {}
+        self.extract_sections.extend(doc.get_metadata('extract_sections', []))
+        self.sections_map.update(doc.get_metadata('sections_map', {}))
+        self.remap_command_sections.update(doc.get_metadata('remap_command_sections', {}))
 
     def action(self, elem, doc):
-        tracker = self.tracker
-
-        # Skip if not a block element --> this is handled in finalize + `isinstance(elem, pf.Block)` in this action
-        # if isinstance(elem, pf.Doc):
-        #     tracker.reset()
-
-        # Header processing
-        if isinstance(elem, Header):
-            title = elem.identifier
-
-            # Check if we're exiting a section
-            if tracker.active_section and elem.level <= tracker.section_level:
-                tracker.reset()
-
-            # Check if we're entering a target section
-            if title in self.extract_sections:
-                tracker.reset()
-                tracker.active_section = title
-                tracker.section_level = elem.level
-                return []  # Remove original header
-
-            # Check if the header is a target section for remap header command
-            if title in self.remap_command_sections:
-                # Replace header with the remapped command
-                command = self.remap_command_sections[title]
-                return RawBlock(command, format='latex')
-
-
-        # Content collection
-        if tracker.active_section and isinstance(elem, pf.Block):
-            tracker.section_content.append(elem)
-            return []  # Remove from main flow
-
+        # Only record section headers
+        if isinstance(elem, pf.Header):
+            doc.current_section = elem.identifier
+        return None
 
     def finalize(self, doc):
-        tracker = self.tracker
-        tracker.reset()  # Capture last section
+        new_blocks = []
+        current = None
+        collecting = False
+        section_level = None
 
-        # Convert collected sections to LaTeX
-        for section in self.extract_sections:
-            meta_key = self.sections_map.get(section, section)
-            doc.metadata.setdefault(meta_key, [])
-            if section in tracker.sections:
-                inline_elements = tracker.sections[section]['content']
-                latex = panflute2latex(inline_elements)
-                doc.metadata[meta_key].append(RawInline(latex, format='latex'))
+        # Ensure section storage
+        collected = {key: [] for key in self.extract_sections}
+
+        for blk in doc.content:
+            if isinstance(blk, pf.Header):
+                sid = blk.identifier
+                if collecting:
+                    collecting = False
+                if sid in self.extract_sections:
+                    current = sid
+                    collecting = True
+                    section_level = blk.level
+                    # collected[sid].append(blk)
+                    continue  # skip header from main doc
+
+            if collecting:
+                collected[current].append(blk)
+            else:
+                new_blocks.append(blk)
+
+        doc.content = new_blocks
+
+        # Inject extracted sections into metadata
+        for sec_id, blocks in collected.items():
+            if not blocks:
+                continue
+
+            # Get remapped metadata key if any
+            meta_key = self.sections_map.get(sec_id, sec_id)
+
+            # Render LaTeX (with figure promotion)
+            latex_str = panflute2latex(blocks)
+            latex_inline = pf.RawInline(latex_str, format='latex')
+
+            # Store as MetaList of RawInline(s)
+            if meta_key not in doc.metadata:
+                doc.metadata[meta_key] = pf.MetaList(latex_inline)
+            else:
+                doc.metadata[meta_key].content.append(latex_inline)
 
 
 def main(doc=None):

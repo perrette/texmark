@@ -185,7 +185,7 @@
 \appendix
 
 {% for section in appendix -%}
-\section{} %% Appendix A
+\section{}\label{appendix-{{loop.index}}} %% Appendix A
 {{section}}
 {% endfor -%}
 %% \section{}    %% Appendix A
