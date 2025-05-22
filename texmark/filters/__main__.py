@@ -8,6 +8,7 @@ import panflute as pf
 from texmark.logs import logger
 from texmark.shared import filters
 from texmark.sectiontracker import SectionFilter
+from texmark.filters.tabular import table_to_latex
 
 
 def strip_leading_slash(elem, doc):
@@ -47,6 +48,7 @@ method_sections = ["methods", "materials-and-methods", "methodology"]
 
 copernicus_filters = [
     *basic_filters,
+    table_to_latex,
     SectionFilter(
         extract_sections=['abstract', 'acknowledgements', 'author-contributions', 'competing-interests'] + si_sections,
         remap_command_sections={
