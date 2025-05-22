@@ -161,17 +161,7 @@ links is removed, but it is convenient for proper formatting in
 github.}\label{fig:eof_mean}
 \end{figure}
 
-The figures can also point to an http(s) address:
-
-\begin{figure}
-\centering
-\includegraphics[width=1\linewidth,height=\textheight,keepaspectratio]{images/41b90be06c/gulf-stream-promo-superJumbo.jpg}
-\caption{The gulf Stream. Source: Jeremy White/The New York
-Times.}\label{fig:gulf-stream-promo-superJumbo}
-\end{figure}
-
-And it can be referred to as Fig.
-\ref{fig:gulf-stream-promo-superJumbo}.
+And it can be referred to as Fig. \ref{fig:eofmean}.
 
 That's an inline equation \(a + 1 = 3\). And a block equation \[
 a + \Sigma_i i^2
@@ -180,7 +170,24 @@ a &= 9 + 2 \\
 b &= 3
 \end{align}
 
-Now i can cite Eq. \ref{eq:aligneq} and my figure \ref{fig:eofmean}
+\begin{longtable}[]{@{}ll@{}}
+\caption{A caption for my table \label{tab:gulf}}\tabularnewline
+\toprule\noalign{}
+Names & Values \\
+\midrule\noalign{}
+\endfirsthead
+\toprule\noalign{}
+Names & Values \\
+\midrule\noalign{}
+\endhead
+\bottomrule\noalign{}
+\endlastfoot
+Domain & Ocean \\
+Era & Anthropocene \\
+\end{longtable}
+
+Now equation Equation \ref{eq:aligneq}, Figure \ref{fig:eofmean}, and
+Table \ref{tab:gulf} can be referenced.
 
 Both latex and markdown commands are supported.
 
@@ -190,15 +197,15 @@ This is also a special section.
 
 \paragraph*{Appendix.}
 
-That is an appendix.
+That is an appendix. The figures can also point to an http(s) address.
+This is an appendix reference to Figure \ref{fig:appendix}.
 
 \begin{figure}
 \centering
-\includegraphics[width=1\linewidth,height=\textheight,keepaspectratio]{images/eof_mean.png}
-\caption{This is an appendix figure.}\label{fig:appendix}
+\includegraphics[width=1\linewidth,height=\textheight,keepaspectratio]{images/41b90be06c/gulf-stream-promo-superJumbo.jpg}
+\caption{The gulf Stream (https link). Source: Jeremy White/The New York
+Times.}\label{fig:appendix}
 \end{figure}
-
-And can be cited as Figure \ref{fig:appendix}.
 
 % If your text is very short you might need to uncomment the following line to avoid
 % layout problems with the figures and tables.

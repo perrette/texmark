@@ -39,11 +39,7 @@ but also on \cite{tierney_zhu2020}
 
 ![My figure \label{fig:eofmean}. The leading / in images and links is removed, but it is convenient for proper formatting in github.](/images/eof_mean.png)
 
-The figures can also point to an http(s) address:
-
-![The gulf Stream. Source: Jeremy White/The New York Times.](https://static01.nyt.com/images/2021/03/03/climate/gulf-stream-promo/gulf-stream-promo-superJumbo.jpg)
-
-And it can be referred to as Fig. \ref{fig:gulf-stream-promo-superJumbo}.
+And it can be referred to as Fig. \ref{fig:eofmean}.
 
 That's an inline equation $a + 1 = 3$.
 And a block equation
@@ -56,7 +52,13 @@ a &= 9 + 2 \\
 b &= 3
 \end{align}
 
-Now i can cite Eq. \ref{eq:aligneq} and my figure \ref{fig:eofmean}
+| Names | Values |
+| - | - |
+| Domain | Ocean |
+| Era | Anthropocene |
+:A caption for my table \label{tab:gulf}
+
+Now equation Equation \ref{eq:aligneq}, Figure \ref{fig:eofmean}, and Table \ref{tab:gulf} can be referenced.
 
 Both latex and markdown commands are supported.
 
@@ -67,7 +69,6 @@ This is also a special section.
 # Appendix
 
 That is an appendix.
+The figures can also point to an http(s) address. This is an appendix reference to Figure \ref{fig:appendix}.
 
-![This is an appendix figure.](/images/eof_mean.png){#fig:appendix}
-
-And can be cited as Figure \ref{fig:appendix}.
+![The gulf Stream (https link). Source: Jeremy White/The New York Times.](https://static01.nyt.com/images/2021/03/03/climate/gulf-stream-promo/gulf-stream-promo-superJumbo.jpg){#fig:appendix}
