@@ -32,15 +32,13 @@ Each journal has its own template. For now only Copernicus and Science are cover
 
 The journal templates can be edited in [texmark/templates](/texmark/templates)
 and journal-specific filters can be added such as for [copernicus](/texmark/copernicus.py).
-
 Lots of research has been done on that topic.
 We focus mostly on @tierney_zhu2020
 but also on \cite{tierney_zhu2020}
 
 ![My figure \label{fig:eofmean}. The leading / in images and links is removed, but it is convenient for proper formatting in github.](/images/eof_mean.png)
 
-And it can be referred to as Fig. \ref{fig:eofmean}.
-
+Figures can referred to as Fig. \ref{fig:eofmean}.
 That's an inline equation $a + 1 = 3$.
 And a block equation
 $$
@@ -59,7 +57,6 @@ b &= 3
 :A caption for my table \label{tab:gulf}
 
 Now equation Equation \ref{eq:aligneq}, Figure \ref{fig:eofmean}, and Table \ref{tab:gulf} can be referenced.
-
 Both latex and markdown commands are supported.
 
 # Conclusions

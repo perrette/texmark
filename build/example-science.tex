@@ -128,7 +128,7 @@
 % Consult the journal instructions to authors for details.
 % Do not cite any references in the abstract.
 \begin{abstract} \bfseries \boldmath
-
+The abstract will be identified and moved to the metadata, so that it can be used as in the journal templates.  Each journal has its own template. For now only Copernicus and Science are covered.
 \end{abstract}
 
 
@@ -136,76 +136,52 @@
 % Nor is it indented
 \noindent
 
-\paragraph*{Abstract.}
-
-The abstract will be identified and moved to the metadata, so that it
-can be used as in the journal templates.
-
-Each journal has its own template. For now only Copernicus and Science
-are covered.
-
 \paragraph*{Introduction.}
 
 The journal templates can be edited in \url{texmark/templates} and
 journal-specific filters can be added such as for
-\href{texmark/copernicus.py}{copernicus}.
-
-Lots of research has been done on that topic. We focus mostly on
-\cite{tierney_zhu2020} but also on \cite{tierney_zhu2020}
+\href{texmark/copernicus.py}{copernicus}. Lots of research has been done
+on that topic. We focus mostly on \cite{tierney_zhu2020} but also on
+\cite{tierney_zhu2020}
 
 \begin{figure}
 \centering
 \includegraphics[width=1\linewidth,height=\textheight,keepaspectratio]{images/eof_mean.png}
-\caption{My figure \label{fig:eofmean}. The leading / in images and
-links is removed, but it is convenient for proper formatting in
-github.}\label{fig:eof_mean}
+\caption{\textbf{\textbf{My figure \label{fig:eofmean}}}. The leading / in images and links is
+removed, but it is convenient for proper formatting in github.}\label{fig:eof_mean}
 \end{figure}
 
-And it can be referred to as Fig. \ref{fig:eofmean}.
-
-That's an inline equation \(a + 1 = 3\). And a block equation \[
+Figures can referred to as Fig. \ref{fig:eofmean}. That's an inline
+equation \(a + 1 = 3\). And a block equation \[
 a + \Sigma_i i^2
 \] and an align environment \begin{align} \label{eq:aligneq}
 a &= 9 + 2 \\
 b &= 3
 \end{align}
 
-\begin{longtable}[]{@{}ll@{}}
-\caption{A caption for my table \label{tab:gulf}}\tabularnewline
-\toprule\noalign{}
-Names & Values \\
-\midrule\noalign{}
-\endfirsthead
-\toprule\noalign{}
-Names & Values \\
-\midrule\noalign{}
-\endhead
-\bottomrule\noalign{}
-\endlastfoot
-Domain & Ocean \\
-Era & Anthropocene \\
-\end{longtable}
+\begin{table}[t]
+\centering
+\caption{\textbf{A caption for my table \label{tab:gulf}}}
+\label{}
+\begin{tabular}{ll}
+\\
+  \hline
+  Names & Values \\
+  \hline
+  Domain & Ocean \\
+  Era & Anthropocene \\
+  \hline
+\end{tabular}
+\belowtable{}
+\end{table}
 
 Now equation Equation \ref{eq:aligneq}, Figure \ref{fig:eofmean}, and
-Table \ref{tab:gulf} can be referenced.
-
-Both latex and markdown commands are supported.
+Table \ref{tab:gulf} can be referenced. Both latex and markdown commands
+are supported.
 
 \paragraph*{Conclusions.}
 
 This is also a special section.
-
-\paragraph*{Appendix.}
-
-That is an appendix. The figures can also point to an http(s) address.
-This is an appendix reference to Figure \ref{fig:appendix}.
-
-\begin{figure}
-\centering
-\includegraphics[width=1\linewidth,height=\textheight,keepaspectratio]{images/41b90be06c/gulf-stream-promo-superJumbo.jpg}
-\caption{The gulf Stream (https link). Source: Jeremy White/The New York
-Times.}\label{fig:appendix}
-\end{figure}
 
 % If your text is very short you might need to uncomment the following line to avoid
 % layout problems with the figures and tables.
