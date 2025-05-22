@@ -133,6 +133,7 @@ class SectionFilter:
         return None
 
     def finalize(self, doc):
+        logger.warning(f"Finalizing sections: {self.extract_sections}")
         new_blocks = []
         current = None
         collecting = False
@@ -145,8 +146,6 @@ class SectionFilter:
         collected_figures = {key: [] for key in self.extract_sections}
         collected_tables = {key: [] for key in self.extract_sections}
 
-        logger.warning(f"Figure at end: {self.collect_figures_and_tables}")
-
         for blk in doc.content:
             if isinstance(blk, pf.Header):
                 sid = blk.identifier
@@ -157,7 +156,13 @@ class SectionFilter:
                     collecting = True
                     section_level = blk.level
                     # collected[sid].append(blk)
+                    logger.warning(f"Collecting section: {sid} level: {blk.level}")
                     continue  # skip header from main doc
+                else:
+                    logger.warning(f"Not collecting section: {sid} level: {blk.level} (not in {self.extract_sections})")
+            else:
+                logger.warning(f"Not a header: {blk} (type: {type(blk)})")
+
 
             if collecting:
                 if self.collect_figures_and_tables and isinstance(blk, pf.Figure):

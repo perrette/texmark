@@ -10,14 +10,6 @@ from texmark.shared import filters
 from texmark.sectiontracker import SectionFilter
 from texmark.filters.tabular import table_to_latex
 
-def inlinemath_as_rawlatex(elem, doc):
-    """Convert inline math to raw LaTeX."""
-    if isinstance(elem, pf.Math):
-        # Convert inline math to raw LaTeX
-        if elem.format == 'InlineMath':
-            return pf.RawInline(f"${pf.stringify(elem)}$", format='latex')
-
-
 def strip_leading_slash(elem, doc):
     if hasattr(elem, 'url'):
         if elem.url.startswith('/'):
@@ -45,7 +37,7 @@ def figure_width_100pct(elem, doc):
             target.attributes['width'] = '100%'
     return elem
 
-basic_filters = [strip_leading_slash, tag_figures, figure_width_100pct]
+basic_filters = [strip_leading_slash, tag_figures, figure_width_100pct, table_to_latex ]
 
 default_filters = basic_filters
 
@@ -55,8 +47,6 @@ method_sections = ["methods", "materials-and-methods", "methodology"]
 
 copernicus_filters = [
     *basic_filters,
-    inlinemath_as_rawlatex,
-    table_to_latex,
     SectionFilter(
         extract_sections=['abstract', 'acknowledgements', 'author-contributions', 'competing-interests'] + si_sections,
         remap_command_sections={
@@ -102,7 +92,6 @@ def header_to_paragraph(elem, doc):
 science_filters = [
     *basic_filters,
     force_cite,
-    header_to_paragraph,
     SectionFilter(
         extract_sections=['abstract', 'acknowledgements', 'author-contributions',
                             'competing-interests', 'methods', 'materials-and-methods'] + si_sections,
@@ -113,6 +102,7 @@ science_filters = [
             **{section: 'appendix' for section in si_sections},
         },
     ),
+    header_to_paragraph,
         ]
 
 filters['science'] = science_filters
