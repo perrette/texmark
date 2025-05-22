@@ -47,42 +47,45 @@ def parse_attr_string(attr_string):
             attributes[key] = val
     return identifier, classes, attributes
 
+def extract_table_identifier(elem, doc):
+    if not isinstance(elem, pf.Table):
+        return
 
-def extract_trailing_attributes(caption_content):
-    """Detect and remove trailing {#id .class key=val} block from inline list safely."""
+    cap = elem.caption
+    if not cap or not cap.content:
+        return
+
+    # at the time of writing, the caption is ListContainer(Plain(...))
     if not (
-        caption_content
-        and len(caption_content) == 1
-        and isinstance(caption_content[0], pf.Plain)
+        cap.content
+        and len(cap.content) == 1
+        and isinstance(cap.content[0], pf.Plain)
     ):
-        return caption_content, '', [], {}
+        logger.warning(f"Caption content is not a Plain block: {cap.content}")
+        return
 
-    inlines = caption_content[0].content
+    inlines = cap.content[0].content
 
     last = inlines[-1]
+    if not isinstance(last, pf.Str):
+        return
+
     last_text = pf.stringify(last).strip()
     match = ATTR_RE.search(last_text)
+    if not match:
+        return
 
-    if isinstance(last, pf.Str) and match:
-        attr_string = match.group(1)
-        identifier, classes, attributes = parse_attr_string(attr_string)
-        return [pf.Plain(*inlines[:-1])], identifier, classes, attributes
+    attr_string = match.group(1)
+    identifier, classes, attributes = parse_attr_string(attr_string)
 
-    return caption_content, '', [], {}
+    cap.content[:] = [pf.Plain(*inlines[:-1])]
 
-
-def extract_table_identifier(elem, doc):
-    if isinstance(elem, pf.Table):
-        cap = elem.caption
-        if cap and cap.content:
-            new_content, identifier, classes, attributes = extract_trailing_attributes(cap.content)
-            cap.content[:] = new_content
-            if identifier:
-                elem.identifier = identifier
-            if classes:
-                elem.classes.extend(classes)
-            if attributes:
-                elem.attributes.update(attributes)
+    if identifier:
+        elem.identifier = identifier
+    if classes:
+        elem.classes.extend(classes)
+    if attributes:
+        elem.attributes.update(attributes)
 
 
 def stringify_captions(elem, doc):
