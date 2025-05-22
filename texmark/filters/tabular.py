@@ -20,8 +20,7 @@ def table_to_latex(elem, doc):
     if elem.caption:
         caption_text = pf.stringify(elem.caption)
 
-    label_ = elem.identifier
-    label = f"tab:{label_}" if label_ else ""
+    label = elem.identifier or ""
 
     # 2. Extract header and rows
     headers = elem.head.content

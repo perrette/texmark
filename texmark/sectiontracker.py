@@ -6,9 +6,9 @@ import io
 
 def panflute2latex(elements, wrap='none') -> str:
 
-    # logger.warning(f"Converting {len(elements)} elements to LaTeX")
+    # logger.info(f"Converting {len(elements)} elements to LaTeX")
     # for i, elem in enumerate(elements):
-    #     logger.warning(f"Element: {i}: {type(elem)} {stringify(elem)}")
+    #     logger.info(f"Element: {i}: {type(elem)} {stringify(elem)}")
 
     doc = pf.Doc(*elements)
 
@@ -25,7 +25,7 @@ def panflute2latex(elements, wrap='none') -> str:
     # # Convert doc → markdown
     # markdown = pf.convert_text(doc, input_format='panflute', output_format='markdown')
 
-    # logger.warning(f"Markdown: {markdown}")
+    # logger.info(f"Markdown: {markdown}")
 
     # # Now render that markdown as LaTeX using Pandoc (with promotion logic)
     # latex = pf.convert_text(
@@ -133,7 +133,7 @@ class SectionFilter:
         return None
 
     def finalize(self, doc):
-        logger.warning(f"Finalizing sections: {self.extract_sections}")
+        logger.info(f"Finalizing sections: {self.extract_sections}")
         new_blocks = []
         current = None
         collecting = False
@@ -156,12 +156,12 @@ class SectionFilter:
                     collecting = True
                     section_level = blk.level
                     # collected[sid].append(blk)
-                    logger.warning(f"Collecting section: {sid} level: {blk.level}")
+                    logger.info(f"Collecting section: {sid} level: {blk.level}")
                     continue  # skip header from main doc
-                else:
-                    logger.warning(f"Not collecting section: {sid} level: {blk.level} (not in {self.extract_sections})")
-            else:
-                logger.warning(f"Not a header: {blk} (type: {type(blk)})")
+                # else:
+                    # logger.info(f"Not collecting section: {sid} level: {blk.level} (not in {self.extract_sections})")
+            # else:
+                # logger.info(f"Not a header: {blk} (type: {type(blk)})")
 
 
             if collecting:

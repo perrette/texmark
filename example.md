@@ -36,7 +36,7 @@ Lots of research has been done on that topic.
 We focus mostly on @tierney_zhu2020
 but also on \cite{tierney_zhu2020}
 
-![My figure \label{fig:eofmean}. The leading / in images and links is removed, but it is convenient for proper formatting in github.](/images/eof_mean.png)
+![My figure. The leading / in images and links is removed, but it is convenient for proper formatting in github.](/images/eof_mean.png){#fig:eofmean}
 
 Figures can referred to as Fig. \ref{fig:eofmean}.
 That's an inline equation $a + 1 = 3$.
@@ -54,7 +54,7 @@ b &= 3
 | - | - |
 | Domain | Ocean |
 | Era | Anthropocene |
-:A caption for my table \label{tab:gulf}
+:A caption for my table {#tab:gulf}
 
 Now equation Equation \ref{eq:aligneq}, Figure \ref{fig:eofmean}, and Table \ref{tab:gulf} can be referenced.
 Both latex and markdown commands are supported.

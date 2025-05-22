@@ -2,6 +2,7 @@
 
 import sys
 import json
+import re
 from pathlib import Path
 import importlib
 import panflute as pf
@@ -23,12 +24,72 @@ def tag_figures(elem, doc):
         # use the content image url as the identifier, e.g. /image/figure.png -> fig:figure
         if not elem.identifier:
             # Generate a unique identifier for the figure
-            logger.warning(f"Tagging figure: {elem}")
             image = elem.content[0].content[0]
-            elem.identifier = f'fig:{Path(image.url).stem}'
+            tag = f'fig:{Path(image.url).stem}'
+            logger.info(fr"Tagging figure: {tag}")
+            elem.identifier = tag
     return elem
 
+
+ATTR_RE = re.compile(r'\s*\{([^}]+)\}\s*$')
+
+def parse_attr_string(attr_string):
+    identifier = ''
+    classes = []
+    attributes = {}
+    for token in attr_string.split():
+        if token.startswith('#'):
+            identifier = token[1:]
+        elif token.startswith('.'):
+            classes.append(token[1:])
+        elif '=' in token:
+            key, val = token.split('=', 1)
+            attributes[key] = val
+    return identifier, classes, attributes
+
+
+def extract_trailing_attributes(caption_content):
+    """Detect and remove trailing {#id .class key=val} block from inline list safely."""
+    if not (
+        caption_content
+        and len(caption_content) == 1
+        and isinstance(caption_content[0], pf.Plain)
+    ):
+        return caption_content, '', [], {}
+
+    inlines = caption_content[0].content
+
+    last = inlines[-1]
+    last_text = pf.stringify(last).strip()
+    match = ATTR_RE.search(last_text)
+
+    if isinstance(last, pf.Str) and match:
+        attr_string = match.group(1)
+        identifier, classes, attributes = parse_attr_string(attr_string)
+        return [pf.Plain(*inlines[:-1])], identifier, classes, attributes
+
+    return caption_content, '', [], {}
+
+
+def extract_table_identifier(elem, doc):
+    if isinstance(elem, pf.Table):
+        cap = elem.caption
+        if cap and cap.content:
+            new_content, identifier, classes, attributes = extract_trailing_attributes(cap.content)
+            cap.content[:] = new_content
+            if identifier:
+                elem.identifier = identifier
+            if classes:
+                elem.classes.extend(classes)
+            if attributes:
+                elem.attributes.update(attributes)
+
+
 def stringify_captions(elem, doc):
+
+    if isinstance(elem, (pf.Table)):
+        extract_table_identifier(elem, doc)
+
     if isinstance(elem, (pf.Figure, pf.Table)):
         # Safely extract caption
         if elem.caption:
@@ -136,7 +197,7 @@ def run_filters(doc):
 
     if doc.get_metadata('filters_module'):
         filters_module = doc.get_metadata('filters_module')
-        logger.warning(f"Loading filters module: {filters_module}")
+        logger.info(f"Loading filters module: {filters_module}")
         importlib.import_module(filters_module)
 
 
@@ -150,7 +211,7 @@ def run_filters(doc):
 
 
     for filter in filters_:
-        logger.warning(f'Running filter: {filter} on {doc}')
+        logger.info(f'Running filter: {filter} on {doc}')
         doc = pf.run_filter(action=filter.action if hasattr(filter, 'action') else filter,
                    prepare=filter.prepare if hasattr(filter, 'prepare') else None,
                    finalize=filter.finalize if hasattr(filter, 'finalize') else None,
