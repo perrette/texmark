@@ -28,6 +28,24 @@ def tag_figures(elem, doc):
             elem.identifier = f'fig:{Path(image.url).stem}'
     return elem
 
+def stringify_captions(elem, doc):
+    if isinstance(elem, (pf.Figure, pf.Table)):
+        # Safely extract caption
+        if elem.caption:
+            caption_text = pf.convert_text(elem.caption.content,
+                input_format='panflute',
+                output_format='latex',
+            )
+
+            # Science template: make the first sentence bold
+            if doc.get_metadata('journal', {}).get("template") == "science":
+                caption_parts = caption_text.split(".")
+                caption_parts[0] = r"\textbf{" + caption_parts[0] + r"}"
+                caption_text = ".".join(caption_parts)
+
+            elem.caption.content = [pf.RawBlock(caption_text, format='latex')]
+
+
 def figure_width_100pct(elem, doc):
     """Set figure width to 100%"""
     if isinstance(elem, pf.Figure):
@@ -37,7 +55,7 @@ def figure_width_100pct(elem, doc):
             target.attributes['width'] = '100%'
     return elem
 
-basic_filters = [strip_leading_slash, tag_figures, figure_width_100pct, table_to_latex ]
+basic_filters = [strip_leading_slash, stringify_captions, tag_figures, figure_width_100pct, table_to_latex ]
 
 default_filters = basic_filters
 

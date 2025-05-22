@@ -18,7 +18,7 @@ def table_to_latex(elem, doc):
 
     # Safely extract caption
     if elem.caption:
-        caption_text = stringify_cell(elem.caption)
+        caption_text = pf.stringify(elem.caption)
 
     label_ = elem.identifier
     label = f"tab:{label_}" if label_ else ""
