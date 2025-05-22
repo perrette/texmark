@@ -1,13 +1,6 @@
 import panflute as pf
 from texmark.logs import logger
 
-def inlinemath_as_rawlatex(elem, doc):
-    """Convert inline math to raw LaTeX."""
-    if isinstance(elem, pf.Math):
-        # Convert inline math to raw LaTeX
-        return pf.RawInline(f"${pf.stringify(elem)}$", format='latex')
-    return elem
-
 def table_to_latex(elem, doc):
 
     if not isinstance(elem, pf.Table):

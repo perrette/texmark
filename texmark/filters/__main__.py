@@ -8,7 +8,14 @@ import panflute as pf
 from texmark.logs import logger
 from texmark.shared import filters
 from texmark.sectiontracker import SectionFilter
-from texmark.filters.tabular import table_to_latex, inlinemath_as_rawlatex
+from texmark.filters.tabular import table_to_latex
+
+def inlinemath_as_rawlatex(elem, doc):
+    """Convert inline math to raw LaTeX."""
+    if isinstance(elem, pf.Math):
+        # Convert inline math to raw LaTeX
+        if elem.format == 'InlineMath':
+            return pf.RawInline(f"${pf.stringify(elem)}$", format='latex')
 
 
 def strip_leading_slash(elem, doc):
