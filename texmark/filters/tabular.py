@@ -17,7 +17,7 @@ def table_to_latex(elem, doc):
     if elem.caption:
         caption_text = pf.stringify(elem.caption)
 
-    label_ = elem.identifier or ("-".join([w for w in caption_text.split() if len(w) > 3][:3]).lower() if caption_text else None)
+    label_ = elem.identifier
     label = f"tab:{label_}" if label_ else ""
 
     # 2. Extract header and rows
