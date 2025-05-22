@@ -99,6 +99,7 @@ def stringify_captions(elem, doc):
             caption_text = pf.convert_text(elem.caption.content,
                 input_format='panflute',
                 output_format='latex',
+                extra_args=['--natbib']
             )
 
             # Science template: make the first sentence bold

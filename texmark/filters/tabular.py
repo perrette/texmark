@@ -2,12 +2,12 @@ import panflute as pf
 from texmark.logs import logger
 
 def stringify_cell(cell):
-    latex = pf.convert_text(
+    return pf.convert_text(
         cell.content,
         input_format='panflute',
         output_format='latex',
+        extra_args=['--natbib']
     )
-    return latex
 
 def table_to_latex(elem, doc):
 
