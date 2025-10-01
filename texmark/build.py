@@ -48,7 +48,8 @@ def join_if_list(value, sep='\n\n'):
     return value
 
 
-def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build', filters=None, journal_template=None, filters_module=None):
+def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
+              filters=None, journal_template=None, filters_module=None, packages=None):
     # 1. Parse Markdown
     input_text = open(input_md).read()
     post = frontmatter.loads(input_text)
@@ -62,6 +63,9 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
 
     metadata.setdefault('journal', {})['template'] = journal_template
     metadata.setdefault('longtable', False)
+    metadata.setdefault('packages', []).extend(packages or [])
+
+     # 2. Apply filters and convert to AST
 
     if filters_module:
         metadata['filters_module'] = filters_module
@@ -169,6 +173,7 @@ def main():
     parser.add_argument('--tex', help='LaTeX output filename')
     parser.add_argument('--pdf', action="store_true")
     parser.add_argument('--images', default='images', help='images directory')
+    parser.add_argument('--packages', nargs='*', help='custom latex packages to include')
     args = parser.parse_args()
 
     # Derive filenames
@@ -176,7 +181,9 @@ def main():
     tex_file = args.tex or build_dir / Path(args.input).with_suffix(".tex").name
     pdf_file = args.output or build_dir / Path(args.input).with_suffix(".pdf").name
 
-    metadata = build_tex(args.input, tex_file, template=args.template, bib_file=args.bib, filters=args.filters, journal_template=args.journal_template, filters_module=args.filters_module)
+    metadata = build_tex(args.input, tex_file, template=args.template, bib_file=args.bib,
+                         filters=args.filters, journal_template=args.journal_template,
+                         filters_module=args.filters_module, packages=args.packages)
 
     if args.pdf:
         compile_pdf(tex_file, pdf_file, args.engine, args.build, args.images, bib_file=metadata.get('bibliography'), resource_path=metadata.get('resource_path'))

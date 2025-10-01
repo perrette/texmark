@@ -13,6 +13,13 @@
 \usepackage{booktabs}
 \usepackage{hyperref}
 \usepackage{geometry}
+{%for package in packages%}
+{% if 'usepackage' in package %}
+{{package}}
+{% else %}
+\usepackage{{package}}
+{% endif %}
+{%endfor%}
 \geometry{margin=1in}
 
 \graphicspath{{../images/}}
