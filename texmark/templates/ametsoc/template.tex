@@ -5,8 +5,10 @@
 
 %% Set ``twocol`` in the yaml metadata under journal -> options to switch to
 %% the (author-only) two-column journal layout. Default is the 1.5-spaced
-%% submission layout.
-{% set _opts = (journal.options if journal and journal.options else []) -%}
+%% submission layout. ``options`` may be a single string (e.g. ``twocol``)
+%% or a list (e.g. ``[twocol, other]``).
+{% set _opts_raw = (journal.options if journal and journal.options else "") -%}
+{% set _opts = ([_opts_raw] if _opts_raw is string else _opts_raw) -%}
 {% if _opts -%}
 \documentclass[{{ _opts | join(',') }}]{ametsocV6.1}
 {% else -%}
