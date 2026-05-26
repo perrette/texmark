@@ -1,0 +1,115 @@
+%% texmark Jinja2 template for arXiv-style preprints
+%%
+%% arXiv does not impose a journal class; any clean article-class submission
+%% is accepted. This template uses the standard LaTeX article class with a
+%% set of common packages and a typical preprint preamble. Authors can swap
+%% in a journal class later for the formal submission.
+
+\documentclass[11pt]{article}
+
+%% Fonts and microtypography
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+%% Layout
+\usepackage[margin=1in]{geometry}
+\usepackage{setspace}
+\usepackage{authblk}        %% nicer \author / \affil block, used below
+
+%% Math and figures
+\usepackage{amsmath,amssymb,amsfonts,bm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{subcaption}
+
+%% References and hyperlinks (load hyperref last among these)
+\usepackage{natbib}
+\usepackage{url}
+\usepackage[colorlinks=true,
+            linkcolor=blue,
+            citecolor=blue,
+            urlcolor=blue]{hyperref}
+
+{% set already_included_packages = [
+  "fontenc", "inputenc", "lmodern", "microtype", "geometry", "setspace", "authblk",
+  "amsmath", "amssymb", "amsfonts", "bm", "graphicx", "booktabs", "caption", "subcaption",
+  "natbib", "url", "hyperref",
+] -%}
+{% for package in packages -%}
+{% if package not in already_included_packages -%}
+\usepackage{ {{package}} }
+{% endif -%}
+{% endfor %}
+
+%% Title block
+\title{ {{title}} }
+
+%% Authors and affiliations via authblk: numbered affiliations match the
+%% integer indices in the yaml metadata.
+{% for author in authors -%}
+\author[{{ author.affiliation }}]{ {{author.firstname}}~{{author.lastname}}{% if loop.first and author.email %}\thanks{Corresponding author: \href{mailto:{{author.email}}}{ {{author.email}} }}{% endif %} }
+{% endfor -%}
+{% for affil in affiliations -%}
+\affil[{{ loop.index }}]{ {{ affil }} }
+{% endfor %}
+
+\date{ {{ date if date else "" }} }
+
+\begin{document}
+
+\maketitle
+
+{% if abstract -%}
+\begin{abstract}
+{{ abstract | join_if_list }}
+\end{abstract}
+{% endif %}
+
+{% if keywords -%}
+\noindent\textbf{Keywords:} {{ keywords | join_if_list(', ') }}
+{% endif %}
+
+{{body}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ACKNOWLEDGMENTS / DATA AVAILABILITY
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+{% if acknowledgements -%}
+\section*{Acknowledgments}
+{{ acknowledgements | join_if_list }}
+{% endif %}
+{% if dataavailability -%}
+\section*{Data availability}
+{{ dataavailability | join_if_list }}
+{% endif %}
+{% if authorcontribution -%}
+\section*{Author contributions}
+{{ authorcontribution | join_if_list }}
+{% endif %}
+{% if competinginterests -%}
+\section*{Competing interests}
+{{ competinginterests | join_if_list }}
+{% endif %}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% APPENDIXES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+{% if appendix -%}
+\appendix
+{% for section in appendix -%}
+{{ section }}
+{% endfor -%}
+{% endif %}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% REFERENCES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+{% if bibliography -%}
+\bibliographystyle{ {{ biblio_style if biblio_style else "plainnat" }} }
+\bibliography{ {{bibliography}} }
+{% endif %}
+
+\end{document}

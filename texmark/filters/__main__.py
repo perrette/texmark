@@ -232,6 +232,30 @@ for journal in ["ametsoc", "amsoc", "jclim", "jas", "mwr", "jamc", "jhm", "jpo",
     filters[journal] = ametsoc_filters
 
 
+arxiv_filters = [
+    *basic_filters,
+    SectionFilter(
+        extract_sections=[
+            'abstract', 'keywords',
+            'acknowledgements', 'acknowledgments',
+            'data-availability', 'data-availability-statement',
+            'author-contributions', 'competing-interests',
+        ] + si_sections,
+        sections_map={
+            'acknowledgments': 'acknowledgements',
+            'data-availability': 'dataavailability',
+            'data-availability-statement': 'dataavailability',
+            'author-contributions': 'authorcontribution',
+            'competing-interests': 'competinginterests',
+            **{section: 'appendix' for section in si_sections},
+        },
+    ),
+]
+
+filters['arxiv'] = arxiv_filters
+filters['preprint'] = arxiv_filters
+
+
 def run_filters(doc):
 
     if doc is not None:
