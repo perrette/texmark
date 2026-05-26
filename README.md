@@ -1,6 +1,8 @@
 # texmark
 
 [![pypi](https://img.shields.io/pypi/v/texmark)](https://pypi.org/project/texmark)
+![python](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fperrette%2Ftexmark%2Frefs%2Fheads%2Fmain%2Fpyproject.toml)
+[![tests](https://github.com/perrette/texmark/actions/workflows/tests.yml/badge.svg)](https://github.com/perrette/texmark/actions/workflows/tests.yml)
 
 Write scientific articles in markdown — and submit them to any journal.
 
