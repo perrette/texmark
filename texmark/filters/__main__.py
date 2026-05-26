@@ -281,6 +281,45 @@ filters['elsarticle'] = elsarticle_filters
 filters['elsevier'] = elsarticle_filters
 
 
+def apacite_cite(elem, doc):
+    """Rewrite natbib-style citations to apacite (used by agujournal2019).
+
+    Markdown ``@key`` becomes panflute Cite(mode=AuthorInText) which pandoc's
+    natbib emitter would render as ``\\citet{key}``. apacite uses ``\\citeA``
+    for the same in-text form. Bracketed ``[@key]`` (NormalCitation) maps to
+    apacite's plain ``\\cite``.
+    """
+    if isinstance(elem, pf.Cite):
+        keys = ",".join(c.id for c in elem.citations)
+        first_mode = elem.citations[0].mode if elem.citations else 'NormalCitation'
+        cmd = r'\citeA' if first_mode == 'AuthorInText' else r'\cite'
+        return pf.RawInline(f'{cmd}{{{keys}}}', format='latex')
+
+
+agu_filters = [
+    *basic_filters,
+    apacite_cite,
+    SectionFilter(
+        extract_sections=[
+            'abstract', 'plain-language-summary', 'keypoints', 'key-points',
+            'acknowledgements', 'acknowledgments',
+            'data-availability', 'data-availability-statement',
+        ] + si_sections,
+        sections_map={
+            'acknowledgments': 'acknowledgements',
+            'plain-language-summary': 'plainlanguagesummary',
+            'key-points': 'keypoints',
+            'data-availability': 'dataavailability',
+            'data-availability-statement': 'dataavailability',
+            **{section: 'appendix' for section in si_sections},
+        },
+    ),
+]
+
+for journal in ["agujournal", "agu", "jgr", "grl", "james", "earthsfuture", "wrr", "rog"]:
+    filters[journal] = agu_filters
+
+
 def run_filters(doc):
 
     if doc is not None:

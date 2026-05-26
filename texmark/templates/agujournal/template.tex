@@ -1,0 +1,100 @@
+%% texmark Jinja2 template for AGU journals
+%% Class: agujournal2019.cls (Amy Hendrickson, TeXnology / AGU, Jan 2019)
+%% Covers all AGU journals: JGR family, GRL, Earth's Future, JAMES,
+%% Water Resources Research, Reviews of Geophysics, etc.
+%%
+%% Citation note: agujournal2019 uses apacite (not natbib).
+%% texmark's agu citation filter (texmark/filters/__main__.py) rewrites
+%%   \citet{key}  -> \citeA{key}   (in-text:    Author (year))
+%%   \citep{key}  -> \cite{key}    (parens:    (Author, year))
+%% so existing markdown @key / [@key] references render correctly.
+
+{% set _opts_raw = (journal.options if journal and journal.options else "draft") -%}
+{% set _opts = ([_opts_raw] if _opts_raw is string else _opts_raw) -%}
+\documentclass[{{ _opts | join(',') }}]{agujournal2019}
+
+%% agujournal2019.cls already loads: apacite, hyperref, graphicx, xcolor,
+%% url, trackchanges, lineno, indentfirst, ragged2e, rotating, ulem.
+%% Add amsmath/amssymb (for \begin{align} etc.) which the class omits.
+\usepackage{amsmath,amssymb}
+{% set already_included_packages = ["apacite", "hyperref", "graphicx", "xcolor", "url", "trackchanges", "lineno", "indentfirst", "ragged2e", "rotating", "ulem", "amsmath", "amssymb"] -%}
+{% for package in packages -%}
+{% if package not in already_included_packages -%}
+\usepackage{ {{package}} }
+{% endif -%}
+{% endfor %}
+
+\journalname{ {{ journal.name if journal and journal.name else "AGU Journal" }} }
+
+\begin{document}
+
+\title{ {{title}} }
+
+\authors{
+{%- for author in authors %}
+{{author.firstname}}~{{author.lastname}}\affil{ {{ author.affiliation }} }
+{%- if not loop.last %},{% if loop.revindex == 2 %} and{% endif %}{% endif -%}
+{% endfor %}
+}
+
+{% for affil in affiliations -%}
+\affiliation{ {{ loop.index }} }{ {{ affil }} }
+{% endfor %}
+
+{% if authors and authors[0].email -%}
+\correspondingauthor{ {{ authors[0].firstname }}~{{ authors[0].lastname }} }{ {{ authors[0].email }} }
+{% endif %}
+
+%% Three key points, each <= 140 characters, no special punctuation.
+{% if keypoints -%}
+{% set _kp = ([keypoints] if keypoints is string else keypoints) -%}
+\begin{keypoints}
+{% for kp in _kp -%}
+\item {{ kp }}
+{% endfor -%}
+\end{keypoints}
+{% endif %}
+
+\begin{abstract}
+{{ abstract | join_if_list(' ') | replace('\n\n', ' ') | replace('\n', ' ') }}
+{% if plainlanguagesummary -%}
+\begin{plainlanguagesummary}
+{{ plainlanguagesummary | join_if_list(' ') | replace('\n\n', ' ') | replace('\n', ' ') }}
+\end{plainlanguagesummary}
+{% endif -%}
+\end{abstract}
+
+{{body}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ACKNOWLEDGMENTS / DATA AVAILABILITY (AGU folds the latter into acks)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+{% if acknowledgements or dataavailability -%}
+\acknowledgments
+{% if acknowledgements -%}
+{{ acknowledgements | join_if_list }}
+{% endif -%}
+{% if dataavailability -%}
+
+\textbf{Data availability statement.} {{ dataavailability | join_if_list }}
+{% endif -%}
+{% endif %}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% APPENDIXES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+{% if appendix -%}
+\appendix
+{% for section in appendix -%}
+{{ section }}
+{% endfor -%}
+{% endif %}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% REFERENCES (apacite is preset by the class)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+{% if bibliography -%}
+\bibliography{ {{bibliography}} }
+{% endif %}
+
+\end{document}
