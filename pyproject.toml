@@ -7,26 +7,63 @@ name = "texmark"
 authors = [
     {name = "Mahé Perrette", email = "mahe.perrette@gmail.com"},
 ]
-description='Write scientific articles in markdown'
+description = "Write scientific articles in Markdown and convert them to journal-ready LaTeX/PDF (Copernicus, Science, AMS, ...)"
 readme = "README.md"
 requires-python = ">=3.9"
-license-files= [ "LICENSE" ]
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = [
+    "markdown",
+    "latex",
+    "pandoc",
+    "pdf",
+    "scientific-writing",
+    "scientific-publishing",
+    "academic-writing",
+    "journal",
+    "manuscript",
+    "copernicus",
+    "ametsoc",
+    "science-journal",
+    "jinja2",
+    "bibtex",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Education",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Text Processing :: Markup :: Markdown",
+    "Topic :: Text Processing :: Markup :: LaTeX",
+    "Topic :: Software Development :: Documentation",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Environment :: Console",
+]
 
 dynamic = ["version", "dependencies"]
 
 [tool.setuptools.dynamic]
-dependencies =  {file = ["requirements.txt"]}
+dependencies = {file = ["requirements.txt"]}
 
 [project.urls]
-homepage = "https://github.com/perrette/texmark"
+Homepage      = "https://github.com/perrette/texmark"
+Repository    = "https://github.com/perrette/texmark"
+Issues        = "https://github.com/perrette/texmark/issues"
+Documentation = "https://github.com/perrette/texmark#readme"
+Changelog     = "https://github.com/perrette/texmark/commits/main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = [
-    "texmark",
-]
+include = ["texmark"]
 
-[ tool.setuptools.package-data ]
+[tool.setuptools.package-data]
 texmark = ["templates/**/*"]
 
 [project.scripts]
