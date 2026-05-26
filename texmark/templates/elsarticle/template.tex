@@ -15,7 +15,7 @@
 %%   1p / 3p / 5p    -- journal single / double / triple-column layouts
 %%   twocolumn       -- two-column variants
 %%   authoryear      -- author-year citations (pair with elsarticle-harv.bst)
-{% set _opts_raw = (journal.options if journal and journal.options else "preprint,12pt") -%}
+{% set _opts_raw = (journal.options if journal and journal.options else "final,5p,times") -%}
 {% set _opts = ([_opts_raw] if _opts_raw is string else _opts_raw) -%}
 \documentclass[{{ _opts | join(',') }}]{elsarticle}
 

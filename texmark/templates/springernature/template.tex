@@ -18,7 +18,7 @@
 %% \cite. For sn-apa or sn-chicago (author-year) you'll want to disable
 %% that filter (set filters: [] in yaml or pass --filters explicitly).
 
-{% set _opts_raw = (journal.options if journal and journal.options else "sn-nature,pdflatex") -%}
+{% set _opts_raw = (journal.options if journal and journal.options else "sn-nature,pdflatex,iicol") -%}
 {% set _opts = ([_opts_raw] if _opts_raw is string else _opts_raw) -%}
 \documentclass[{{ _opts | join(',') }}]{sn-jnl}
 

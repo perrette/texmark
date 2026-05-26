@@ -20,6 +20,13 @@
 {% set _opts = ([_opts_raw] if _opts_raw is string else _opts_raw) -%}
 \documentclass[{{ _opts | join(',') }}]{pnas-new}
 
+%% Turn off the DRAFT watermark by default (the class enables it for
+%% submission). Set ``displaywatermark: true`` in the yaml to keep it.
+%% NOTE: ifthen is strict about whitespace inside \setboolean, hence the
+%% Jinja whitespace-trimming markers around the variable.
+{% set _watermark = "true" if (journal and journal.displaywatermark) else "false" -%}
+\setboolean{displaywatermark}{ {{- _watermark -}} }
+
 %% pnas-new loads: microtype, inputenc, babel, amsmath/fonts/symb, lmodern,
 %% helvet, xcolor, tikz, mdframed, hyperref, authblk, graphicx, colortbl,
 %% booktabs, algorithm, algpseudocode, natbib (numbered), jabbrv, etoolbox,
@@ -94,7 +101,16 @@
 \thispagestyle{firststyle}
 \ifthenelse{\boolean{shortarticle}}{\ifthenelse{\boolean{singlecolumn}}{\abscontentformatted}{\abscontent}}{}
 
+%% \Firstpage switches the body into the PNAS wide first-page paragraph
+%% layout (0.66\textwidth, narrow ragged-right). \Endparasplit then
+%% clearpages and returns to the standard 2-column layout for everything
+%% after the body (references, declarations, appendices). Skipping these
+%% leaves figures floating before the abstract and breaks the page flow.
+\Firstpage
+
 {{body}}
+
+\Endparasplit
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % ACKNOWLEDGMENTS / DATA AVAILABILITY
