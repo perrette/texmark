@@ -23,13 +23,11 @@ Write scientific articles in markdown — and submit them to any journal.
 
 ## Installation
 
-for development, after cloning:
+    pip install texmark
+
+For development, after cloning:
 
     pip install -e .
-
-and soon:
-
-    pip install texmark
 
 ### External dependencies
 
