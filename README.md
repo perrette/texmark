@@ -1,5 +1,7 @@
 # texmark
 
+[![pypi](https://img.shields.io/pypi/v/texmark)](https://pypi.org/project/texmark)
+
 Write scientific articles in markdown
 
 

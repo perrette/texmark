@@ -28,6 +28,36 @@ jobs:
         python -m pip install --upgrade pip
         pip install setuptools setuptools-scm[toml] wheel build
 
+    - name: Rewrite README relative links to absolute GitHub URLs at tag
+      env:
+        TAG: ${{ github.ref_name }}
+        REPO: ${{ github.repository }}
+      run: |
+        python <<'PY'
+        import os, re
+
+        tag = os.environ['TAG']
+        repo = os.environ['REPO']
+        blob = f"https://github.com/{repo}/blob/{tag}/"
+        raw  = f"https://github.com/{repo}/raw/{tag}/"
+
+        # URLs starting with a scheme (http:, mailto:, ...) or an anchor (#) are absolute.
+        absolute = re.compile(r'^(?:[a-z][a-z0-9+\-.]*:|#|//)', re.I)
+        link_re = re.compile(r'(!?)\[([^\]]*)\]\(\s*([^)\s]+)(\s+"[^"]*")?\s*\)')
+
+        def repl(m):
+            bang, label, url, title = m.groups()
+            if absolute.match(url):
+                return m.group(0)
+            base = raw if bang else blob
+            return f'{bang}[{label}]({base}{url.lstrip("/")}{title or ""})'
+
+        with open('README.md', encoding='utf-8') as f:
+            text = f.read()
+        with open('README.md', 'w', encoding='utf-8') as f:
+            f.write(link_re.sub(repl, text))
+        PY
+
     - name: Build distribution
       run: python -m build
 
