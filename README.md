@@ -31,6 +31,40 @@ and soon:
 
     pip install texmark
 
+### External dependencies
+
+texmark itself is pure Python, but it shells out to a few external tools to
+produce the final PDF. Install them via your system package manager.
+
+- **pandoc** — the markdown → tex engine (the `pypandoc` PyPI dependency is
+  a wrapper, the binary is not installable via pip).
+- **A LaTeX distribution** providing `pdflatex` and `bibtex` plus the
+  standard package set (`hyperref`, `natbib`, `amsmath`, `graphicx`,
+  `geometry`, `microtype`, `booktabs`, `caption`, `mathptmx`, `newtxtext`,
+  `newtxmath`, `apacite`, `draftwatermark`, `mdframed`, `tikz`, `xcolor`,
+  `appendix`, `lineno`, `epstopdf`, …).
+- **rsync** — used to assemble the build directory (templates, images,
+  bibliography).
+
+On Debian / Ubuntu:
+
+    sudo apt install pandoc rsync \
+        texlive-latex-extra texlive-bibtex-extra \
+        texlive-publishers texlive-fonts-extra
+
+…or just `texlive-full` for the easy answer.
+
+On macOS (Homebrew):
+
+    brew install pandoc rsync
+    brew install --cask mactex     # or basictex + tlmgr install <packages>
+
+A handful of LaTeX packages that aren't in TeX Live's smaller installs
+(notably `trackchanges`, `algorithm` / `algorithmicx`, `jabbrv`) are
+**bundled with texmark** under `texmark/templates/<journal>/` and copied
+into the build directory automatically, so you don't need to install them
+separately.
+
 ## Example
 
 See [example.md](example.md) for a sample markdown file with yaml metadata in the header.
