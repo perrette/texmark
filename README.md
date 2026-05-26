@@ -45,16 +45,16 @@ journal:
     options: twocol            # optional, per-template — see the docs page
 ```
 
-| template | covers | citations | example | docs |
-| --- | --- | --- | --- | --- |
-| `copernicus` (aliases `cp`, `esd`, ...) | Copernicus / EGU: ACP, BG, CP, ESD, HESS, NHESS, TC, ... | natbib author-year | [PDF](build/example.pdf) | [docs](docs/journals/copernicus.md) |
-| `science` | AAAS Science, Science Advances | `\cite{}` numbered | [PDF](build/example-science.pdf) | [docs](docs/journals/science.md) |
-| `ametsoc` (aliases `jclim`, `jas`, `mwr`, `bams`, ...) | AMS: J. Climate, JAS, MWR, BAMS, ... | natbib (AMS) | [PDF](build/example-ametsoc.pdf) | [docs](docs/journals/ametsoc.md) |
-| `arxiv` (alias `preprint`) | arXiv preprint, generic article-class | natbib `plainnat` | [PDF](build/example-arxiv.pdf) | [docs](docs/journals/arxiv.md) |
-| `elsarticle` (alias `elsevier`) | Elsevier: QSR, EPSL, GPC, Earth-Science Reviews, Cell, Lancet, ... | natbib numbered | [PDF](build/example-elsarticle.pdf) | [docs](docs/journals/elsarticle.md) |
-| `agujournal` (aliases `agu`, `jgr`, `grl`, `james`, `wrr`, ...) | AGU: JGR family, GRL, Earth's Future, JAMES, ... | apacite author-year | [PDF](build/example-agujournal.pdf) | [docs](docs/journals/agujournal.md) |
-| `springernature` (aliases `nature`, `naturecomms`, `natclimchange`, `natgeoscience`, `scirep`) | Springer Nature: Nature, Nature Communications, Nature Climate Change, Nature Geoscience, Scientific Reports, ... | `\cite{}` numbered | [PDF](build/example-springernature.pdf) | [docs](docs/journals/springernature.md) |
-| `pnas` | PNAS | `\cite{}` numbered | [PDF](build/example-pnas.pdf) | [docs](docs/journals/pnas.md) |
+| template | covers | example | docs |
+| --- | --- | --- | --- |
+| `copernicus` (aliases `cp`, `esd`, ...) | Copernicus / EGU: ACP, BG, CP, ESD, HESS, NHESS, TC, ... | [PDF](build/example.pdf) | [docs](docs/journals/copernicus.md) |
+| `science` | AAAS Science, Science Advances | [PDF](build/example-science.pdf) | [docs](docs/journals/science.md) |
+| `ametsoc` (aliases `jclim`, `jas`, `mwr`, `bams`, ...) | AMS: J. Climate, JAS, MWR, BAMS, ... | [PDF](build/example-ametsoc.pdf) | [docs](docs/journals/ametsoc.md) |
+| `arxiv` (alias `preprint`) | arXiv preprint, generic article-class | [PDF](build/example-arxiv.pdf) | [docs](docs/journals/arxiv.md) |
+| `elsarticle` (alias `elsevier`) | Elsevier: QSR, EPSL, GPC, Earth-Science Reviews, Cell, Lancet, ... | [PDF](build/example-elsarticle.pdf) | [docs](docs/journals/elsarticle.md) |
+| `agujournal` (aliases `agu`, `jgr`, `grl`, `james`, `wrr`, ...) | AGU: JGR family, GRL, Earth's Future, JAMES, ... | [PDF](build/example-agujournal.pdf) | [docs](docs/journals/agujournal.md) |
+| `springernature` (aliases `nature`, `naturecomms`, `natclimchange`, `natgeoscience`, `scirep`) | Springer Nature: Nature, Nature Communications, Nature Climate Change, Nature Geoscience, Scientific Reports, ... | [PDF](build/example-springernature.pdf) | [docs](docs/journals/springernature.md) |
+| `pnas` | PNAS | [PDF](build/example-pnas.pdf) | [docs](docs/journals/pnas.md) |
 
 Each template ships a default `journal.options` value chosen to produce a
 **publication-style** PDF (typeset 2-column journal look, no draft watermarks).
