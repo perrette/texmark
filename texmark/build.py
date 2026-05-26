@@ -32,7 +32,7 @@ def normalize_metadata(meta):
     elif isinstance(meta, pf.MetaString):
         return meta.text
     elif isinstance(meta, pf.MetaBool):
-        return bool(meta)
+        return meta.boolean
     elif isinstance(meta, pf.MetaList):
         return [normalize_metadata(item) for item in meta]
     elif isinstance(meta, pf.MetaMap):

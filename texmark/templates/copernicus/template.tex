@@ -108,10 +108,10 @@
 \runningtitle{ {{words[:3] }}...}
 {% endif -%}
 
-{% if running.author and running.author -%}
+{% if running and running.author -%}
 \runningauthor{ {{running.author}} }
 {% else %}
-{% if len(authors) == 1 -%}
+{% if authors|length == 1 -%}
 \runningauthor{ {{authors[0].lastname}}}
 {% else %}
 \runningauthor{ {{authors[0].lastname}} et al}

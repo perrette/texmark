@@ -18,10 +18,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Install pandoc
+        # pypandoc is a wrapper; the pandoc binary is needed by the
+        # integration tests in tests/test_build_tex.py.
+        run: sudo apt-get update && sudo apt-get install -y pandoc
       - name: Install
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
+          pip install -e . pytest
       - name: Run tests
-        # TODO: replace with `pytest -v` once a tests/ directory lands
-        run: python -c "import texmark; print(texmark.__name__, 'imported')"
+        run: pytest -v
