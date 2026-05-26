@@ -1,0 +1,122 @@
+%% texmark Jinja2 template for Springer Nature journals
+%% Class: sn-jnl.cls (Springer Nature LaTeX template v2.1, April 2023)
+%% Covers Nature, Nature Communications, Nature Geoscience, Nature Climate
+%% Change, Scientific Reports, and all Springer + BMC journals.
+%%
+%% Reference style is selected by class option (one of):
+%%   sn-nature      Nature Portfolio journals  (numbered)
+%%   sn-basic       Basic Springer / Chemistry  (numbered or namedate)
+%%   sn-mathphys    Math & Physical Sciences   (numbered or namedate)
+%%   sn-aps         American Physical Society
+%%   sn-vancouver   Vancouver style
+%%   sn-apa         APA author-year style
+%%   sn-chicago     Chicago / Humanities
+%% Default here is sn-nature. Override via journal.options in the yaml.
+%%
+%% Numbered styles use \cite{key}; the texmark force_cite filter (shared
+%% with the science template) rewrites pandoc's \citet/\citep output to
+%% \cite. For sn-apa or sn-chicago (author-year) you'll want to disable
+%% that filter (set filters: [] in yaml or pass --filters explicitly).
+
+{% set _opts_raw = (journal.options if journal and journal.options else "sn-nature,pdflatex") -%}
+{% set _opts = ([_opts_raw] if _opts_raw is string else _opts_raw) -%}
+\documentclass[{{ _opts | join(',') }}]{sn-jnl}
+
+%% Standard packages used by the sample article. The class loads
+%% hyperref and natbib via the chosen reference-style option, but it
+%% also expects xcolor and manyfoot to be available (they're used in
+%% \AtBeginDocument hooks). Loading the same set as sn-article.tex.
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{amsthm}
+\usepackage{mathrsfs}
+\usepackage[title]{appendix}
+\usepackage{xcolor}
+\usepackage{textcomp}
+\usepackage{manyfoot}
+\usepackage{booktabs}
+{% set already_included_packages = [
+  "graphicx", "multirow", "amsmath", "amssymb", "amsfonts", "amsthm", "mathrsfs",
+  "appendix", "xcolor", "textcomp", "manyfoot", "booktabs", "hyperref", "natbib",
+] -%}
+{% for package in packages -%}
+{% if package not in already_included_packages -%}
+\usepackage{ {{package}} }
+{% endif -%}
+{% endfor %}
+
+\begin{document}
+
+\title{ {{title}} }
+
+%% Authors. sn-jnl uses \fnm{} / \sur{} for given / family names; the
+%% starred form \author* marks the corresponding author. Affiliation
+%% indices appear in brackets, comma-separated for multi-affiliation.
+{% for author in authors -%}
+\author{% if loop.first %}*{% endif %}[{{ author.affiliation }}]{\fnm{ {{author.firstname}} } \sur{ {{author.lastname}} }}{% if author.email %}\email{ {{author.email}} }{% endif %}
+
+{% endfor %}
+
+{% for affil in affiliations -%}
+\affil{% if loop.first %}*{% endif %}[{{ loop.index }}]{ {{ affil }} }
+{% endfor %}
+
+\abstract{ {{ abstract | join_if_list(' ') | replace('\n\n', ' ') | replace('\n', ' ') }} }
+
+{% if keywords -%}
+\keywords{ {% if keywords is string %}{{ keywords }}{% else %}{{ keywords | join(', ') }}{% endif %} }
+{% endif %}
+
+\maketitle
+
+{{body}}
+
+\backmatter
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ACKNOWLEDGMENTS / DECLARATIONS / DATA AVAILABILITY
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+{% if acknowledgements -%}
+\bmhead{Acknowledgments}
+{{ acknowledgements | join_if_list }}
+{% endif %}
+
+{% if dataavailability or competinginterests or funding or authorcontribution or ethics -%}
+\section*{Declarations}
+{% if funding -%}
+\paragraph*{Funding} {{ funding | join_if_list }}
+{% endif -%}
+{% if competinginterests -%}
+\paragraph*{Competing interests} {{ competinginterests | join_if_list }}
+{% endif -%}
+{% if ethics -%}
+\paragraph*{Ethics approval} {{ ethics | join_if_list }}
+{% endif -%}
+{% if dataavailability -%}
+\paragraph*{Availability of data and materials} {{ dataavailability | join_if_list }}
+{% endif -%}
+{% if authorcontribution -%}
+\paragraph*{Authors' contributions} {{ authorcontribution | join_if_list }}
+{% endif -%}
+{% endif %}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% APPENDIXES (sn-jnl uses the \begin{appendices} ... \end{appendices} env)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+{% if appendix -%}
+\begin{appendices}
+{% for section in appendix -%}
+{{ section }}
+{% endfor -%}
+\end{appendices}
+{% endif %}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% REFERENCES (bibstyle is set by the class option)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+{% if bibliography -%}
+\bibliography{ {{bibliography}} }
+{% endif %}
+
+\end{document}

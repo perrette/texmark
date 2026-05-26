@@ -320,6 +320,33 @@ for journal in ["agujournal", "agu", "jgr", "grl", "james", "earthsfuture", "wrr
     filters[journal] = agu_filters
 
 
+springernature_filters = [
+    *basic_filters,
+    force_cite,
+    SectionFilter(
+        extract_sections=[
+            'abstract', 'keywords',
+            'acknowledgements', 'acknowledgments',
+            'data-availability', 'data-availability-statement',
+            'funding', 'ethics', 'ethics-approval',
+            'author-contributions', 'competing-interests',
+        ] + si_sections,
+        sections_map={
+            'acknowledgments': 'acknowledgements',
+            'data-availability': 'dataavailability',
+            'data-availability-statement': 'dataavailability',
+            'author-contributions': 'authorcontribution',
+            'competing-interests': 'competinginterests',
+            'ethics-approval': 'ethics',
+            **{section: 'appendix' for section in si_sections},
+        },
+    ),
+]
+
+for journal in ["springernature", "springer", "nature", "naturecomms", "natclimchange", "natgeoscience", "scirep"]:
+    filters[journal] = springernature_filters
+
+
 def run_filters(doc):
 
     if doc is not None:
