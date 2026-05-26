@@ -2,7 +2,21 @@
 
 [![pypi](https://img.shields.io/pypi/v/texmark)](https://pypi.org/project/texmark)
 
-Write scientific articles in markdown
+Write scientific articles in markdown — and submit them to any journal.
+
+- **Instant preview.** Markdown renders live in most editors (VS Code, Cursor,
+  JetBrains, vim) and on GitHub itself, so you see your draft as you type. No
+  more wait-on-pdflatex cycles every time you change a sentence.
+- **Git + GitHub as a paper backend.** Branches, pull requests, issues, blame,
+  and diffs work the way they were designed to. Collaborators review changes
+  with the same tooling they already use for code.
+- **One source, any journal.** texmark compiles your markdown to any of the
+  [supported LaTeX templates](#journal-templates). Start writing first, decide
+  on a target journal later, and switch mid-way (or after rejection) by
+  flipping a single yaml field — no rewriting needed.
+- **No lock-in.** The intermediate `.tex` is right there next to the PDF.
+  Unplug texmark whenever you want and continue the manuscript in plain
+  LaTeX — useful for the final polish that journals usually demand.
 
 
 ## Installation
