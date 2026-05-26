@@ -347,6 +347,37 @@ for journal in ["springernature", "springer", "nature", "naturecomms", "natclimc
     filters[journal] = springernature_filters
 
 
+pnas_filters = [
+    *basic_filters,
+    force_cite,
+    SectionFilter(
+        extract_sections=[
+            'abstract', 'keywords',
+            'significance', 'significance-statement',
+            'acknowledgements', 'acknowledgments',
+            'data-availability', 'data-availability-statement',
+            'author-contributions',
+            'competing-interests', 'declaration', 'author-declaration',
+            'equal-authors',
+        ] + si_sections,
+        sections_map={
+            'acknowledgments': 'acknowledgements',
+            'significance-statement': 'significance',
+            'data-availability': 'dataavailability',
+            'data-availability-statement': 'dataavailability',
+            'author-contributions': 'authorcontribution',
+            'competing-interests': 'competinginterests',
+            'declaration': 'competinginterests',
+            'author-declaration': 'competinginterests',
+            'equal-authors': 'equalauthors',
+            **{section: 'appendix' for section in si_sections},
+        },
+    ),
+]
+
+filters['pnas'] = pnas_filters
+
+
 def run_filters(doc):
 
     if doc is not None:

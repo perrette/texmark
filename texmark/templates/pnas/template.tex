@@ -1,0 +1,128 @@
+%% texmark Jinja2 template for PNAS (Proceedings of the National Academy of
+%% Sciences of the USA)
+%% Class: pnas-new.cls + pnasresearcharticle.sty (PNAS 2024 LaTeX bundle)
+%%
+%% Citations: PNAS uses numbered references with sort & compress (natbib
+%% [numbers,sort&compress,merge,round]). pandoc's --natbib output emits
+%% \citet{} and \citep{}; the shared force_cite filter rewrites both to
+%% \cite{} which matches the PNAS bibliography style.
+%%
+%% Variants:
+%%   templatetype: pnasresearcharticle (default), pnasbriefreport,
+%%                 pnasmathematics, pnasinvited
+%% Each comes with its own .sty in the official PNAS package. Only the
+%% research-article variant is bundled in this template; for the others
+%% drop the .sty file into the template directory and set
+%%   journal:
+%;       templatetype: pnasbriefreport
+
+{% set _opts_raw = (journal.options if journal and journal.options else "9pt,twocolumn,twoside") -%}
+{% set _opts = ([_opts_raw] if _opts_raw is string else _opts_raw) -%}
+\documentclass[{{ _opts | join(',') }}]{pnas-new}
+
+%% pnas-new loads: microtype, inputenc, babel, amsmath/fonts/symb, lmodern,
+%% helvet, xcolor, tikz, mdframed, hyperref, authblk, graphicx, colortbl,
+%% booktabs, algorithm, algpseudocode, natbib (numbered), jabbrv, etoolbox,
+%% textcomp, lettrine, ifpdf/ifxetex. No need to redeclare these.
+{% set already_included_packages = [
+  "microtype", "inputenc", "babel", "amsmath", "amsfonts", "amssymb", "lmodern",
+  "helvet", "xcolor", "tikz", "mdframed", "hyperref", "authblk", "graphicx",
+  "colortbl", "booktabs", "algorithm", "algpseudocode", "natbib", "jabbrv",
+  "etoolbox", "textcomp", "lettrine",
+] -%}
+{% for package in packages -%}
+{% if package not in already_included_packages -%}
+\usepackage{ {{package}} }
+{% endif -%}
+{% endfor %}
+
+\articletype{ {{ journal.classification if journal and journal.classification else "Research Article" }} }
+\templatetype{ {{ journal.templatetype if journal and journal.templatetype else "pnasresearcharticle" }} }
+
+\begin{document}
+
+\title{ {{title}} }
+
+%% Authors. PNAS uses letters for affiliations (a, b, c...). The yaml
+%% integer affiliation indices are mapped here to lowercase letters.
+{% set letters = "abcdefghijklmnopqrstuvwxyz" -%}
+{% macro affkey(aff) -%}
+{%- set idx = aff|int(0) -%}
+{%- if idx > 0 -%}{{ letters[idx - 1] }}{%- else -%}{{ aff }}{%- endif -%}
+{%- endmacro -%}
+{% for author in authors -%}
+\author[{{ affkey(author.affiliation) }}{% if loop.first %},1{% endif %}]{ {{author.firstname}}~{{author.lastname}} }
+{% endfor %}
+
+{% for affil in affiliations -%}
+\affil[{{ letters[loop.index0] }}]{ {{ affil }} }
+{% endfor %}
+
+%% Lead author surname for the running footer
+\leadauthor{ {{ authors[0].lastname }} }
+
+%% Significance statement (50-120 words, broad audience). Skipped if absent.
+{% if significance -%}
+\significancestatement{ {{ significance | join_if_list(' ') | replace('\n\n', ' ') | replace('\n', ' ') }} }
+{% endif %}
+
+\authorcontributions{ {{ authorcontribution | join_if_list if authorcontribution else "Please provide details of author contributions here." }} }
+\authordeclaration{ {{ competinginterests | join_if_list if competinginterests else "The authors declare no competing interests." }} }
+
+{% if equalauthors -%}
+\equalauthors{ {{ equalauthors | join_if_list }} }
+{% endif %}
+
+{% if authors and authors[0].email -%}
+\correspondingauthor{\textsuperscript{1}To whom correspondence should be addressed. E-mail: {{ authors[0].email }} }
+{% endif %}
+
+{% if keywords -%}
+\keywords{ {% if keywords is string %}{{ keywords }}{% else %}{{ keywords | join(' $|$ ') }}{% endif %} }
+{% endif %}
+
+\begin{abstract}
+{{ abstract | join_if_list(' ') | replace('\n\n', ' ') | replace('\n', ' ') }}
+\end{abstract}
+
+\dates{This manuscript was compiled on \today}
+{% if journal and journal.doi -%}
+\doi{\url{ {{ journal.doi }} }}
+{% endif %}
+
+\maketitle
+\thispagestyle{firststyle}
+\ifthenelse{\boolean{shortarticle}}{\ifthenelse{\boolean{singlecolumn}}{\abscontentformatted}{\abscontent}}{}
+
+{{body}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ACKNOWLEDGMENTS / DATA AVAILABILITY
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+{% if acknowledgements -%}
+\acknow{ {{ acknowledgements | join_if_list }} }
+\showacknow{}
+{% endif %}
+{% if dataavailability -%}
+\dataavailability{ {{ dataavailability | join_if_list }} }
+{% endif %}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% APPENDIXES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+{% if appendix -%}
+\appendix
+{% for section in appendix -%}
+{{ section }}
+{% endfor -%}
+{% endif %}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% REFERENCES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+{% if bibliography -%}
+\bibliographystyle{pnas-new}
+\bibliography{ {{bibliography}} }
+{% endif %}
+
+\end{document}
