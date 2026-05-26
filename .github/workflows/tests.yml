@@ -28,3 +28,90 @@ jobs:
           pip install -e . pytest
       - name: Run tests
         run: pytest -v
+
+  publish:
+    # Run only on tag pushes (releases) and only after the test matrix passes.
+    needs: test
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+    permissions:
+      id-token: write  # required for OIDC trusted publishing
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install setuptools setuptools-scm[toml] wheel build
+
+      - name: Rewrite README relative links to absolute GitHub URLs at tag
+        env:
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          python <<'PY'
+          import os, re
+
+          tag = os.environ['TAG']
+          repo = os.environ['REPO']
+          blob = f"https://github.com/{repo}/blob/{tag}/"
+          raw  = f"https://github.com/{repo}/raw/{tag}/"
+
+          # Extensions whose content doesn't benefit from GitHub's blob view —
+          # serve them raw so the browser handles the bytes directly. Everything
+          # else (markdown, source, configs, HTML, directories) stays on blob.
+          RAW_EXTS = {
+              '.pdf',
+              '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.bmp', '.ico',
+              '.zip', '.tar', '.tgz', '.gz', '.bz2', '.7z', '.rar',
+              '.docx', '.xlsx', '.pptx', '.odt', '.ods', '.odp',
+              '.mp3', '.mp4', '.wav', '.mov', '.webm', '.ogg', '.m4a', '.avi', '.mkv',
+              '.ttf', '.otf', '.woff', '.woff2', '.eot',
+              '.eps', '.ps', '.dvi',
+          }
+
+          # URLs starting with a scheme (http:, mailto:, ...) or an anchor (#) are absolute.
+          absolute = re.compile(r'^(?:[a-z][a-z0-9+\-.]*:|#|//)', re.I)
+          link_re = re.compile(r'(!?)\[([^\]]*)\]\(\s*([^)\s]+)(\s+"[^"]*")?\s*\)')
+
+          def pick_base(url, is_image):
+              if is_image:
+                  return raw
+              path = url.split('?', 1)[0].split('#', 1)[0]
+              ext = os.path.splitext(path)[1].lower()
+              return raw if ext in RAW_EXTS else blob
+
+          def repl(m):
+              bang, label, url, title = m.groups()
+              if absolute.match(url):
+                  return m.group(0)
+              base = pick_base(url, bool(bang))
+              return f'{bang}[{label}]({base}{url.lstrip("/")}{title or ""})'
+
+          with open('README.md', encoding='utf-8') as f:
+              text = f.read()
+          with open('README.md', 'w', encoding='utf-8') as f:
+              f.write(link_re.sub(repl, text))
+          PY
+
+      - name: Pin version from tag
+        # README rewrite above leaves the working tree dirty, so setuptools_scm
+        # would bump to the next dev version (e.g. 0.7.dev0+g<sha>.dYYYYMMDD) and
+        # PyPI would reject the local-version suffix. Lock the version to the tag.
+        run: echo "SETUPTOOLS_SCM_PRETEND_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Build distribution
+        run: python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
