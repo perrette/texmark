@@ -210,6 +210,28 @@ science_filters = [
 filters['science'] = science_filters
 
 
+ametsoc_filters = [
+    *basic_filters,
+    SectionFilter(
+        extract_sections=[
+            'abstract', 'acknowledgements', 'acknowledgments',
+            'significance', 'significance-statement', 'capsule',
+            'data-availability', 'data-availability-statement',
+        ] + si_sections,
+        sections_map={
+            'acknowledgments': 'acknowledgements',
+            'significance-statement': 'significance',
+            'data-availability': 'dataavailability',
+            'data-availability-statement': 'dataavailability',
+            **{section: 'appendix' for section in si_sections},
+        },
+    ),
+]
+
+for journal in ["ametsoc", "amsoc", "jclim", "jas", "mwr", "jamc", "jhm", "jpo", "jtech", "waf", "bams"]:
+    filters[journal] = ametsoc_filters
+
+
 def run_filters(doc):
 
     if doc is not None:

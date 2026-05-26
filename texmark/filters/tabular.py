@@ -55,7 +55,7 @@ def table_to_latex(elem, doc):
 
 
     # 3. Assemble the LaTeX table
-    latex = '\n'.join([
+    table_lines = [
         r'\begin{table}[t]',
         r'\centering',
         rf'\caption{{{caption_text}}}',
@@ -63,9 +63,11 @@ def table_to_latex(elem, doc):
         rf'\begin{{tabular}}{{{col_spec}}}',
         *lines,
         r'\end{tabular}',
-        r'\belowtable{}',
-        r'\end{table}'
-    ])
+    ]
+    if table_type == "copernicus":
+        table_lines.append(r'\belowtable{}')
+    table_lines.append(r'\end{table}')
+    latex = '\n'.join(table_lines)
 
     return pf.RawBlock(latex, format='latex')
 

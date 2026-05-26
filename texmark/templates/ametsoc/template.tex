@@ -1,0 +1,139 @@
+%% AMS LaTeX Package V6.1 -- texmark Jinja2 template
+%% Suitable for submissions to American Meteorological Society journals
+%% (Journal of Climate, JAS, MWR, JAMC, JHM, JPO, JTECH, WAF, BAMS, etc.)
+%% See README_ametsoc.txt and amsdocsV6.1.pdf for details.
+
+%% Set ``twocol`` in the yaml metadata under journal -> options to switch to
+%% the (author-only) two-column journal layout. Default is the 1.5-spaced
+%% submission layout.
+{% set _opts = (journal.options if journal and journal.options else []) -%}
+{% if _opts -%}
+\documentclass[{{ _opts | join(',') }}]{ametsocV6.1}
+{% else -%}
+\documentclass{ametsocV6.1}
+{% endif %}
+
+%% The ametsocV6.1 class already loads: graphicx, amsmath, amsfonts, amssymb,
+%% bm, mathptmx, newtxtext, newtxmath, epstopdf, helvet, fancyhdr, natbib,
+%% url, xcolor, indentfirst, multicol, ifthen, rotating, appendix, setspace.
+%% Add hyperref so that pandoc-generated \href{} links from the markdown work.
+\usepackage{hyperref}
+{% set already_included_packages = ["natbib", "amsmath", "amsfonts", "amssymb", "bm", "graphicx", "epstopdf", "mathptmx", "newtxtext", "newtxmath", "helvet", "fancyhdr", "url", "xcolor", "indentfirst", "multicol", "ifthen", "rotating", "appendix", "setspace", "hyperref"] -%}
+{% for package in packages -%}
+{% if package not in already_included_packages -%}
+\usepackage{ {{package}} }
+{% endif -%}
+{% endfor %}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% TITLE / AUTHORS / AFFILIATIONS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title{ {{title}} }
+
+%% Use \aff{<letter>} to tie each author to an affiliation.
+%% Convention: integer affiliation indices in the yaml metadata are mapped
+%% to lowercase letters here (1 -> a, 2 -> b, ...). Strings (e.g. "a" or
+%% "a,c" for multi-affiliation) are passed through unchanged.
+{% set letters = "abcdefghijklmnopqrstuvwxyz" -%}
+{% macro affkey(aff) -%}
+{%- set idx = aff|int(0) -%}
+{%- if idx > 0 -%}{{ letters[idx - 1] }}{%- else -%}{{ aff }}{%- endif -%}
+{%- endmacro -%}
+\authors{
+{%- for author in authors %}
+{{author.firstname}}~{{author.lastname}}
+{%- if loop.first and author.email %}\correspondingauthor{ {{author.firstname}}~{{author.lastname}}, {{author.email}} }
+{%- endif -%}
+{%- if author.thanks %}\thanks{ {{author.thanks}} }{% endif -%}
+\aff{ {{ affkey(author.affiliation) }} }
+{%- if not loop.last -%}
+{%- if loop.revindex == 2 -%}
+{%- if authors|length > 2 %}, and {% else %} and {% endif -%}
+{%- else %}, {% endif -%}
+{%- endif -%}
+{% endfor %}
+}
+
+\affiliation{
+{%- for affil in affiliations %}
+\aff{ {{ letters[loop.index0] }} }{ {{ affil }} }{%- if not loop.last %}\\{% endif %}
+{%- endfor %}
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ABSTRACT
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% AMS \abstract{} is defined with \def (not \long\def), so it cannot contain
+%% paragraph breaks. Collapse any blank lines into spaces to get a single
+%% paragraph as required by the journal.
+\abstract{
+{{ abstract | join_if_list(' ') | replace('\n\n', ' ') | replace('\n', ' ') }}
+}
+
+\begin{document}
+
+\maketitle
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% SIGNIFICANCE STATEMENT (all journals except BAMS) / CAPSULE (BAMS only)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+{% if significance -%}
+{% if 'twocol' in _opts -%}\twocolsig{% else -%}\statement{% endif %}
+{{ significance | join_if_list(' ') }}
+{% endif -%}
+{% if capsule -%}
+{% if 'twocol' in _opts -%}\twocolcapsule{% else -%}\capsule{% endif %}
+{{ capsule | join_if_list(' ') }}
+{% endif %}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% MAIN BODY
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+{{body}}
+
+\clearpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ACKNOWLEDGMENTS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+{% if acknowledgements -%}
+\acknowledgments
+{{ acknowledgements | join_if_list }}
+{% endif %}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% DATA AVAILABILITY STATEMENT
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+{% if dataavailability -%}
+\datastatement
+{{ dataavailability | join_if_list }}
+{% endif %}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% APPENDIXES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+{% if appendix -%}
+{% set appendix_letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ" -%}
+{% for section in appendix -%}
+{% if appendix|length == 1 -%}
+\appendix
+{% else -%}
+\appendix[{{ appendix_letters[loop.index0] }}]
+{% endif -%}
+\appendixtitle{ {{ appendixtitles[loop.index0] if appendixtitles and appendixtitles|length > loop.index0 else "Appendix" }} }
+{{ section }}
+{% endfor -%}
+{% endif %}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% REFERENCES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+{% if bibliography -%}
+\bibliographystyle{ametsocV6}
+\bibliography{ {{bibliography}} }
+{% endif %}
+
+\end{document}

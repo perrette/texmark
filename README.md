@@ -32,7 +32,7 @@ For testing it is also possible to pass `-j` for `--journal-template`:
 
 See the example tex and pdf results in [build](/build)
 
-For now only `copernicus` and `science` template are available.
+For now only `copernicus`, `science` and `ametsoc` (American Meteorological Society — Journal of Climate, JAS, MWR, BAMS, ...) templates are available.
 Only partial support is provided. Upon submission you'll most likely need
 to rework the final latex version, especially to handle things like appendix or special sections.
 Alternatively, you may write your custom template (see the advanced section)
