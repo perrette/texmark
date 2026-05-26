@@ -32,7 +32,18 @@ For testing it is also possible to pass `-j` for `--journal-template`:
 
 See the example tex and pdf results in [build](/build)
 
-For now only `copernicus`, `science` and `ametsoc` (American Meteorological Society — Journal of Climate, JAS, MWR, BAMS, ...) templates are available.
+Available journal templates:
+
+| template name | publisher / journals |
+| --- | --- |
+| `copernicus` (aliases: `cp`, `esd`, ...) | Copernicus (EGU journals: ACP, BG, CP, ESD, HESS, NHESS, TC, ...) |
+| `science` | AAAS Science |
+| `ametsoc` (aliases: `jclim`, `jas`, `mwr`, `bams`, ...) | American Meteorological Society — Journal of Climate, JAS, MWR, BAMS, ... |
+| `arxiv` (alias: `preprint`) | Generic arXiv-style preprint (article class) |
+| `elsarticle` (alias: `elsevier`) | Elsevier — QSR, EPSL, GPC, Earth-Science Reviews, Cell, Lancet, ... |
+| `agujournal` (aliases: `agu`, `jgr`, `grl`, `james`, `wrr`, ...) | American Geophysical Union — JGR family, GRL, Earth's Future, JAMES, ... |
+| `springernature` (aliases: `nature`, `naturecomms`, `natclimchange`, `natgeoscience`, `scirep`) | Springer Nature — Nature, Nature Communications, Nature Climate Change, Nature Geoscience, Scientific Reports, ... |
+| `pnas` | PNAS — Proceedings of the National Academy of Sciences of the USA |
 Only partial support is provided. Upon submission you'll most likely need
 to rework the final latex version, especially to handle things like appendix or special sections.
 Alternatively, you may write your custom template (see the advanced section)
