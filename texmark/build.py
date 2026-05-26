@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import subprocess
+import shutil
 from pathlib import Path
 import os
 import sys
@@ -20,6 +21,27 @@ rootpath = Path(texmark.__file__).resolve().parent
 def run(cmd, shell=False, check=True, **kwargs):
     print(cmd if shell else ' '.join(cmd))
     return subprocess.run(cmd, shell=shell, check=check, **kwargs)
+
+
+def sync_tree(src, dst):
+    """Copy src into dst recursively, skipping files whose size + mtime already match.
+
+    Mimics rsync's default quick-check heuristic so rebuilds don't re-copy a large
+    images tree on every run. Files only — no symlink preservation, no deletions.
+    """
+    src, dst = Path(src), Path(dst)
+    for path in src.rglob("*"):
+        rel = path.relative_to(src)
+        target = dst / rel
+        if path.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+            continue
+        if target.exists():
+            s, d = path.stat(), target.stat()
+            if s.st_size == d.st_size and int(s.st_mtime) == int(d.st_mtime):
+                continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, target)
 
 
 def normalize_metadata(meta):
@@ -138,24 +160,30 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build', ima
     """
     Step 2: Compile LaTeX source into PDF.
     """
+    build_dir = Path(build_dir)
+
     if resource_path:
         print(f"Resource path: {resource_path}")
-        run(f"rsync -r {resource_path}/ {build_dir}/", shell=True)
+        sync_tree(resource_path, build_dir)
         # os.environ['TEXINPUTS'] = f"{resource_path}:" + os.environ.get('TEXINPUTS', '')
 
-    run(f"rsync -r {Path(images_dir)} {build_dir}/", shell=True)
-    run(f"rsync {input_tex} {build_dir}/", shell=True)
-    run(f"rsync {bib_file} {build_dir}/", shell=True)
+    images_src = Path(images_dir)
+    sync_tree(images_src, build_dir / images_src.name)
+    for f in (input_tex, bib_file):
+        src = Path(f)
+        if src.parent.resolve() != build_dir.resolve():
+            shutil.copy2(src, build_dir)
     cmd = [engine, '-interaction=nonstopmode', Path(input_tex).name]
     run(cmd, cwd=build_dir, check=False)
     bibcmd = ["bibtex", Path(input_tex).with_suffix(".aux").name]
     run(bibcmd, cwd=build_dir, check=False)
     run(cmd, cwd=build_dir, check=False)
     run(cmd, cwd=build_dir, check=False)
-    # Rename/move the generated PDF if needed
     actual_pdf = Path(build_dir) / Path(input_tex).with_suffix(".pdf").name
     if Path(output_pdf) != actual_pdf:
-        run(['mv', str(actual_pdf), output_pdf])
+        # copy (not move) so the destination inode is preserved across rebuilds —
+        # PDF viewers like evince keep scroll position when content changes in place.
+        shutil.copyfile(actual_pdf, output_pdf)
 
 
 def main():
