@@ -256,6 +256,31 @@ filters['arxiv'] = arxiv_filters
 filters['preprint'] = arxiv_filters
 
 
+elsarticle_filters = [
+    *basic_filters,
+    SectionFilter(
+        extract_sections=[
+            'abstract', 'keywords', 'highlights',
+            'acknowledgements', 'acknowledgments',
+            'data-availability', 'data-availability-statement',
+            'author-contributions', 'credit', 'competing-interests',
+        ] + si_sections,
+        sections_map={
+            'acknowledgments': 'acknowledgements',
+            'data-availability': 'dataavailability',
+            'data-availability-statement': 'dataavailability',
+            'author-contributions': 'authorcontribution',
+            'credit': 'authorcontribution',
+            'competing-interests': 'competinginterests',
+            **{section: 'appendix' for section in si_sections},
+        },
+    ),
+]
+
+filters['elsarticle'] = elsarticle_filters
+filters['elsevier'] = elsarticle_filters
+
+
 def run_filters(doc):
 
     if doc is not None:

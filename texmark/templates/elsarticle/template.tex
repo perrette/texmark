@@ -1,0 +1,127 @@
+%% texmark Jinja2 template for Elsevier journals (elsarticle class)
+%% Covers Elsevier's full catalog: QSR, EPSL, Global and Planetary Change,
+%% Chemical Geology, Earth-Science Reviews, ...
+%%
+%% See README_elsarticle.txt and elsdoc.pdf for full class documentation.
+
+%% Default: preprint, 12pt (double-blind submission style).
+%% Override via journal.options in the yaml metadata, e.g.
+%%   journal:
+%%       template: elsarticle
+%%       options: [final, 3p, times, twocolumn]
+%% Common option groups (see elsdoc.pdf):
+%%   preprint        -- 1.5-spaced preprint (default)
+%%   review          -- double-spaced review style
+%%   1p / 3p / 5p    -- journal single / double / triple-column layouts
+%%   twocolumn       -- two-column variants
+%%   authoryear      -- author-year citations (pair with elsarticle-harv.bst)
+{% set _opts_raw = (journal.options if journal and journal.options else "preprint,12pt") -%}
+{% set _opts = ([_opts_raw] if _opts_raw is string else _opts_raw) -%}
+\documentclass[{{ _opts | join(',') }}]{elsarticle}
+
+%% elsarticle loads: graphicx, natbib (configured for Elsevier), T1 fontenc,
+%% txfonts/times, geometry, expl3/xparse/etoolbox. Add amsmath/amssymb (for
+%% \begin{align} etc.) and hyperref (for clickable links and \href{}).
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+{% set already_included_packages = ["graphicx", "natbib", "fontenc", "txfonts", "times", "geometry", "amsmath", "amssymb", "hyperref"] -%}
+{% for package in packages -%}
+{% if package not in already_included_packages -%}
+\usepackage{ {{package}} }
+{% endif -%}
+{% endfor %}
+
+{% if journal and journal.name -%}
+\journal{ {{ journal.name }} }
+{% endif %}
+
+\begin{document}
+
+\begin{frontmatter}
+
+\title{ {{title}} }
+
+%% Authors: numeric affiliation labels and a single corresponding-author
+%% marker on the first author by convention.
+{% for author in authors -%}
+\author[{{ author.affiliation }}]{ {{author.firstname}}~{{author.lastname}}{% if loop.first %}\corref{cor1}{% endif %} }
+{% if loop.first and author.email -%}
+\ead{ {{author.email}} }
+{% endif -%}
+{% endfor %}
+
+\cortext[cor1]{Corresponding author}
+
+%% Affiliations. The class accepts a structured organization=/addressline=/
+%% city=/postcode=/state=/country= form; pass the affiliation string as the
+%% organization field. Submit a follow-up edit if you need richer addresses.
+{% for affil in affiliations -%}
+\affiliation[{{ loop.index }}]{organization={ {{ affil }} }}
+{% endfor %}
+
+\begin{abstract}
+{{ abstract | join_if_list }}
+\end{abstract}
+
+{% if highlights -%}
+{% set _hl_list = ([highlights] if highlights is string else highlights) -%}
+\begin{highlights}
+{% for hl in _hl_list -%}
+\item {{ hl }}
+{% endfor -%}
+\end{highlights}
+{% endif %}
+
+{% if keywords -%}
+\begin{keyword}
+{% if keywords is string -%}
+{{ keywords }}
+{% else -%}
+{{ keywords | join(' \\sep ') }}
+{% endif -%}
+\end{keyword}
+{% endif %}
+
+\end{frontmatter}
+
+{{body}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ACKNOWLEDGMENTS / DATA AVAILABILITY
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+{% if acknowledgements -%}
+\section*{Acknowledgments}
+{{ acknowledgements | join_if_list }}
+{% endif %}
+{% if dataavailability -%}
+\section*{Data availability}
+{{ dataavailability | join_if_list }}
+{% endif %}
+{% if authorcontribution -%}
+\section*{CRediT authorship contribution statement}
+{{ authorcontribution | join_if_list }}
+{% endif %}
+{% if competinginterests -%}
+\section*{Declaration of competing interest}
+{{ competinginterests | join_if_list }}
+{% endif %}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% APPENDIXES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+{% if appendix -%}
+\appendix
+{% for section in appendix -%}
+{{ section }}
+{% endfor -%}
+{% endif %}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% REFERENCES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+{% if bibliography -%}
+\bibliographystyle{ {{ biblio_style if biblio_style else "elsarticle-num" }} }
+\bibliography{ {{bibliography}} }
+{% endif %}
+
+\end{document}
