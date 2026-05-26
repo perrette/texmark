@@ -111,16 +111,35 @@ def stringify_captions(elem, doc):
             elem.caption.content = [pf.RawBlock(caption_text, format='latex')]
 
 
-def figure_width_100pct(elem, doc):
-    """Set figure width to 100%"""
-    if isinstance(elem, pf.Figure):
-        # Set width to 100%
-        target = elem.content[0].content[0]
-        if "width" not in target.attributes:
-            target.attributes['width'] = '100%'
-    return elem
+def apply_figure_defaults(elem, doc):
+    """Apply global figure-width and figure-span metadata to figures.
 
-basic_filters = [strip_leading_slash, stringify_captions, tag_figures, figure_width_100pct, table_to_latex ]
+    - `figure-width` (default `100%`) sets the default image width when none is
+      given on the figure itself. Percent values are interpreted by pandoc as a
+      fraction of `\\linewidth`, which inside `figure*` automatically expands
+      to the full text width.
+    - `figure-span` (default `column`) — when set to `full`, wrap the figure in
+      a `figure*` environment so it spans both columns in two-column layouts.
+    """
+    if not isinstance(elem, pf.Figure):
+        return
+
+    target = elem.content[0].content[0]
+    if "width" not in target.attributes:
+        target.attributes['width'] = doc.get_metadata('figure-width', '100%')
+
+    if doc.get_metadata('figure-span', 'column') == 'full':
+        latex = pf.convert_text(
+            elem,
+            input_format='panflute',
+            output_format='latex',
+            extra_args=['--natbib'],
+        )
+        latex = latex.replace(r'\begin{figure}', r'\begin{figure*}')
+        latex = latex.replace(r'\end{figure}', r'\end{figure*}')
+        return pf.RawBlock(latex, format='latex')
+
+basic_filters = [strip_leading_slash, stringify_captions, tag_figures, apply_figure_defaults, table_to_latex ]
 
 default_filters = basic_filters
 
