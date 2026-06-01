@@ -23,14 +23,24 @@ jobs:
           cache: pip
       - name: Install tectonic
         # tectonic is a self-contained LaTeX engine used by the e2e tests
-        # in tests/test_e2e.py. It auto-fetches packages on first use and
-        # caches them under ~/.cache/Tectonic. The drop.tectonic.works script
-        # unpacks the binary into the current directory and prints a "move it
-        # to your PATH" hint — so do that explicitly here.
+        # in tests/test_e2e.py. It auto-fetches LaTeX packages on first use
+        # and caches them under ~/.cache/Tectonic.
+        #
+        # We fetch the static-musl tarball straight from the GitHub release
+        # rather than going through drop.tectonic.works/install.sh — that
+        # host returns a TLS handshake error from current Ubuntu runners,
+        # and because the upstream installer pipes `curl | sh` (no pipefail),
+        # the failure was previously silent and the e2e tests just skipped.
+        env:
+          TECTONIC_VERSION: "0.16.9"
         run: |
+          set -euo pipefail
+          arch="x86_64-unknown-linux-musl"
+          url="https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic@${TECTONIC_VERSION}/tectonic-${TECTONIC_VERSION}-${arch}.tar.gz"
           mkdir -p "$HOME/.local/bin"
-          (cd "$HOME/.local/bin" && curl -sSL https://drop.tectonic.works/install.sh | sh)
+          curl -fSL "$url" | tar -xz -C "$HOME/.local/bin" tectonic
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/tectonic" --version
       - name: Install
         # pypandoc_binary bundles the pandoc binary on PyPI, so we avoid the
         # apt-get update + install round-trip.
