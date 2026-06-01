@@ -1,0 +1,96 @@
+%% texmark Jinja2 template for memoir-class manuscripts (theses, monographs).
+%%
+%% Uses \documentclass{memoir}. Like the book template it supports
+%% \frontmatter / \mainmatter / \backmatter structure and emits
+%% \include{stem} for top-level embeds (texmark-embed class-aware emission).
+%% The chapter heading style is configurable via the `chapter-style:` YAML
+%% key, surfaced to this template as the Jinja variable `chapter_style`
+%% (Jinja cannot reference the hyphenated key directly).
+%%
+%% memoir manages page geometry itself, so the `geometry` package is
+%% deliberately omitted to avoid the documented incompatibility.
+
+\documentclass[$if(documentclassoptions)$$documentclassoptions$$else$11pt,a4paper,openright$endif$]{memoir}
+
+%% Fonts and microtypography
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+%% Math and figures
+\usepackage{amsmath,amssymb,amsfonts,bm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{subcaption}
+
+%% References and hyperlinks (load hyperref last among these). memoir is
+%% compatible with natbib; loading it after the class avoids a double-load.
+\usepackage{natbib}
+\usepackage{url}
+\usepackage[colorlinks=true,
+            linkcolor=blue,
+            citecolor=blue,
+            urlcolor=blue]{hyperref}
+
+{% set already_included_packages = [
+  "fontenc", "inputenc", "lmodern", "microtype",
+  "amsmath", "amssymb", "amsfonts", "bm", "graphicx", "booktabs", "caption", "subcaption",
+  "natbib", "url", "hyperref",
+] -%}
+{% for package in packages -%}
+{% if package not in already_included_packages -%}
+\usepackage{ {{package}} }
+{% endif -%}
+{% endfor %}
+
+%% Chapter heading style (memoir-specific). Override via the `chapter-style:`
+%% YAML key; defaults to memoir's `default` style when unset.
+\chapterstyle{ {{ chapter_style | default("default") }} }
+
+%% Title block
+\title{ {{title}} }
+
+{% if authors -%}
+{% for author in authors -%}
+\author{ {{author.firstname}}~{{author.lastname}}{% if author.email %}\thanks{ \href{mailto:{{author.email}}}{ {{author.email}} } }{% endif %} }
+{% endfor -%}
+{% else -%}
+\author{ {{ author if author else "" }} }
+{% endif %}
+
+\date{ {{ date if date else "" }} }
+
+{{ xr_preamble | default("") }}
+{{ user_preamble | default("") }}
+{{ includeonly | default("") }}
+
+\begin{document}
+
+\frontmatter
+\maketitle
+
+{% if abstract -%}
+\begin{abstract}
+{{ abstract | join_if_list }}
+\end{abstract}
+{% endif %}
+
+\tableofcontents
+
+\mainmatter
+
+{{body}}
+
+\backmatter
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% REFERENCES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+{% if bibliography -%}
+\bibliographystyle{ {{ biblio_style if biblio_style else "plainnat" }} }
+\bibliography{ {{bibliography}} }
+{% endif %}
+
+\end{document}

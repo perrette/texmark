@@ -11,7 +11,7 @@ from pathlib import Path
 import importlib
 import panflute as pf
 from texmark.logs import logger
-from texmark.shared import filters
+from texmark.shared import filters, Filter
 from texmark.sectiontracker import SectionFilter
 from texmark.filters.tabular import table_to_latex
 from texmark.filters.embed import embed_filter
@@ -717,6 +717,24 @@ book_filters = list(basic_filters)
 
 filters['book'] = book_filters
 filters['report'] = book_filters
+
+
+def _surface_chapter_style(doc):
+    """Copy the hyphenated ``chapter-style`` YAML key to ``chapter_style``.
+
+    The memoir template emits ``\\chapterstyle{ {{ chapter_style }} }``, but
+    Jinja cannot reference a context key containing a hyphen (it parses as a
+    subtraction). We surface the value under a Jinja-safe name so the template
+    can read it; when the key is absent the template falls back to its default.
+    """
+    cs = doc.get_metadata('chapter-style', None)
+    if cs:
+        doc.metadata['chapter_style'] = pf.MetaString(str(cs))
+
+
+memoir_filters = list(basic_filters) + [Filter(prepare=_surface_chapter_style)]
+
+filters['memoir'] = memoir_filters
 
 
 def run_filters(doc):
