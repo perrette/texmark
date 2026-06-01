@@ -16,6 +16,36 @@ import panflute as pf
 import io
 from texmark.logs import logger
 from texmark.shared import BOOK_FAMILY_TEMPLATES
+from texmark.filters import download_images as _filters_download_images
+from texmark.filters import embed as _filters_embed
+from texmark.filters import crossref as _filters_crossref
+from texmark.filters import __main__ as _filters_journal
+
+
+# Built-in filters that can run inside this Python process instead of via
+# pandoc's --filter mechanism. Each --filter spawns a fresh Python interpreter
+# that re-imports panflute and round-trips the full AST through JSON; on a
+# typical paper that's ~150-470 ms per filter, all of it startup. Routing the
+# built-ins in-process saves ~600 ms per build_tex call.
+_INPROC_FILTERS = {
+    'texmark-download-images',
+    'texmark-journal',
+    'texmark-embed',
+    'texmark-crossref',
+}
+
+
+def _run_inproc_filter(name, doc):
+    if name == 'texmark-download-images':
+        return pf.run_filter(_filters_download_images.action, doc=doc)
+    if name == 'texmark-journal':
+        return _filters_journal.run_filters(doc)
+    if name == 'texmark-embed':
+        return pf.run_filter(_filters_embed.embed_filter, doc=doc)
+    if name == 'texmark-crossref':
+        cf = _filters_crossref.crossref_filter
+        return pf.run_filter(cf.action, prepare=cf.prepare, finalize=cf.finalize, doc=doc)
+    raise ValueError(f"Not a built-in in-process filter: {name!r}")
 
 rootpath = Path(texmark.__file__).resolve().parent
 
@@ -213,24 +243,46 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
         "texmark-journal",
         ] + (filters or metadata.get('filters', []))
 
-    # Step 1: Run pandoc to get JSON AST with filters applied, and updated metadata.
-    # Copy `args` so the --filter additions don't leak into the JSON->LaTeX
-    # pass below, which would re-run every filter and double any stateful
-    # transforms (e.g. resolve_image_paths injecting a \graphicspath block).
-    cmd_json = list(args)
-    for f in filters:
-        cmd_json.extend(['--filter', f])
-
+    # Step 1: Run pandoc to get JSON AST and apply filters.
+    #
+    # Fast path: when every filter is a built-in, call pandoc once with no
+    # --filter args and walk the AST with in-process panflute filters. Each
+    # --filter would otherwise spawn a fresh Python interpreter to re-import
+    # panflute and round-trip the AST through JSON — ~150-470 ms per filter
+    # on a typical paper, all startup overhead.
+    #
+    # Mixed path: any user-supplied filter triggers the original subprocess
+    # pipeline so custom filters keep working unchanged.
     post.metadata = metadata
 
-    ast_json_str = pypandoc.convert_text(
-        frontmatter.dumps(post),
-        format="markdown+footnotes",
-        to="json",
-        extra_args=cmd_json,
-    )
+    if all(f in _INPROC_FILTERS for f in filters):
+        ast_json_str = pypandoc.convert_text(
+            frontmatter.dumps(post),
+            format="markdown+footnotes",
+            to="json",
+            extra_args=args,
+        )
+        doc = pf.load(io.StringIO(ast_json_str))
+        for f in filters:
+            doc = _run_inproc_filter(f, doc)
+        sink = io.StringIO()
+        pf.dump(doc, sink)
+        ast_json_str = sink.getvalue()
+    else:
+        # Copy `args` so the --filter additions don't leak into the JSON->LaTeX
+        # pass below, which would re-run every filter and double any stateful
+        # transforms (e.g. resolve_image_paths injecting a \graphicspath block).
+        cmd_json = list(args)
+        for f in filters:
+            cmd_json.extend(['--filter', f])
+        ast_json_str = pypandoc.convert_text(
+            frontmatter.dumps(post),
+            format="markdown+footnotes",
+            to="json",
+            extra_args=cmd_json,
+        )
+        doc = pf.load(io.StringIO(ast_json_str))
 
-    doc = pf.load(io.StringIO(ast_json_str))  # <-- no input_format argument
     metadata.update(normalize_metadata(doc.metadata))
 
     # Step 2. Render Jinja2 Template (skipped for body-only chunks).
