@@ -22,6 +22,13 @@ jobs:
         # pypandoc is a wrapper; the pandoc binary is needed by the
         # integration tests in tests/test_build_tex.py.
         run: sudo apt-get update && sudo apt-get install -y pandoc
+      - name: Install tectonic
+        # tectonic is a self-contained LaTeX engine used by the e2e tests
+        # in tests/test_e2e.py. It auto-fetches packages on first use and
+        # caches them under ~/.cache/Tectonic.
+        run: |
+          curl -sSL https://drop.tectonic.works/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Install
         run: |
           python -m pip install --upgrade pip

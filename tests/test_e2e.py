@@ -1,0 +1,112 @@
+"""PDF-level end-to-end integration tests using tectonic (Item 19).
+
+These tests skip when tectonic or pandoc is not on PATH. They exercise the
+full pipeline: markdown → pandoc filters → LaTeX → real PDF via tectonic.
+"""
+import os
+import re
+import shutil
+import sys
+from pathlib import Path
+
+import pytest
+
+from texmark.build import main
+
+
+FIXTURE_E2E = Path(__file__).parent / "fixtures" / "e2e"
+REPO_ROOT = Path(__file__).parent.parent
+
+pytestmark = pytest.mark.skipif(
+    shutil.which("pandoc") is None,
+    reason="pandoc binary not available on PATH",
+)
+
+
+@pytest.fixture(autouse=True)
+def _local_texmark_on_pythonpath(monkeypatch):
+    """Ensure pandoc subprocess filters import this checkout's texmark."""
+    existing = os.environ.get("PYTHONPATH", "")
+    new_path = str(REPO_ROOT) + (os.pathsep + existing if existing else "")
+    monkeypatch.setenv("PYTHONPATH", new_path)
+
+
+def _skip_without_tectonic():
+    if shutil.which("tectonic") is None:
+        pytest.skip("tectonic not on PATH")
+
+
+@pytest.mark.e2e
+def test_e2e_multifile_pdf(tmp_path, monkeypatch):
+    """Two-chapter article builds to a real PDF via tectonic."""
+    _skip_without_tectonic()
+
+    src = FIXTURE_E2E / "multifile"
+    build_dir = tmp_path / "build"
+    monkeypatch.chdir(tmp_path)
+
+    argv = [
+        "texmark",
+        str(src / "root.md"),
+        "-d", str(build_dir),
+        "--pdf",
+        "--backend", "tectonic",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    main()
+
+    pdf = build_dir / "root.pdf"
+    assert pdf.exists(), f"PDF not produced: {pdf}"
+    assert pdf.stat().st_size > 0, "PDF file is empty"
+    assert pdf.read_bytes()[:4] == b"%PDF", "File does not start with PDF magic bytes"
+
+
+@pytest.mark.e2e
+def test_e2e_main_si_cross_refs(tmp_path, monkeypatch):
+    """Main + SI companion fixture: both PDFs produced, SI label resolves in aux."""
+    _skip_without_tectonic()
+
+    # Copy companions fixture so both .md files are co-located in a writable dir.
+    src = FIXTURE_E2E / "companions"
+    doc_dir = tmp_path / "src"
+    shutil.copytree(src, doc_dir)
+    build_dir = tmp_path / "build"
+    monkeypatch.chdir(tmp_path)
+
+    argv = [
+        "texmark",
+        str(doc_dir / "main.md"),
+        "-d", str(build_dir),
+        "--pdf",
+        "--backend", "tectonic",
+    ]
+    monkeypatch.setattr(sys, "argv", argv)
+    main()
+
+    # Both PDFs must exist and carry valid PDF magic.
+    for stem in ("main", "si"):
+        pdf = build_dir / f"{stem}.pdf"
+        assert pdf.exists(), f"{stem}.pdf not produced"
+        assert pdf.read_bytes()[:4] == b"%PDF", f"{stem}.pdf lacks PDF magic bytes"
+
+    # SI's aux must contain the label fig:noise with a resolved (non-??) value.
+    # tectonic --keep-intermediates retains .aux files alongside the .pdf.
+    si_aux = build_dir / "si.aux"
+    assert si_aux.exists(), "si.aux not found; tectonic may not have kept intermediates"
+    aux_text = si_aux.read_text(errors="replace")
+    assert r"\newlabel{fig:noise}" in aux_text, (
+        "\\newlabel{fig:noise} missing from si.aux — label not defined in SI"
+    )
+    m = re.search(r"\\newlabel\{fig:noise\}\{([^}]*)\}", aux_text)
+    assert m is not None
+    assert "??" not in m.group(1), (
+        f"fig:noise still unresolved (??) in si.aux: {m.group(1)!r}"
+    )
+
+    # main.aux must contain the xr-hyper-imported si: prefix entry.
+    main_aux = build_dir / "main.aux"
+    assert main_aux.exists(), "main.aux not found"
+    main_aux_text = main_aux.read_text(errors="replace")
+    assert "si:fig:noise" in main_aux_text, (
+        "si:fig:noise not found in main.aux — xr-hyper did not import the SI label"
+    )

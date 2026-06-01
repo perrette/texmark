@@ -83,3 +83,8 @@ texmark-crossref = "texmark.filters.crossref:main"
 
 [tool.setuptools_scm]
 write_to = "texmark/_version.py"
+
+[tool.pytest.ini_options]
+markers = [
+    "e2e: end-to-end PDF test requiring tectonic on PATH",
+]
