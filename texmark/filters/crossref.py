@@ -72,13 +72,34 @@ class CrossrefFilter:
         label = match.group("label")
         return pf.RawInline(f"\\ref{{{stem}:{label}}}", format="latex")
 
+    # Counter name → (YAML override key, LaTeX \the<cmd> name)
+    _COUNTER_MAP = [
+        ("figure",   "figure-prefix",   "thefigure"),
+        ("table",    "table-prefix",    "thetable"),
+        ("equation", "equation-prefix", "theequation"),
+        ("section",  "section-prefix",  "thesection"),
+    ]
+
     def finalize(self, doc):
-        if not self.xr_targets:
-            return
-        lines = ["\\usepackage{xr-hyper}"]
-        for stem in self.xr_targets:
-            lines.append(f"\\externaldocument[{stem}:]{{{stem}}}")
-        doc.metadata["xr_preamble"] = pf.MetaString("\n".join(lines) + "\n")
+        lines = []
+
+        if self.xr_targets:
+            lines.append("\\usepackage{xr-hyper}")
+            for stem in self.xr_targets:
+                lines.append(f"\\externaldocument[{stem}:]{{{stem}}}")
+
+        prefix_default = doc.get_metadata("prefix", None) or ""
+        for counter, override_key, cmd in self._COUNTER_MAP:
+            p = doc.get_metadata(override_key, None) or ""
+            if not p:
+                p = prefix_default
+            if p:
+                lines.append(
+                    f"\\renewcommand{{\\{cmd}}}{{{p}\\arabic{{{counter}}}}}"
+                )
+
+        if lines:
+            doc.metadata["xr_preamble"] = pf.MetaString("\n".join(lines) + "\n")
 
 
 crossref_filter = CrossrefFilter()
