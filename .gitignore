@@ -176,5 +176,6 @@ cython_debug/
 .pypirc
 
 # Autonomous roadmap workflows (local coordination artifacts; never committed)
-workflows/
-.worktrees/
+# Anchored to repo root so it doesn't shadow .github/workflows/.
+/workflows/
+/.worktrees/

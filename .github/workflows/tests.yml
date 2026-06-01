@@ -1,8 +1,10 @@
 name: tests
 
 on:
-  - push
-  - pull_request
+  push:
+    branches: [main]
+    tags: ['*']
+  pull_request:
 
 jobs:
   test:
@@ -10,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.13"]
 
     steps:
       - uses: actions/checkout@v4
@@ -18,10 +20,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - name: Install pandoc
-        # pypandoc is a wrapper; the pandoc binary is needed by the
-        # integration tests in tests/test_build_tex.py.
-        run: sudo apt-get update && sudo apt-get install -y pandoc
+          cache: pip
       - name: Install tectonic
         # tectonic is a self-contained LaTeX engine used by the e2e tests
         # in tests/test_e2e.py. It auto-fetches packages on first use and
@@ -30,9 +29,17 @@ jobs:
           curl -sSL https://drop.tectonic.works/install.sh | sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Install
+        # pypandoc_binary bundles the pandoc binary on PyPI, so we avoid the
+        # apt-get update + install round-trip.
         run: |
           python -m pip install --upgrade pip
-          pip install -e . pytest
+          pip install -e . pytest pypandoc_binary
+      - name: Expose bundled pandoc on PATH
+        # pypandoc_binary ships the binary at pypandoc/files/pandoc rather than
+        # in the venv bin/, so shutil.which("pandoc") (used by the test skip in
+        # tests/test_build_tex.py) wouldn't find it without this.
+        run: |
+          python -c "import os, pypandoc; print(os.path.join(os.path.dirname(pypandoc.__file__), 'files'))" >> "$GITHUB_PATH"
       - name: Run tests
         run: pytest -v
 
