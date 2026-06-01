@@ -34,5 +34,4 @@ filters = {}
 # classicthesis). Top-level embeds in these templates emit ``\include{stem}``
 # so ``\includeonly{}`` can scope them; nested embeds and article-class
 # templates emit ``\input{stem}`` instead (LaTeX forbids nested ``\include``).
-# Future items (16 classicthesis) extend this set.
-BOOK_FAMILY_TEMPLATES = {"book", "report", "memoir"}
+BOOK_FAMILY_TEMPLATES = {"book", "report", "memoir", "classicthesis"}

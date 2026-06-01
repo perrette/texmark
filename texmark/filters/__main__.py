@@ -737,6 +737,28 @@ memoir_filters = list(basic_filters) + [Filter(prepare=_surface_chapter_style)]
 filters['memoir'] = memoir_filters
 
 
+def _surface_classicthesis_options(doc):
+    """Copy the hyphenated ``classicthesis-options`` YAML key to
+    ``classicthesis_options``.
+
+    The classicthesis template emits
+    ``\\usepackage[ {{ classicthesis_options }} ]{classicthesis}``, but Jinja
+    cannot reference a context key containing a hyphen (it parses as a
+    subtraction). We surface the value under a Jinja-safe name; when the key
+    is absent the template loads the package with its own defaults.
+    """
+    opts = doc.get_metadata('classicthesis-options', None)
+    if opts:
+        doc.metadata['classicthesis_options'] = pf.MetaString(str(opts))
+
+
+classicthesis_filters = list(basic_filters) + [
+    Filter(prepare=_surface_classicthesis_options)
+]
+
+filters['classicthesis'] = classicthesis_filters
+
+
 def run_filters(doc):
 
     if doc is not None:

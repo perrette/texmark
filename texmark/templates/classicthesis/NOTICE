@@ -1,0 +1,20 @@
+classicthesis.sty bundled in this directory
+============================================
+
+The file `classicthesis.sty` is André Miede's "classicthesis" package,
+sourced from CTAN (https://ctan.org/pkg/classicthesis).
+
+Copyright (C) 2025 André Miede and Ivo Pletikosić.
+
+It is distributed under the terms of the GNU General Public License
+(GPL), version 2 or (at your option) any later version. See the header
+of `classicthesis.sty` for the full license text.
+
+This is SEPARATE from texmark's own MIT license. The package is
+redistributed here unmodified, under its own GPL license, purely as a
+convenience so the `classicthesis` template can be compiled without a
+separate CTAN download. texmark itself remains MIT-licensed; bundling a
+GPL package alongside it does not relicense texmark.
+
+If you redistribute this template directory, you must continue to honour
+the GPL terms for `classicthesis.sty`.
