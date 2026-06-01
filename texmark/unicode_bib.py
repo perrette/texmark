@@ -247,6 +247,33 @@ def stage_bib(src: str | Path, dst_dir: str | Path) -> Path | None:
     return dst_path
 
 
+def rewrite_in_place(path: str | Path) -> list[tuple[int, int, str | None]]:
+    """Rewrite ``path``'s contents through :func:`rewrite_text` and overwrite
+    the file when (and only when) the rewrite actually changes its bytes.
+
+    Skipping the no-op write preserves mtime so latexmk's fingerprint
+    cache isn't invalidated by a build that didn't change anything.
+    Used by ``build_tex`` to also catch non-ASCII codepoints in the
+    pandoc-rendered ``.tex`` body — the body has the same pdflatex
+    "Unicode not set up" failure mode as the bibliography, just less
+    commonly hit because pandoc converts the most common typography
+    chars (em-dash, smart quotes, ellipsis) on its way to LaTeX.
+
+    Returns the unmapped-codepoint list. Warnings are emitted as a side
+    effect via :func:`warn_unmapped` so callers don't have to thread
+    them through.
+    """
+    p = Path(path)
+    if not p.exists():
+        return []
+    raw = p.read_text(encoding='utf-8', errors='replace')
+    rewritten, unmapped = rewrite_text(raw)
+    if rewritten != raw:
+        p.write_text(rewritten, encoding='utf-8')
+    warn_unmapped(unmapped, p)
+    return unmapped
+
+
 def warn_unmapped(unmapped: list[tuple[int, int, str | None]],
                   src_path: str | Path) -> None:
     """Emit a ``logger.warning`` per unmapped codepoint."""

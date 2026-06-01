@@ -122,7 +122,7 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
               copy_figures=None, figure_folders=None, project_root=None, body_only=False,
               companion_stems=None, embed_stems=None, own_stem=None,
               figure_manifest_accumulate=False, embed_depth=0,
-              includeonly='', extra_includes=None):
+              includeonly='', extra_includes=None, engine=None):
     # 1. Parse Markdown
     input_text = open(input_md).read()
     post = frontmatter.loads(input_text)
@@ -361,6 +361,21 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
             f.write(body)
         else:
             f.write(master_template.render(body=body, **metadata))  # Includes authors/abstract
+
+    # pdflatex's 8-bit font stack drops non-ASCII codepoints outside
+    # inputenc's default table. Pandoc converts the common typography
+    # chars (em-dash, smart quotes, ellipsis) but passes the rest
+    # through raw — so a δ or ⁸ written directly in the body markdown
+    # ends up in the .tex and triggers "Unicode character not set up"
+    # at compile time. Run the same rewriter we use on the staged .bib
+    # over the freshly written .tex so the body is covered too. Engine
+    # default is None to keep older signatures working; we treat None
+    # and 'pdflatex' the same since the rewrite is harmless either way
+    # (it just becomes a no-op when nothing matches).
+    effective_engine = engine or metadata.get('engine') or 'pdflatex'
+    if effective_engine == 'pdflatex':
+        from texmark.unicode_bib import rewrite_in_place
+        rewrite_in_place(output_tex)
 
     metadata["resource_path"] = str(resource_path)
     return metadata
