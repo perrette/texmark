@@ -269,6 +269,28 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
         shutil.copyfile(actual_pdf, output_pdf)
 
 
+MAX_PASSES = 4
+
+
+def _aux_files_snapshot(project, build_dir):
+    """Return a dict mapping each root/companion stem to its current `.aux` bytes.
+
+    Used by the multi-pass companion build loop to detect when cross-doc refs
+    have stabilised. Missing files contribute empty bytes so the snapshot is
+    well-defined on the very first pass (before any `.aux` exists).
+    """
+    build_dir = Path(build_dir)
+    docs = [project.root_file] + list(project.companion_files)
+    snapshot = {}
+    for doc in docs:
+        aux = build_dir / f"{doc.stem}.aux"
+        try:
+            snapshot[doc.stem] = aux.read_bytes()
+        except FileNotFoundError:
+            snapshot[doc.stem] = b""
+    return snapshot
+
+
 def watch_loop(do_build, paths, interval=0.5):
     """Rebuild whenever any of `paths` changes mtime. Loops until Ctrl-C.
 
@@ -383,6 +405,7 @@ def main():
     # need to be re-derived on every body-only/master build call below.
     companion_stems = [p.stem for p in project.companion_files]
     embed_stems = [p.stem for p in project.embedded_files]
+    root_stem = Path(primary_input).stem
 
     def do_build():
         # Resolve engine/backend per-build so editing YAML in --watch mode takes effect.
@@ -393,7 +416,7 @@ def main():
 
         # Body-only builds for each embedded chapter, written as
         # `<build>/<stem>.tex` so the master's `\input{<stem>}` resolves at
-        # LaTeX time. compile_pdf is invoked once, on the master.
+        # LaTeX time. Embeds are not separately compiled.
         for embed_path in project.embedded_files:
             embed_tex = Path(args.build) / f"{embed_path.stem}.tex"
             build_tex(str(embed_path), str(embed_tex),
@@ -409,22 +432,83 @@ def main():
                       embed_stems=embed_stems,
                       own_stem=embed_path.stem)
 
-        metadata = build_tex(primary_input, tex_file, template=args.template, bib_file=args.bib,
-                             build_dir=args.build,
-                             filters=args.filters, journal_template=args.journal_template,
-                             filters_module=args.filters_module, packages=args.packages,
-                             copy_figures=args.copy_figures,
-                             figure_folders=args.figure_folders,
-                             project_root=args.project_root,
-                             companion_stems=companion_stems,
-                             embed_stems=embed_stems,
-                             own_stem=Path(primary_input).stem)
+        # Build the master .tex for the root.
+        root_metadata = build_tex(
+            primary_input, tex_file, template=args.template, bib_file=args.bib,
+            build_dir=args.build,
+            filters=args.filters, journal_template=args.journal_template,
+            filters_module=args.filters_module, packages=args.packages,
+            copy_figures=args.copy_figures,
+            figure_folders=args.figure_folders,
+            project_root=args.project_root,
+            companion_stems=companion_stems,
+            embed_stems=embed_stems,
+            own_stem=root_stem,
+        )
+
+        # Build each companion's standalone .tex. Each companion gets the
+        # universe of peers (root + sibling companions) minus itself so its
+        # crossref filter can wire xr-hyper in both directions. Companions
+        # are first-class documents: bibliography, template, and engine come
+        # from the companion's own YAML, not the root's CLI overrides.
+        companion_builds = []  # (companion_path, tex_path, pdf_path, metadata)
+        for comp_path in project.companion_files:
+            peers = [root_stem] + [s for s in companion_stems if s != comp_path.stem]
+            comp_tex = build_dir / f"{comp_path.stem}.tex"
+            comp_pdf = build_dir / f"{comp_path.stem}.pdf"
+            comp_meta = build_tex(
+                str(comp_path), str(comp_tex),
+                build_dir=args.build,
+                filters=args.filters,
+                filters_module=args.filters_module, packages=args.packages,
+                copy_figures=args.copy_figures,
+                figure_folders=args.figure_folders,
+                project_root=args.project_root,
+                companion_stems=peers,
+                own_stem=comp_path.stem,
+            )
+            companion_builds.append((comp_path, comp_tex, comp_pdf, comp_meta))
+
         if want_pdf:
-            compile_pdf(tex_file, pdf_file, engine=engine, build_dir=args.build,
-                        bib_file=str(metadata.get('bibliography') or ''),
-                        resource_path=str(metadata.get('resource_path') or ''),
-                        backend=backend)
-        return metadata
+            # Build target list: (input_tex, output_pdf, bib_file, resource_path).
+            # Body-only embeds are inputs to the master, never compile targets.
+            targets = [(
+                tex_file, pdf_file,
+                str(root_metadata.get('bibliography') or ''),
+                str(root_metadata.get('resource_path') or ''),
+            )]
+            for _cp, c_tex, c_pdf, c_meta in companion_builds:
+                targets.append((
+                    c_tex, c_pdf,
+                    str(c_meta.get('bibliography') or ''),
+                    str(c_meta.get('resource_path') or ''),
+                ))
+
+            # Companions need multi-pass coordination: xr-hyper resolves
+            # cross-doc refs by reading peer .aux files, so each pass may
+            # change another doc's aux until they all stabilise. With no
+            # companions there is nothing to coordinate — single pass.
+            if project.companion_files:
+                prev_snapshot = None
+                for pass_idx in range(1, MAX_PASSES + 1):
+                    for in_tex, out_pdf, bib, rp in targets:
+                        compile_pdf(in_tex, out_pdf, engine=engine, build_dir=args.build,
+                                    bib_file=bib, resource_path=rp, backend=backend)
+                    cur_snapshot = _aux_files_snapshot(project, build_dir)
+                    if prev_snapshot is not None and cur_snapshot == prev_snapshot:
+                        break
+                    prev_snapshot = cur_snapshot
+                else:
+                    logger.warning(
+                        "texmark: companion build did not converge after "
+                        f"{MAX_PASSES} passes; cross-refs may be stale"
+                    )
+            else:
+                in_tex, out_pdf, bib, rp = targets[0]
+                compile_pdf(in_tex, out_pdf, engine=engine, build_dir=args.build,
+                            bib_file=bib, resource_path=rp, backend=backend)
+
+        return root_metadata
 
     if args.watch:
         metadata = do_build()
