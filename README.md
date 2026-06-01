@@ -139,6 +139,7 @@ figure-span: full                      # optional: wraps in figure* (full text w
                                        #   per-figure override: ![cap](img){figure-span=full}
 copy_figures: false                    # optional: see "Figure paths" below
 figure_folders: [images, ../shared]    # optional: see "Figure paths" below
+project_root: .                        # optional: see "Figure paths" below
 ```
 
 Section-style metadata can also be given as markdown `# ...` headings. Any
@@ -152,10 +153,22 @@ target journal. The exact list each template recognises is in
 
 ## Figure paths
 
-By default texmark resolves each `![](path)` URL against the markdown
-file's directory and rewrites it in the generated `.tex` to be relative to
-the build directory. The figure files stay where they are on disk; nothing
-is copied.
+texmark interprets `![](path)` URLs by the same rules as GitHub's markdown
+renderer:
+
+- **No leading slash** — relative to the markdown file's directory
+  (the standard markdown spec).
+- **Leading slash** — relative to the project root. By default the
+  project root is detected via `git rev-parse --show-toplevel`, run from
+  the markdown's directory so submodules and worktrees resolve to their
+  own root rather than the outer repo's. For non-git projects, the
+  invocation directory (CWD) is used. You can override either by passing
+  `--project-root <path>` on the CLI (or `project_root: <path>` in the
+  yaml front-matter).
+
+Once resolved, each URL is rewritten in the generated `.tex` to be
+relative to the build directory. The figure files stay where they are on
+disk; nothing is copied.
 
 If you would rather have short paths in the `.tex` (e.g. `eof.png`
 instead of `../images/eof.png`), pass `--figure-folders <dir> [<dir> ...]`

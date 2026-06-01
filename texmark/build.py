@@ -72,7 +72,7 @@ def join_if_list(value, sep='\n\n'):
 
 def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
               filters=None, journal_template=None, filters_module=None, packages=None,
-              copy_figures=None, figure_folders=None):
+              copy_figures=None, figure_folders=None, project_root=None):
     # 1. Parse Markdown
     input_text = open(input_md).read()
     post = frontmatter.loads(input_text)
@@ -107,6 +107,16 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     if figure_folders is None:
         figure_folders = metadata.get('figure_folders', []) or []
     metadata['figure_folders'] = [str(Path(p).resolve()) for p in figure_folders]
+
+    # project_root is what GitHub-style leading-slash URLs resolve
+    # against. When set explicitly (CLI > yaml), the filter uses it
+    # verbatim; otherwise the filter auto-detects via `git rev-parse
+    # --show-toplevel` (run from source_dir, so submodules behave) and
+    # falls back to cwd. We resolve CWD-relative paths here so the
+    # filter doesn't have to.
+    if project_root is None:
+        project_root = metadata.get('project_root', None) or None
+    metadata['project_root'] = str(Path(project_root).resolve()) if project_root else None
 
      # 2. Apply filters and convert to AST
 
@@ -237,6 +247,13 @@ def main():
                              'under any of these folders get short URLs in the .tex; figures elsewhere fall '
                              'back to a path relative to the build dir. Ignored when --copy-figures is set. '
                              'Yaml equivalent: figure_folders: [<list>].')
+    parser.add_argument('--project-root', default=None,
+                        help='Project root used to resolve GitHub-style leading-slash figure URLs '
+                             '(![](/images/foo.png) -> <project-root>/images/foo.png). Interpreted '
+                             'relative to the current working directory. When unset, texmark detects '
+                             'via `git rev-parse --show-toplevel` (run from the markdown\'s directory, '
+                             'so submodules resolve correctly) and falls back to the current working '
+                             'directory for non-git projects. Yaml equivalent: project_root: <path>.')
     parser.add_argument('--packages', nargs='*', help='custom latex packages to include')
     # Deprecated: figures are now discovered from the markdown URLs, and
     # (with --copy-figures) always bundled into <build>/images/. The flag
@@ -259,7 +276,8 @@ def main():
                          filters=args.filters, journal_template=args.journal_template,
                          filters_module=args.filters_module, packages=args.packages,
                          copy_figures=args.copy_figures,
-                         figure_folders=args.figure_folders)
+                         figure_folders=args.figure_folders,
+                         project_root=args.project_root)
 
     if args.pdf:
         compile_pdf(tex_file, pdf_file, args.engine, args.build,

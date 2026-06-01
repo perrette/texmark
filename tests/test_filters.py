@@ -2,6 +2,7 @@
 
 These exercise the in-memory transforms without needing pandoc or LaTeX.
 """
+from pathlib import Path
 import panflute as pf
 import pytest
 
@@ -27,22 +28,25 @@ def make_doc():
 
 
 class TestStripLeadingSlash:
-    def test_strips_leading_slash_on_image(self):
+    def test_leaves_image_urls_alone(self):
+        # Image URLs are now managed by resolve_image_paths, which needs
+        # the leading slash as a signal for project-root-relative
+        # interpretation. strip_leading_slash must not touch them.
         img = pf.Image(pf.Str("caption"), url="/images/x.png")
         strip_leading_slash(img, make_doc())
-        assert img.url == "images/x.png"
+        assert img.url == "/images/x.png"
 
     def test_strips_leading_slash_on_link(self):
         link = pf.Link(pf.Str("text"), url="/page")
         strip_leading_slash(link, make_doc())
         assert link.url == "page"
 
-    def test_leaves_remote_urls_alone(self):
+    def test_leaves_remote_image_urls_alone(self):
         img = pf.Image(pf.Str("caption"), url="https://example.com/x.png")
         strip_leading_slash(img, make_doc())
         assert img.url == "https://example.com/x.png"
 
-    def test_leaves_relative_urls_alone(self):
+    def test_leaves_relative_image_urls_alone(self):
         img = pf.Image(pf.Str("caption"), url="images/x.png")
         strip_leading_slash(img, make_doc())
         assert img.url == "images/x.png"
@@ -52,12 +56,12 @@ class TestStripLeadingSlash:
 
 
 def _make_doc_with_images(source_dir, build_dir, image_urls, copy_figures=False,
-                          figure_folders=None, cwd=None):
+                          figure_folders=None, cwd=None, project_root=None):
     """Build a pf.Doc whose body contains an Image per url, plus metadata.
 
-    ``cwd`` defaults to ``source_dir`` so tests that don't care about the
-    nested-source layout behave as if texmark was invoked from the same
-    directory as the markdown (the simple case).
+    ``cwd`` defaults to ``source_dir`` (simple invoke-from-md-dir case).
+    ``project_root``, when set, becomes an explicit override the filter
+    uses verbatim for leading-slash URLs (no git auto-detect).
     """
     blocks = [pf.Para(pf.Image(pf.Str("c"), url=u)) for u in image_urls]
     meta = {
@@ -68,6 +72,8 @@ def _make_doc_with_images(source_dir, build_dir, image_urls, copy_figures=False,
     }
     if figure_folders is not None:
         meta['figure_folders'] = [str(p) for p in figure_folders]
+    if project_root is not None:
+        meta['project_root'] = str(project_root)
     return pf.Doc(*blocks, metadata=meta)
 
 
@@ -371,23 +377,26 @@ class TestResolveImagePathsFigureFolders:
         assert _graphicspath_block(doc) is None
 
 
-# ---- ResolveImagePathsFilter: nested-source / cwd-fallback resolution -----
+# ---- ResolveImagePathsFilter: project_root for leading-slash URLs --------
 
 
-class TestResolveImagePathsCwdFallback:
-    """Regression for the LGM-style layout:
+class TestResolveImagePathsProjectRoot:
+    """Leading slash on an Image URL means project-root-relative
+    (GitHub convention). The project_root is resolved by:
 
-        <root>/sources/main.md        (source_dir = <root>/sources/)
-        <root>/images/fig.png
-        <root>/                       (cwd at invocation)
+        1. Explicit ``project_root`` metadata (yaml or CLI)
+        2. ``git rev-parse --show-toplevel`` run from source_dir
+        3. cwd (last resort)
 
-    Markdown contains ``![](/images/fig.png)`` for GitHub preview;
-    strip_leading_slash upstream turns it into ``images/fig.png``. Naive
-    source_dir-only resolution fails (no ``<root>/sources/images/`` dir),
-    so the filter must fall back to cwd to find ``<root>/images/fig.png``.
+    Non-slash URLs always resolve relative to source_dir (markdown spec)
+    — no cwd fallback.
     """
 
     def _make_lgm_layout(self, tmp_path):
+        # The LGM-style layout that motivated this design:
+        #     <root>/sources/main.md
+        #     <root>/images/fig.png
+        #     <root>/build/
         root = tmp_path
         (root / "sources").mkdir()
         (root / "images").mkdir()
@@ -395,53 +404,81 @@ class TestResolveImagePathsCwdFallback:
         (root / "images" / "fig.png").write_bytes(b"contents")
         return root
 
-    def test_default_mode_falls_back_to_cwd(self, tmp_path):
+    def test_leading_slash_resolves_via_explicit_project_root(self, tmp_path):
         root = self._make_lgm_layout(tmp_path)
         doc = _make_doc_with_images(
             source_dir=root / "sources",
             build_dir=root / "build",
-            image_urls=["images/fig.png"],
-            cwd=root,
+            image_urls=["/images/fig.png"],
+            cwd=root / "somewhere-irrelevant",  # explicit project_root wins
+            project_root=root,
         )
         _run_filter(ResolveImagePathsFilter(), doc)
-        # build/ -> ../images/fig.png reaches the real file
         assert _image_urls(doc) == ["../images/fig.png"]
 
-    def test_copy_mode_falls_back_to_cwd_and_bundles(self, tmp_path):
+    def test_leading_slash_copy_mode_with_explicit_project_root(self, tmp_path):
         root = self._make_lgm_layout(tmp_path)
         doc = _make_doc_with_images(
             source_dir=root / "sources",
             build_dir=root / "build",
-            image_urls=["images/fig.png"],
+            image_urls=["/images/fig.png"],
             copy_figures=True,
             cwd=root,
+            project_root=root,
         )
         _run_filter(ResolveImagePathsFilter(), doc)
-        # File is bundled and URL is rewritten — this is the regression
-        # that prompted the cwd fallback (previously: empty bundle, URL
-        # left as "images/fig.png" pointing at nothing).
         assert _image_urls(doc) == ["figures/fig.png"]
         assert (root / "build" / "figures" / "fig.png").read_bytes() == b"contents"
 
-    def test_source_dir_wins_when_both_resolve(self, tmp_path):
-        # When both source_dir/url and cwd/url exist, source_dir wins
-        # (markdown spec: paths are relative to the document).
-        root = tmp_path
-        (root / "sources" / "images").mkdir(parents=True)
-        (root / "images").mkdir()
-        (root / "build").mkdir()
-        (root / "sources" / "images" / "fig.png").write_bytes(b"doc-relative")
-        (root / "images" / "fig.png").write_bytes(b"project-relative")
-
+    def test_leading_slash_falls_back_to_cwd_outside_git(self, tmp_path):
+        # No explicit project_root, no git repo -> cwd is the fallback.
+        # tmp_path is normally not a git repo, but be defensive.
+        root = self._make_lgm_layout(tmp_path)
         doc = _make_doc_with_images(
             source_dir=root / "sources",
             build_dir=root / "build",
-            image_urls=["images/fig.png"],
-            copy_figures=True,
+            image_urls=["/images/fig.png"],
             cwd=root,
+            # project_root unset -> auto-detect chain
         )
         _run_filter(ResolveImagePathsFilter(), doc)
-        assert (root / "build" / "figures" / "fig.png").read_bytes() == b"doc-relative"
+        # Whether git-detected (root, if tmp_path happens to be inside a
+        # repo) or cwd-fallback, both point at the same root here.
+        assert _image_urls(doc) == ["../images/fig.png"]
+
+    def test_no_leading_slash_does_not_fall_back_to_cwd(self, tmp_path):
+        # Strict mode: a URL without a leading slash that doesn't resolve
+        # from source_dir must NOT be rescued by cwd, even if the file
+        # exists there. This is the part that the overly-permissive
+        # v0.8.1 fix got wrong.
+        root = self._make_lgm_layout(tmp_path)
+        doc = _make_doc_with_images(
+            source_dir=root / "sources",
+            build_dir=root / "build",
+            image_urls=["images/fig.png"],  # no leading slash
+            cwd=root,
+            project_root=root,
+        )
+        _run_filter(ResolveImagePathsFilter(), doc)
+        # URL is left as-is (pdflatex will complain at compile time).
+        assert _image_urls(doc) == ["images/fig.png"]
+
+    def test_explicit_project_root_overrides_git(self, tmp_path):
+        # The texmark repo is itself a git repo, so running this from
+        # the texmark source_dir would normally git-detect texmark's
+        # toplevel. The explicit setting must win.
+        root = self._make_lgm_layout(tmp_path)
+        doc = _make_doc_with_images(
+            source_dir=Path(__file__).resolve().parent,  # inside texmark repo
+            build_dir=root / "build",
+            image_urls=["/images/fig.png"],
+            cwd=Path("/"),  # nonsense cwd to prove it isn't used
+            project_root=root,
+        )
+        _run_filter(ResolveImagePathsFilter(), doc)
+        # Resolved via the explicit project_root; URL is relpath from
+        # build_dir to <root>/images/fig.png.
+        assert _image_urls(doc) == ["../images/fig.png"]
 
 
 # ---- tag_figures ----------------------------------------------------------

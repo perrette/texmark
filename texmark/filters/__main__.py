@@ -6,6 +6,7 @@ import json
 import re
 import hashlib
 import shutil
+import subprocess
 from pathlib import Path
 import importlib
 import panflute as pf
@@ -18,6 +19,11 @@ def _is_remote_url(url):
     return url.startswith(('http://', 'https://', 'data:'))
 
 def strip_leading_slash(elem, doc):
+    # Image URLs are managed by resolve_image_paths, which uses the
+    # leading slash as a signal that the path is project-root-relative
+    # (GitHub convention). Stripping it here would erase that signal.
+    if isinstance(elem, pf.Image):
+        return
     if hasattr(elem, 'url'):
         if elem.url.startswith('/'):
             # Remove leading slash to make it repo-root relative (like GitHub)
@@ -71,34 +77,82 @@ class ResolveImagePathsFilter:
         self.copy_mode = False
         self.build_dir = Path("build")
         self.source_dir = Path(".")
-        # texmark's invocation directory; used as a fallback resolution
-        # root so GitHub-style /images/foo.png URLs (stripped to
-        # images/foo.png upstream) still resolve when the markdown lives
-        # in a subdirectory like sources/ but the figure is at the
-        # project root level.
+        # texmark's invocation directory; last-resort fallback for
+        # project_root resolution when no explicit setting and no git
+        # repo is detected.
         self.cwd = Path(".")
+        # Project root (per the GitHub leading-slash convention):
+        # resolved on demand from explicit metadata -> git rev-parse
+        # --show-toplevel (run from source_dir) -> cwd.
+        self._project_root = None
         # original-url -> bundle-relative path written into the .tex
         self.url_map = {}
         # basenames of files we put under <build_dir>/figures/ this run
         self.copied = set()
         # absolute Paths fed to LaTeX's \graphicspath (non-copy mode only)
         self.figure_folders = []
+        # Explicit project_root from metadata, or None to auto-detect.
+        self._project_root_explicit = None
+
+    def _detect_project_root(self):
+        """Resolve the project_root used to interpret leading-slash URLs.
+
+        Detection order:
+          1. Explicit ``project_root`` metadata (yaml or CLI), if set.
+          2. ``git rev-parse --show-toplevel`` run from source_dir, so
+             submodules / worktrees resolve to their own root rather than
+             the outer repo's.
+          3. cwd (texmark's invocation directory) as a last resort.
+
+        Result is cached on the instance for the rest of the build.
+        """
+        if self._project_root is not None:
+            return self._project_root
+        if self._project_root_explicit:
+            self._project_root = Path(self._project_root_explicit).resolve()
+            return self._project_root
+        try:
+            out = subprocess.check_output(
+                ['git', 'rev-parse', '--show-toplevel'],
+                cwd=self.source_dir,
+                stderr=subprocess.DEVNULL,
+                timeout=5,
+            ).decode().strip()
+            if out:
+                self._project_root = Path(out).resolve()
+                return self._project_root
+        except (subprocess.CalledProcessError, FileNotFoundError,
+                subprocess.TimeoutExpired, OSError):
+            pass
+        self._project_root = self.cwd
+        return self._project_root
 
     def _resolve_local_url(self, url):
         """Resolve a (local) image URL to an absolute Path on disk.
 
-        Tries source_dir/url first (markdown spec: paths are relative to
-        the document), then cwd/url as a fallback for the GitHub-style
-        leading-slash convention (``/images/foo.png`` is stripped to
-        ``images/foo.png`` upstream but really means project-root
-        relative). Returns None when neither resolves to an existing
-        file — texmark-download-images output (already relative to
-        build_dir) and missing-figure paths both fall through to None.
+        Markdown semantics:
+          - Leading slash → strip and resolve against ``project_root``
+            (GitHub convention: ``/foo`` means "<repo>/foo"). The
+            ``project_root`` detection chain handles git submodules
+            (rev-parse runs from source_dir) and non-git projects (falls
+            back to cwd).
+          - No leading slash → resolve against source_dir only, per the
+            markdown spec (paths are relative to the document).
+
+        Returns None when the resolved path doesn't exist — pdflatex
+        will surface the missing-figure error at compile time, and
+        texmark-download-images output (already build_dir-relative)
+        falls through to None too.
         """
-        for root in (self.source_dir, self.cwd):
-            p = (root / url).resolve()
+        if url.startswith('/'):
+            stripped = url.lstrip('/')
+            p = (self._detect_project_root() / stripped).resolve()
             if p.exists():
                 return p
+            return None
+        p = (self.source_dir / url).resolve()
+        if p.exists():
+            return p
         return None
 
     @staticmethod
@@ -188,6 +242,7 @@ class ResolveImagePathsFilter:
         self.build_dir = Path(doc.get_metadata('build_dir', 'build')).resolve()
         self.source_dir = Path(doc.get_metadata('source_dir', '.')).resolve()
         self.cwd = Path(doc.get_metadata('cwd', '.')).resolve()
+        self._project_root_explicit = doc.get_metadata('project_root', None) or None
         # figure_folders only have meaning in non-copy mode; ignored
         # silently otherwise so users can keep them set in yaml without
         # toggling.
