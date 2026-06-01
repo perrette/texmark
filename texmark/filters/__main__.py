@@ -71,12 +71,35 @@ class ResolveImagePathsFilter:
         self.copy_mode = False
         self.build_dir = Path("build")
         self.source_dir = Path(".")
+        # texmark's invocation directory; used as a fallback resolution
+        # root so GitHub-style /images/foo.png URLs (stripped to
+        # images/foo.png upstream) still resolve when the markdown lives
+        # in a subdirectory like sources/ but the figure is at the
+        # project root level.
+        self.cwd = Path(".")
         # original-url -> bundle-relative path written into the .tex
         self.url_map = {}
         # basenames of files we put under <build_dir>/figures/ this run
         self.copied = set()
         # absolute Paths fed to LaTeX's \graphicspath (non-copy mode only)
         self.figure_folders = []
+
+    def _resolve_local_url(self, url):
+        """Resolve a (local) image URL to an absolute Path on disk.
+
+        Tries source_dir/url first (markdown spec: paths are relative to
+        the document), then cwd/url as a fallback for the GitHub-style
+        leading-slash convention (``/images/foo.png`` is stripped to
+        ``images/foo.png`` upstream but really means project-root
+        relative). Returns None when neither resolves to an existing
+        file — texmark-download-images output (already relative to
+        build_dir) and missing-figure paths both fall through to None.
+        """
+        for root in (self.source_dir, self.cwd):
+            p = (root / url).resolve()
+            if p.exists():
+                return p
+        return None
 
     @staticmethod
     def _content_hash(path, length=HASH_LEN):
@@ -164,6 +187,7 @@ class ResolveImagePathsFilter:
         self.copy_mode = bool(doc.get_metadata('copy_figures', False))
         self.build_dir = Path(doc.get_metadata('build_dir', 'build')).resolve()
         self.source_dir = Path(doc.get_metadata('source_dir', '.')).resolve()
+        self.cwd = Path(doc.get_metadata('cwd', '.')).resolve()
         # figure_folders only have meaning in non-copy mode; ignored
         # silently otherwise so users can keep them set in yaml without
         # toggling.
@@ -179,8 +203,8 @@ class ResolveImagePathsFilter:
         def _collect(elem, _doc):
             if isinstance(elem, pf.Image) and elem.url and not _is_remote_url(elem.url):
                 if elem.url not in seen:
-                    p = (self.source_dir / elem.url).resolve()
-                    if p.exists():
+                    p = self._resolve_local_url(elem.url)
+                    if p is not None:
                         seen[elem.url] = p
             return None
 
@@ -201,8 +225,8 @@ class ResolveImagePathsFilter:
                 elem.url = new
             return
 
-        candidate = (self.source_dir / url).resolve()
-        if not candidate.exists():
+        candidate = self._resolve_local_url(url)
+        if candidate is None:
             # Could be a path already rewritten by texmark-download-images
             # (build-dir relative) or a missing file we'll let pdflatex
             # complain about. Either way, don't second-guess it here.

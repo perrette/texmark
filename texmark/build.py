@@ -88,10 +88,15 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     metadata.setdefault('longtable', False)
     metadata.setdefault('packages', []).extend(packages or [])
 
-    # Make build_dir and source_dir visible to pandoc filters so they can
-    # rewrite figure paths relative to where pdflatex will run.
+    # Make build_dir, source_dir and cwd visible to pandoc filters so they
+    # can rewrite figure paths relative to where pdflatex will run.
+    # cwd is the texmark invocation directory; figure URLs that don't
+    # resolve from source_dir (the markdown's parent) fall back to it, so
+    # GitHub-style "/images/foo.png" — which means "<repo>/images/foo.png"
+    # — keeps working when the .md lives in a subdirectory like sources/.
     metadata['build_dir'] = str(Path(build_dir).resolve())
     metadata['source_dir'] = str(Path(input_md).resolve().parent)
+    metadata['cwd'] = str(Path.cwd().resolve())
     if copy_figures is None:
         copy_figures = metadata.get('copy_figures', False)
     metadata['copy_figures'] = bool(copy_figures)
@@ -209,6 +214,7 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build', bib
 def main():
 
     parser = argparse.ArgumentParser(description='Two-step build: Markdown → LaTeX → PDF')
+    parser.add_argument('--version', action='version', version=f'%(prog)s {texmark.__version__}')
     parser.add_argument('input', help='Input markdown file')
     parser.add_argument('-j', '--journal-template', help='Pandoc LaTeX + filter template family. Update journal -> template yaml field)')
     parser.add_argument('-t', '--template', help='Pandoc LaTeX template. Update template yaml field)')

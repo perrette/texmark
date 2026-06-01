@@ -52,13 +52,19 @@ class TestStripLeadingSlash:
 
 
 def _make_doc_with_images(source_dir, build_dir, image_urls, copy_figures=False,
-                          figure_folders=None):
-    """Build a pf.Doc whose body contains an Image per url, plus metadata."""
+                          figure_folders=None, cwd=None):
+    """Build a pf.Doc whose body contains an Image per url, plus metadata.
+
+    ``cwd`` defaults to ``source_dir`` so tests that don't care about the
+    nested-source layout behave as if texmark was invoked from the same
+    directory as the markdown (the simple case).
+    """
     blocks = [pf.Para(pf.Image(pf.Str("c"), url=u)) for u in image_urls]
     meta = {
         'source_dir': str(source_dir),
         'build_dir': str(build_dir),
         'copy_figures': copy_figures,
+        'cwd': str(cwd if cwd is not None else source_dir),
     }
     if figure_folders is not None:
         meta['figure_folders'] = [str(p) for p in figure_folders]
@@ -363,6 +369,79 @@ class TestResolveImagePathsFigureFolders:
 
         assert _image_urls(doc) == ["../images/fig.png"]
         assert _graphicspath_block(doc) is None
+
+
+# ---- ResolveImagePathsFilter: nested-source / cwd-fallback resolution -----
+
+
+class TestResolveImagePathsCwdFallback:
+    """Regression for the LGM-style layout:
+
+        <root>/sources/main.md        (source_dir = <root>/sources/)
+        <root>/images/fig.png
+        <root>/                       (cwd at invocation)
+
+    Markdown contains ``![](/images/fig.png)`` for GitHub preview;
+    strip_leading_slash upstream turns it into ``images/fig.png``. Naive
+    source_dir-only resolution fails (no ``<root>/sources/images/`` dir),
+    so the filter must fall back to cwd to find ``<root>/images/fig.png``.
+    """
+
+    def _make_lgm_layout(self, tmp_path):
+        root = tmp_path
+        (root / "sources").mkdir()
+        (root / "images").mkdir()
+        (root / "build").mkdir()
+        (root / "images" / "fig.png").write_bytes(b"contents")
+        return root
+
+    def test_default_mode_falls_back_to_cwd(self, tmp_path):
+        root = self._make_lgm_layout(tmp_path)
+        doc = _make_doc_with_images(
+            source_dir=root / "sources",
+            build_dir=root / "build",
+            image_urls=["images/fig.png"],
+            cwd=root,
+        )
+        _run_filter(ResolveImagePathsFilter(), doc)
+        # build/ -> ../images/fig.png reaches the real file
+        assert _image_urls(doc) == ["../images/fig.png"]
+
+    def test_copy_mode_falls_back_to_cwd_and_bundles(self, tmp_path):
+        root = self._make_lgm_layout(tmp_path)
+        doc = _make_doc_with_images(
+            source_dir=root / "sources",
+            build_dir=root / "build",
+            image_urls=["images/fig.png"],
+            copy_figures=True,
+            cwd=root,
+        )
+        _run_filter(ResolveImagePathsFilter(), doc)
+        # File is bundled and URL is rewritten — this is the regression
+        # that prompted the cwd fallback (previously: empty bundle, URL
+        # left as "images/fig.png" pointing at nothing).
+        assert _image_urls(doc) == ["figures/fig.png"]
+        assert (root / "build" / "figures" / "fig.png").read_bytes() == b"contents"
+
+    def test_source_dir_wins_when_both_resolve(self, tmp_path):
+        # When both source_dir/url and cwd/url exist, source_dir wins
+        # (markdown spec: paths are relative to the document).
+        root = tmp_path
+        (root / "sources" / "images").mkdir(parents=True)
+        (root / "images").mkdir()
+        (root / "build").mkdir()
+        (root / "sources" / "images" / "fig.png").write_bytes(b"doc-relative")
+        (root / "images" / "fig.png").write_bytes(b"project-relative")
+
+        doc = _make_doc_with_images(
+            source_dir=root / "sources",
+            build_dir=root / "build",
+            image_urls=["images/fig.png"],
+            copy_figures=True,
+            cwd=root,
+        )
+        _run_filter(ResolveImagePathsFilter(), doc)
+        assert (root / "build" / "figures" / "fig.png").read_bytes() == b"doc-relative"
 
 
 # ---- tag_figures ----------------------------------------------------------
