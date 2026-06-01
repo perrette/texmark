@@ -7,7 +7,7 @@ import pytest
 
 from texmark.filters.__main__ import (
     strip_leading_slash,
-    resolve_image_paths,
+    ResolveImagePathsFilter,
     tag_figures,
     force_cite,
     apacite_cite,
@@ -48,57 +48,181 @@ class TestStripLeadingSlash:
         assert img.url == "images/x.png"
 
 
-# ---- resolve_image_paths --------------------------------------------------
+# ---- ResolveImagePathsFilter ---------------------------------------------
 
 
-class TestResolveImagePaths:
-    def _doc(self, source_dir, build_dir, copy_figures=False):
-        return pf.Doc(metadata={
+def _make_doc_with_images(source_dir, build_dir, image_urls, copy_figures=False):
+    """Build a pf.Doc whose body contains an Image per url, plus metadata."""
+    blocks = [pf.Para(pf.Image(pf.Str("c"), url=u)) for u in image_urls]
+    return pf.Doc(
+        *blocks,
+        metadata={
             'source_dir': str(source_dir),
             'build_dir': str(build_dir),
             'copy_figures': copy_figures,
-        })
+        },
+    )
+
+
+def _run_filter(f, doc):
+    """Drive prepare/action/finalize the same way pf.run_filter would."""
+    f.prepare(doc)
+    doc.walk(f.action, doc=doc)
+    f.finalize(doc)
+
+
+def _image_urls(doc):
+    urls = []
+    def _collect(elem, _d):
+        if isinstance(elem, pf.Image):
+            urls.append(elem.url)
+    doc.walk(_collect, doc=doc)
+    return urls
+
+
+class TestResolveImagePathsDefaultMode:
+    """copy_figures=False — rewrite to point at the original on disk."""
 
     def test_rewrites_local_url_relative_to_build_dir(self, tmp_path):
-        source_dir = tmp_path
         build_dir = tmp_path / "build"
         build_dir.mkdir()
-        (source_dir / "images").mkdir()
-        (source_dir / "images" / "fig.png").write_bytes(b"x")
+        (tmp_path / "images").mkdir()
+        (tmp_path / "images" / "fig.png").write_bytes(b"x")
 
-        img = pf.Image(pf.Str("c"), url="images/fig.png")
-        resolve_image_paths(img, self._doc(source_dir, build_dir))
-        # build/ -> ../images/fig.png points back at the original file
-        assert img.url == "../images/fig.png"
+        doc = _make_doc_with_images(tmp_path, build_dir, ["images/fig.png"])
+        _run_filter(ResolveImagePathsFilter(), doc)
+        assert _image_urls(doc) == ["../images/fig.png"]
 
     def test_leaves_remote_urls_alone(self, tmp_path):
-        img = pf.Image(pf.Str("c"), url="https://example.com/x.png")
-        resolve_image_paths(img, self._doc(tmp_path, tmp_path / "build"))
-        assert img.url == "https://example.com/x.png"
+        doc = _make_doc_with_images(tmp_path, tmp_path / "build",
+                                    ["https://example.com/x.png"])
+        _run_filter(ResolveImagePathsFilter(), doc)
+        assert _image_urls(doc) == ["https://example.com/x.png"]
 
     def test_leaves_missing_files_alone(self, tmp_path):
-        # When the file isn't where source_dir says, assume something else
-        # already rewrote the URL (e.g. texmark-download-images) and step back.
-        img = pf.Image(pf.Str("c"), url="images/abc/downloaded.png")
-        resolve_image_paths(img, self._doc(tmp_path, tmp_path / "build"))
-        assert img.url == "images/abc/downloaded.png"
+        # Could be a path already rewritten by texmark-download-images;
+        # the filter must not second-guess it.
+        doc = _make_doc_with_images(tmp_path, tmp_path / "build",
+                                    ["images/abc/downloaded.png"])
+        _run_filter(ResolveImagePathsFilter(), doc)
+        assert _image_urls(doc) == ["images/abc/downloaded.png"]
 
-    def test_copy_figures_disables_rewrite(self, tmp_path):
-        source_dir = tmp_path
+
+class TestResolveImagePathsBundleMode:
+    """copy_figures=True — bundle into <build>/images/ flat, dedup, cleanup."""
+
+    def _bundle_files(self, build_dir):
+        bundle = build_dir / "images"
+        if not bundle.is_dir():
+            return set()
+        return {p.name for p in bundle.iterdir() if p.is_file()}
+
+    def test_simple_copy_and_rewrite(self, tmp_path):
         build_dir = tmp_path / "build"
-        build_dir.mkdir()
-        (source_dir / "images").mkdir()
-        (source_dir / "images" / "fig.png").write_bytes(b"x")
+        (tmp_path / "images").mkdir()
+        (tmp_path / "images" / "fig.png").write_bytes(b"content-A")
 
-        img = pf.Image(pf.Str("c"), url="images/fig.png")
-        resolve_image_paths(img, self._doc(source_dir, build_dir, copy_figures=True))
-        # Legacy bundle mode: URL stays as-is, compile_pdf will sync_tree it in.
-        assert img.url == "images/fig.png"
+        doc = _make_doc_with_images(tmp_path, build_dir, ["images/fig.png"],
+                                    copy_figures=True)
+        _run_filter(ResolveImagePathsFilter(), doc)
 
-    def test_ignores_non_image_elements(self, tmp_path):
-        link = pf.Link(pf.Str("t"), url="images/fig.png")
-        resolve_image_paths(link, self._doc(tmp_path, tmp_path / "build"))
-        assert link.url == "images/fig.png"
+        assert _image_urls(doc) == ["images/fig.png"]
+        assert self._bundle_files(build_dir) == {"fig.png"}
+        assert (build_dir / "images" / "fig.png").read_bytes() == b"content-A"
+
+    def test_basename_collision_with_different_content_gets_hash_suffix(self, tmp_path):
+        build_dir = tmp_path / "build"
+        (tmp_path / "A").mkdir()
+        (tmp_path / "B").mkdir()
+        (tmp_path / "A" / "fig.png").write_bytes(b"content-A")
+        (tmp_path / "B" / "fig.png").write_bytes(b"content-B")
+
+        doc = _make_doc_with_images(tmp_path, build_dir,
+                                    ["A/fig.png", "B/fig.png"],
+                                    copy_figures=True)
+        _run_filter(ResolveImagePathsFilter(), doc)
+
+        urls = _image_urls(doc)
+        # Both rewrites must land under images/, both must use stem-hash
+        # form, and they must be distinct (different content -> different
+        # hashes).
+        assert all(u.startswith("images/fig-") and u.endswith(".png") for u in urls)
+        assert urls[0] != urls[1]
+        # Both files exist in the bundle, content preserved
+        bundled = self._bundle_files(build_dir)
+        assert len(bundled) == 2
+        a_url, b_url = urls
+        assert (build_dir / a_url).read_bytes() == b"content-A"
+        assert (build_dir / b_url).read_bytes() == b"content-B"
+
+    def test_same_file_referenced_twice_copied_once(self, tmp_path):
+        build_dir = tmp_path / "build"
+        (tmp_path / "A").mkdir()
+        (tmp_path / "B").mkdir()
+        (tmp_path / "A" / "fig.png").write_bytes(b"same")
+        (tmp_path / "B" / "fig.png").write_bytes(b"same")
+
+        doc = _make_doc_with_images(tmp_path, build_dir,
+                                    ["A/fig.png", "B/fig.png"],
+                                    copy_figures=True)
+        _run_filter(ResolveImagePathsFilter(), doc)
+
+        urls = _image_urls(doc)
+        # Same content under same basename -> single bundled copy, both URLs collapse
+        assert urls == ["images/fig.png", "images/fig.png"]
+        assert self._bundle_files(build_dir) == {"fig.png"}
+
+    def test_stale_top_level_figures_removed(self, tmp_path):
+        build_dir = tmp_path / "build"
+        bundle = build_dir / "images"
+        bundle.mkdir(parents=True)
+        # Leftover from a previous build — current doc does not reference it.
+        (bundle / "stale.png").write_bytes(b"old")
+
+        (tmp_path / "images").mkdir()
+        (tmp_path / "images" / "fig.png").write_bytes(b"new")
+
+        doc = _make_doc_with_images(tmp_path, build_dir, ["images/fig.png"],
+                                    copy_figures=True)
+        _run_filter(ResolveImagePathsFilter(), doc)
+
+        assert self._bundle_files(build_dir) == {"fig.png"}
+        assert not (bundle / "stale.png").exists()
+
+    def test_cleanup_skips_subdirectories(self, tmp_path):
+        # texmark-download-images puts remote downloads under
+        # build/images/<hash>/<name>. The cleanup pass must leave those
+        # directories alone.
+        build_dir = tmp_path / "build"
+        bundle = build_dir / "images"
+        (bundle / "abc123").mkdir(parents=True)
+        (bundle / "abc123" / "remote.png").write_bytes(b"remote")
+
+        (tmp_path / "images").mkdir()
+        (tmp_path / "images" / "fig.png").write_bytes(b"local")
+
+        doc = _make_doc_with_images(tmp_path, build_dir, ["images/fig.png"],
+                                    copy_figures=True)
+        _run_filter(ResolveImagePathsFilter(), doc)
+
+        assert (bundle / "abc123" / "remote.png").exists()
+        assert (bundle / "fig.png").exists()
+
+    def test_cleanup_preserves_non_figure_extensions(self, tmp_path):
+        # A hand-managed README in build/images/ should not be deleted.
+        build_dir = tmp_path / "build"
+        bundle = build_dir / "images"
+        bundle.mkdir(parents=True)
+        (bundle / "NOTES.md").write_text("hand-written")
+
+        (tmp_path / "images").mkdir()
+        (tmp_path / "images" / "fig.png").write_bytes(b"new")
+
+        doc = _make_doc_with_images(tmp_path, build_dir, ["images/fig.png"],
+                                    copy_figures=True)
+        _run_filter(ResolveImagePathsFilter(), doc)
+
+        assert (bundle / "NOTES.md").exists()
 
 
 # ---- tag_figures ----------------------------------------------------------

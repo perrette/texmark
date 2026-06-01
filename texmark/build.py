@@ -165,7 +165,7 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     return metadata
 
 
-def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build', images_dir='images', bib_file='references.bib', resource_path='', copy_figures=False):
+def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build', bib_file='references.bib', resource_path=''):
     """
     Step 2: Compile LaTeX source into PDF.
     """
@@ -176,12 +176,9 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build', ima
         sync_tree(resource_path, build_dir)
         # os.environ['TEXINPUTS'] = f"{resource_path}:" + os.environ.get('TEXINPUTS', '')
 
-    if copy_figures:
-        # Legacy bundle mode: stage the whole images tree under build/ so
-        # the .tex stays self-contained (handy for journal submission).
-        images_src = Path(images_dir)
-        if images_src.exists():
-            sync_tree(images_src, build_dir / images_src.name)
+    # Figure bundling (copy_figures mode) is handled inside the
+    # resolve_image_paths filter during the pandoc pass, so we don't need
+    # to stage anything here.
     for f in (input_tex, bib_file):
         src = Path(f)
         if src.parent.resolve() != build_dir.resolve():
@@ -213,13 +210,22 @@ def main():
     parser.add_argument('--bib', help='bibliography file')
     parser.add_argument('--tex', help='LaTeX output filename')
     parser.add_argument('--pdf', action="store_true")
-    parser.add_argument('--images', default='images', help='images directory (only used with --copy-figures)')
     parser.add_argument('--copy-figures', action='store_true', default=None,
-                        help='copy the images tree into the build directory and reference figures relative to it. '
-                             'The default is to keep figures in place and rewrite paths in the .tex. '
+                        help='copy every referenced figure into <build>/images/ and rewrite paths in the .tex '
+                             'so the build directory is self-contained (handy for journal submission). '
+                             'The default is to keep figures in place and rewrite paths to point at the originals. '
                              'Yaml equivalent: copy_figures: true.')
     parser.add_argument('--packages', nargs='*', help='custom latex packages to include')
+    # Deprecated: figures are now discovered from the markdown URLs, and
+    # (with --copy-figures) always bundled into <build>/images/. The flag
+    # is accepted-and-ignored so existing invocations keep working.
+    parser.add_argument('--images', help=argparse.SUPPRESS)
     args = parser.parse_args()
+
+    if args.images is not None:
+        print("warning: --images is deprecated and ignored; figures are now "
+              "auto-detected from the markdown and (with --copy-figures) bundled "
+              "into <build>/images/.", file=sys.stderr)
 
     # Derive filenames
     build_dir = Path(args.build)
@@ -233,10 +239,9 @@ def main():
                          copy_figures=args.copy_figures)
 
     if args.pdf:
-        compile_pdf(tex_file, pdf_file, args.engine, args.build, args.images,
+        compile_pdf(tex_file, pdf_file, args.engine, args.build,
                     bib_file=metadata.get('bibliography'),
-                    resource_path=metadata.get('resource_path'),
-                    copy_figures=metadata.get('copy_figures', False))
+                    resource_path=metadata.get('resource_path'))
 
 
 if __name__ == '__main__':

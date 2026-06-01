@@ -4,6 +4,8 @@ import os
 import sys
 import json
 import re
+import hashlib
+import shutil
 from pathlib import Path
 import importlib
 import panflute as pf
@@ -21,46 +23,167 @@ def strip_leading_slash(elem, doc):
             # Remove leading slash to make it repo-root relative (like GitHub)
             elem.url = elem.url.lstrip('/')
 
-def resolve_image_paths(elem, doc):
-    """Rewrite local figure URLs to point at the original file on disk.
 
-    Without this, pdflatex (run inside ``build_dir``) only finds figures whose
-    paths happen to resolve from there — which is why the legacy behaviour
-    copied the whole ``images/`` tree into the build dir before each compile.
-    Here we instead compute, for each local image, the path from ``build_dir``
-    back to where the figure already lives, so no copy is needed.
+class ResolveImagePathsFilter:
+    """Rewrite figure URLs based on the ``copy_figures`` metadata flag.
+
+    Default mode (``copy_figures: false``): each local image URL is
+    rewritten to a path relative to ``build_dir`` that points back at the
+    original file on disk. No files are copied.
+
+    Bundle mode (``copy_figures: true`` / ``--copy-figures``): every local
+    figure referenced by the document is copied flat into
+    ``<build_dir>/images/`` and the URL in the .tex is rewritten
+    accordingly. Files keep their basename when unique; when two figures
+    share a basename but have different contents they are disambiguated as
+    ``<stem>-<short-content-hash><ext>``. Any top-level figure file left in
+    ``<build_dir>/images/`` from a previous build that the current
+    document no longer references is removed.
 
     Inputs from metadata:
-      - ``build_dir`` — directory in which the .tex is compiled.
-      - ``source_dir`` — directory of the input markdown file; image URLs are
-        resolved relative to it (matching what the author sees in their editor
-        / on GitHub).
-      - ``copy_figures`` — when true, leave URLs alone so the legacy
-        copy-into-build-dir behaviour in ``compile_pdf`` stays correct.
+      - ``build_dir`` — directory in which pdflatex will run.
+      - ``source_dir`` — directory of the input markdown; URLs resolve
+        relative to it (matching GitHub's preview behaviour).
+      - ``copy_figures`` — selects the mode above.
 
-    Remote URLs (handled by ``texmark-download-images``) and URLs that have
-    already been rewritten to a build-dir-relative path (file is absent at the
-    source-dir resolution but present under build_dir) are left alone.
+    Remote URLs (handled upstream by ``texmark-download-images``, which
+    drops files under ``<build_dir>/images/<hash>/<basename>``) are left
+    alone in both modes; the cleanup pass only touches top-level files in
+    ``<build_dir>/images/``, so remote-download subdirectories are
+    preserved.
     """
-    if not isinstance(elem, pf.Image):
-        return
-    if doc.get_metadata('copy_figures', False):
-        return
-    url = elem.url
-    if not url or _is_remote_url(url):
-        return
 
-    build_dir = Path(doc.get_metadata('build_dir', 'build')).resolve()
-    source_dir = Path(doc.get_metadata('source_dir', '.')).resolve()
+    BUNDLE_SUBDIR = "images"
+    FIG_EXTS = {".png", ".jpg", ".jpeg", ".pdf", ".eps", ".svg", ".gif"}
+    HASH_LEN = 7  # git-style short hash
 
-    candidate = (source_dir / url).resolve()
-    if not candidate.exists():
-        # Could already be a build-dir-relative path (e.g. set by
-        # texmark-download-images), or a missing file we'll let pdflatex
-        # complain about. Either way, don't second-guess it here.
-        return
+    def __init__(self):
+        self._reset()
 
-    elem.url = os.path.relpath(candidate, build_dir)
+    def _reset(self):
+        self.copy_mode = False
+        self.build_dir = Path("build")
+        self.source_dir = Path(".")
+        # original-url -> bundle-relative path written into the .tex
+        self.url_map = {}
+        # basenames of files we put under <build_dir>/images/ this run
+        self.copied = set()
+
+    @staticmethod
+    def _content_hash(path, length=HASH_LEN):
+        h = hashlib.sha1()
+        h.update(Path(path).read_bytes())
+        return h.hexdigest()[:length]
+
+    def _copy_into_bundle(self, src, safe_name):
+        dst = self.build_dir / self.BUNDLE_SUBDIR / safe_name
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        # Match sync_tree's size+mtime quick-check so rebuilds don't
+        # needlessly bump mtimes (PDF viewers like evince care).
+        if dst.exists():
+            s, d = src.stat(), dst.stat()
+            if s.st_size == d.st_size and int(s.st_mtime) == int(d.st_mtime):
+                self.copied.add(safe_name)
+                return
+        shutil.copy2(src, dst)
+        self.copied.add(safe_name)
+
+    def _plan_and_copy(self, seen):
+        """Decide bundle name for each url, copy files, populate url_map.
+
+        ``seen`` is ``{url: resolved_abs_path}`` for every distinct local
+        URL in the document whose file exists on disk.
+        """
+        by_basename = {}
+        for url, p in seen.items():
+            by_basename.setdefault(p.name, []).append((url, p))
+
+        for basename, members in by_basename.items():
+            # Group members by content hash to detect real collisions
+            # (same basename + different content). Same-content references
+            # collapse to a single bundled copy.
+            contents = {}
+            for url, p in members:
+                contents.setdefault(self._content_hash(p), []).append((url, p))
+
+            if len(contents) == 1:
+                safe = basename
+                _, src = members[0]
+                self._copy_into_bundle(src, safe)
+                for url, _ in members:
+                    self.url_map[url] = f"{self.BUNDLE_SUBDIR}/{safe}"
+                continue
+
+            stem = Path(basename).stem
+            ext = Path(basename).suffix
+            for h, group in contents.items():
+                safe = f"{stem}-{h}{ext}"
+                _, src = group[0]
+                self._copy_into_bundle(src, safe)
+                for url, _ in group:
+                    self.url_map[url] = f"{self.BUNDLE_SUBDIR}/{safe}"
+
+    def prepare(self, doc):
+        self._reset()
+        self.copy_mode = bool(doc.get_metadata('copy_figures', False))
+        self.build_dir = Path(doc.get_metadata('build_dir', 'build')).resolve()
+        self.source_dir = Path(doc.get_metadata('source_dir', '.')).resolve()
+
+        if not self.copy_mode:
+            return
+
+        seen = {}
+        def _collect(elem, _doc):
+            if isinstance(elem, pf.Image) and elem.url and not _is_remote_url(elem.url):
+                if elem.url not in seen:
+                    p = (self.source_dir / elem.url).resolve()
+                    if p.exists():
+                        seen[elem.url] = p
+            return None
+
+        doc.walk(_collect, doc=doc)
+        if seen:
+            self._plan_and_copy(seen)
+
+    def action(self, elem, doc):
+        if not isinstance(elem, pf.Image):
+            return
+        url = elem.url
+        if not url or _is_remote_url(url):
+            return
+
+        if self.copy_mode:
+            new = self.url_map.get(url)
+            if new:
+                elem.url = new
+            return
+
+        candidate = (self.source_dir / url).resolve()
+        if not candidate.exists():
+            # Could be a path already rewritten by texmark-download-images
+            # (build-dir relative) or a missing file we'll let pdflatex
+            # complain about. Either way, don't second-guess it here.
+            return
+        elem.url = os.path.relpath(candidate, self.build_dir)
+
+    def finalize(self, doc):
+        if not self.copy_mode:
+            return
+        bundle = self.build_dir / self.BUNDLE_SUBDIR
+        if not bundle.is_dir():
+            return
+        kept = {(bundle / name).resolve() for name in self.copied}
+        for p in bundle.iterdir():
+            if not p.is_file():
+                continue
+            if p.suffix.lower() not in self.FIG_EXTS:
+                continue
+            if p.resolve() not in kept:
+                logger.info(f"removing stale bundled figure: {p}")
+                p.unlink()
+
+
+resolve_image_paths = ResolveImagePathsFilter()
 
 def tag_figures(elem, doc):
     if isinstance(elem, pf.Figure):

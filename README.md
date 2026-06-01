@@ -151,26 +151,28 @@ target journal. The exact list each template recognises is in
 
 ## Figure paths
 
-texmark resolves each `![](path)` URL against the markdown file's directory
-and rewrites it in the generated `.tex` to be relative to the build
-directory — no separate `--images` flag is needed for the figure tree to be
-found. The figure files stay where they are on disk; nothing is copied.
+By default texmark resolves each `![](path)` URL against the markdown
+file's directory and rewrites it in the generated `.tex` to be relative to
+the build directory. The figure files stay where they are on disk; nothing
+is copied.
 
 If you instead want a self-contained build directory (e.g. to hand the
-`.tex` + figures to a journal portal), opt back in to the legacy
-copy-into-build behaviour with either:
+`.tex` + figures to a journal portal), pass `--copy-figures` on the CLI
+(yaml equivalent: `copy_figures: true`). In that mode every referenced
+figure is copied flat into `<build>/images/`:
 
-```yaml
-copy_figures: true
-```
+- Files keep their basename when unique.
+- When two figures share a basename but have different contents, both are
+  renamed to `<stem>-<short-content-hash><ext>` for disambiguation.
+- Same file referenced from multiple paths collapses to a single bundled
+  copy.
+- Any top-level figure file left in `<build>/images/` from a previous
+  build that the current document no longer references is removed.
+  Subdirectories (used by remote-image downloads) are not touched.
 
-in your markdown front-matter, or `--copy-figures` on the CLI. In that mode
-the directory pointed at by `--images` (default `images/`) is mirrored into
-the build directory, and figure URLs in the `.tex` stay relative to it.
-
-Remote (`http(s)://`) figure URLs are always downloaded into the build
-directory by the `texmark-download-images` filter, regardless of this
-setting.
+Remote (`http(s)://`) figure URLs are always downloaded into
+`<build>/images/<hash>/<basename>` by the `texmark-download-images`
+filter, regardless of this setting.
 
 ## Collect figures and tables at the end of the document
 
