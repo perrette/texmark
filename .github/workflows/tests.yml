@@ -24,9 +24,12 @@ jobs:
       - name: Install tectonic
         # tectonic is a self-contained LaTeX engine used by the e2e tests
         # in tests/test_e2e.py. It auto-fetches packages on first use and
-        # caches them under ~/.cache/Tectonic.
+        # caches them under ~/.cache/Tectonic. The drop.tectonic.works script
+        # unpacks the binary into the current directory and prints a "move it
+        # to your PATH" hint — so do that explicitly here.
         run: |
-          curl -sSL https://drop.tectonic.works/install.sh | sh
+          mkdir -p "$HOME/.local/bin"
+          (cd "$HOME/.local/bin" && curl -sSL https://drop.tectonic.works/install.sh | sh)
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
       - name: Install
         # pypandoc_binary bundles the pandoc binary on PyPI, so we avoid the
