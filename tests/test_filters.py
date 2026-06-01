@@ -7,6 +7,7 @@ import pytest
 
 from texmark.filters.__main__ import (
     strip_leading_slash,
+    resolve_image_paths,
     tag_figures,
     force_cite,
     apacite_cite,
@@ -45,6 +46,59 @@ class TestStripLeadingSlash:
         img = pf.Image(pf.Str("caption"), url="images/x.png")
         strip_leading_slash(img, make_doc())
         assert img.url == "images/x.png"
+
+
+# ---- resolve_image_paths --------------------------------------------------
+
+
+class TestResolveImagePaths:
+    def _doc(self, source_dir, build_dir, copy_figures=False):
+        return pf.Doc(metadata={
+            'source_dir': str(source_dir),
+            'build_dir': str(build_dir),
+            'copy_figures': copy_figures,
+        })
+
+    def test_rewrites_local_url_relative_to_build_dir(self, tmp_path):
+        source_dir = tmp_path
+        build_dir = tmp_path / "build"
+        build_dir.mkdir()
+        (source_dir / "images").mkdir()
+        (source_dir / "images" / "fig.png").write_bytes(b"x")
+
+        img = pf.Image(pf.Str("c"), url="images/fig.png")
+        resolve_image_paths(img, self._doc(source_dir, build_dir))
+        # build/ -> ../images/fig.png points back at the original file
+        assert img.url == "../images/fig.png"
+
+    def test_leaves_remote_urls_alone(self, tmp_path):
+        img = pf.Image(pf.Str("c"), url="https://example.com/x.png")
+        resolve_image_paths(img, self._doc(tmp_path, tmp_path / "build"))
+        assert img.url == "https://example.com/x.png"
+
+    def test_leaves_missing_files_alone(self, tmp_path):
+        # When the file isn't where source_dir says, assume something else
+        # already rewrote the URL (e.g. texmark-download-images) and step back.
+        img = pf.Image(pf.Str("c"), url="images/abc/downloaded.png")
+        resolve_image_paths(img, self._doc(tmp_path, tmp_path / "build"))
+        assert img.url == "images/abc/downloaded.png"
+
+    def test_copy_figures_disables_rewrite(self, tmp_path):
+        source_dir = tmp_path
+        build_dir = tmp_path / "build"
+        build_dir.mkdir()
+        (source_dir / "images").mkdir()
+        (source_dir / "images" / "fig.png").write_bytes(b"x")
+
+        img = pf.Image(pf.Str("c"), url="images/fig.png")
+        resolve_image_paths(img, self._doc(source_dir, build_dir, copy_figures=True))
+        # Legacy bundle mode: URL stays as-is, compile_pdf will sync_tree it in.
+        assert img.url == "images/fig.png"
+
+    def test_ignores_non_image_elements(self, tmp_path):
+        link = pf.Link(pf.Str("t"), url="images/fig.png")
+        resolve_image_paths(link, self._doc(tmp_path, tmp_path / "build"))
+        assert link.url == "images/fig.png"
 
 
 # ---- tag_figures ----------------------------------------------------------

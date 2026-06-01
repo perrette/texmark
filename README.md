@@ -137,6 +137,7 @@ collect_figures_and_tables: true       # optional: see section below
 figure-width: 80%                      # optional: pandoc figure default
 figure-span: full                      # optional: wraps in figure* (full text width)
                                        #   per-figure override: ![cap](img){figure-span=full}
+copy_figures: false                    # optional: see "Figure paths" below
 ```
 
 Section-style metadata can also be given as markdown `# ...` headings. Any
@@ -147,6 +148,29 @@ of `# Abstract`, `# Acknowledgments`, `# Data Availability`, `# Appendix`,
 extracted out of the body and injected into the right LaTeX command for the
 target journal. The exact list each template recognises is in
 [texmark/filters/__main__.py](/texmark/filters/__main__.py).
+
+## Figure paths
+
+texmark resolves each `![](path)` URL against the markdown file's directory
+and rewrites it in the generated `.tex` to be relative to the build
+directory — no separate `--images` flag is needed for the figure tree to be
+found. The figure files stay where they are on disk; nothing is copied.
+
+If you instead want a self-contained build directory (e.g. to hand the
+`.tex` + figures to a journal portal), opt back in to the legacy
+copy-into-build behaviour with either:
+
+```yaml
+copy_figures: true
+```
+
+in your markdown front-matter, or `--copy-figures` on the CLI. In that mode
+the directory pointed at by `--images` (default `images/`) is mirrored into
+the build directory, and figure URLs in the `.tex` stay relative to it.
+
+Remote (`http(s)://`) figure URLs are always downloaded into the build
+directory by the `texmark-download-images` filter, regardless of this
+setting.
 
 ## Collect figures and tables at the end of the document
 

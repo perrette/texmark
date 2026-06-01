@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import sys
 import json
 import re
@@ -11,11 +12,55 @@ from texmark.shared import filters
 from texmark.sectiontracker import SectionFilter
 from texmark.filters.tabular import table_to_latex
 
+def _is_remote_url(url):
+    return url.startswith(('http://', 'https://', 'data:'))
+
 def strip_leading_slash(elem, doc):
     if hasattr(elem, 'url'):
         if elem.url.startswith('/'):
             # Remove leading slash to make it repo-root relative (like GitHub)
             elem.url = elem.url.lstrip('/')
+
+def resolve_image_paths(elem, doc):
+    """Rewrite local figure URLs to point at the original file on disk.
+
+    Without this, pdflatex (run inside ``build_dir``) only finds figures whose
+    paths happen to resolve from there — which is why the legacy behaviour
+    copied the whole ``images/`` tree into the build dir before each compile.
+    Here we instead compute, for each local image, the path from ``build_dir``
+    back to where the figure already lives, so no copy is needed.
+
+    Inputs from metadata:
+      - ``build_dir`` — directory in which the .tex is compiled.
+      - ``source_dir`` — directory of the input markdown file; image URLs are
+        resolved relative to it (matching what the author sees in their editor
+        / on GitHub).
+      - ``copy_figures`` — when true, leave URLs alone so the legacy
+        copy-into-build-dir behaviour in ``compile_pdf`` stays correct.
+
+    Remote URLs (handled by ``texmark-download-images``) and URLs that have
+    already been rewritten to a build-dir-relative path (file is absent at the
+    source-dir resolution but present under build_dir) are left alone.
+    """
+    if not isinstance(elem, pf.Image):
+        return
+    if doc.get_metadata('copy_figures', False):
+        return
+    url = elem.url
+    if not url or _is_remote_url(url):
+        return
+
+    build_dir = Path(doc.get_metadata('build_dir', 'build')).resolve()
+    source_dir = Path(doc.get_metadata('source_dir', '.')).resolve()
+
+    candidate = (source_dir / url).resolve()
+    if not candidate.exists():
+        # Could already be a build-dir-relative path (e.g. set by
+        # texmark-download-images), or a missing file we'll let pdflatex
+        # complain about. Either way, don't second-guess it here.
+        return
+
+    elem.url = os.path.relpath(candidate, build_dir)
 
 def tag_figures(elem, doc):
     if isinstance(elem, pf.Figure):
@@ -149,7 +194,7 @@ def apply_figure_defaults(elem, doc):
         latex = latex.replace(r'\end{figure}', r'\end{figure*}')
         return pf.RawBlock(latex, format='latex')
 
-basic_filters = [strip_leading_slash, stringify_captions, tag_figures, apply_figure_defaults, table_to_latex ]
+basic_filters = [strip_leading_slash, resolve_image_paths, stringify_captions, tag_figures, apply_figure_defaults, table_to_latex ]
 
 default_filters = basic_filters
 

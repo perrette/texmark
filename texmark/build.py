@@ -71,7 +71,8 @@ def join_if_list(value, sep='\n\n'):
 
 
 def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
-              filters=None, journal_template=None, filters_module=None, packages=None):
+              filters=None, journal_template=None, filters_module=None, packages=None,
+              copy_figures=None):
     # 1. Parse Markdown
     input_text = open(input_md).read()
     post = frontmatter.loads(input_text)
@@ -86,6 +87,14 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     metadata.setdefault('journal', {})['template'] = journal_template
     metadata.setdefault('longtable', False)
     metadata.setdefault('packages', []).extend(packages or [])
+
+    # Make build_dir and source_dir visible to pandoc filters so they can
+    # rewrite figure paths relative to where pdflatex will run.
+    metadata['build_dir'] = str(Path(build_dir).resolve())
+    metadata['source_dir'] = str(Path(input_md).resolve().parent)
+    if copy_figures is None:
+        copy_figures = metadata.get('copy_figures', False)
+    metadata['copy_figures'] = bool(copy_figures)
 
      # 2. Apply filters and convert to AST
 
@@ -156,7 +165,7 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     return metadata
 
 
-def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build', images_dir='images', bib_file='references.bib', resource_path=''):
+def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build', images_dir='images', bib_file='references.bib', resource_path='', copy_figures=False):
     """
     Step 2: Compile LaTeX source into PDF.
     """
@@ -167,8 +176,12 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build', ima
         sync_tree(resource_path, build_dir)
         # os.environ['TEXINPUTS'] = f"{resource_path}:" + os.environ.get('TEXINPUTS', '')
 
-    images_src = Path(images_dir)
-    sync_tree(images_src, build_dir / images_src.name)
+    if copy_figures:
+        # Legacy bundle mode: stage the whole images tree under build/ so
+        # the .tex stays self-contained (handy for journal submission).
+        images_src = Path(images_dir)
+        if images_src.exists():
+            sync_tree(images_src, build_dir / images_src.name)
     for f in (input_tex, bib_file):
         src = Path(f)
         if src.parent.resolve() != build_dir.resolve():
@@ -200,7 +213,11 @@ def main():
     parser.add_argument('--bib', help='bibliography file')
     parser.add_argument('--tex', help='LaTeX output filename')
     parser.add_argument('--pdf', action="store_true")
-    parser.add_argument('--images', default='images', help='images directory')
+    parser.add_argument('--images', default='images', help='images directory (only used with --copy-figures)')
+    parser.add_argument('--copy-figures', action='store_true', default=None,
+                        help='copy the images tree into the build directory and reference figures relative to it. '
+                             'The default is to keep figures in place and rewrite paths in the .tex. '
+                             'Yaml equivalent: copy_figures: true.')
     parser.add_argument('--packages', nargs='*', help='custom latex packages to include')
     args = parser.parse_args()
 
@@ -210,11 +227,16 @@ def main():
     pdf_file = args.output or build_dir / Path(args.input).with_suffix(".pdf").name
 
     metadata = build_tex(args.input, tex_file, template=args.template, bib_file=args.bib,
+                         build_dir=args.build,
                          filters=args.filters, journal_template=args.journal_template,
-                         filters_module=args.filters_module, packages=args.packages)
+                         filters_module=args.filters_module, packages=args.packages,
+                         copy_figures=args.copy_figures)
 
     if args.pdf:
-        compile_pdf(tex_file, pdf_file, args.engine, args.build, args.images, bib_file=metadata.get('bibliography'), resource_path=metadata.get('resource_path'))
+        compile_pdf(tex_file, pdf_file, args.engine, args.build, args.images,
+                    bib_file=metadata.get('bibliography'),
+                    resource_path=metadata.get('resource_path'),
+                    copy_figures=metadata.get('copy_figures', False))
 
 
 if __name__ == '__main__':
