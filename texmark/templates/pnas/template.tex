@@ -47,6 +47,7 @@
 \templatetype{ {{ journal.templatetype if journal and journal.templatetype else "pnasresearcharticle" }} }
 
 {{ xr_preamble | default("") }}
+{{ user_preamble | default("") }}
 
 \begin{document}
 

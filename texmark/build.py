@@ -138,6 +138,27 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     # copies into the on-disk manifest instead of replacing it.
     metadata['figure_manifest_accumulate'] = bool(figure_manifest_accumulate)
 
+    # preamble: YAML field — custom LaTeX injected just before \begin{document}.
+    # Supports: inline block scalar (starts with \ or contains \n), single
+    # file path, or a list mixing both forms. Paths resolve relative to the
+    # markdown's directory. Result is stored as `user_preamble` in metadata so
+    # every template can emit {{ user_preamble | default("") }}.
+    preamble_raw = metadata.get('preamble', None)
+    if preamble_raw is not None:
+        _src_dir = Path(input_md).resolve().parent
+        def _resolve_preamble_item(item: str) -> str:
+            if item.startswith('\\') or '\n' in item:
+                return item
+            return (_src_dir / item).read_text()
+        if isinstance(preamble_raw, list):
+            metadata['user_preamble'] = '\n'.join(
+                _resolve_preamble_item(str(it)) for it in preamble_raw
+            )
+        else:
+            metadata['user_preamble'] = _resolve_preamble_item(str(preamble_raw))
+    else:
+        metadata['user_preamble'] = ''
+
      # 2. Apply filters and convert to AST
 
     if filters_module:
