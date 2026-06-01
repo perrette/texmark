@@ -14,6 +14,7 @@ from texmark.logs import logger
 from texmark.shared import filters
 from texmark.sectiontracker import SectionFilter
 from texmark.filters.tabular import table_to_latex
+from texmark.filters.embed import embed_filter
 
 def _is_remote_url(url):
     return url.startswith(('http://', 'https://', 'data:'))
@@ -457,7 +458,7 @@ def apply_figure_defaults(elem, doc):
         latex = latex.replace(r'\end{figure}', r'\end{figure*}')
         return pf.RawBlock(latex, format='latex')
 
-basic_filters = [strip_leading_slash, resolve_image_paths, stringify_captions, tag_figures, apply_figure_defaults, table_to_latex ]
+basic_filters = [embed_filter, strip_leading_slash, resolve_image_paths, stringify_captions, tag_figures, apply_figure_defaults, table_to_latex]
 
 default_filters = basic_filters
 
