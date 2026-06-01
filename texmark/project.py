@@ -42,10 +42,14 @@ def _scan_ast_for_embeds(markdown_path: Path) -> list[Path]:
     found: list[Path] = []
 
     def collect(elem, doc):
+        url = None
         if isinstance(elem, pf.Image):
             url = elem.url
-            if url.lower().endswith(".md") and not url.startswith(("http://", "https://")):
-                found.append((markdown_path.parent / url).resolve())
+        elif (isinstance(elem, pf.Link)
+              and 'include' in elem.classes):
+            url = elem.url
+        if url and url.lower().endswith(".md") and not url.startswith(("http://", "https://")):
+            found.append((markdown_path.parent / url).resolve())
 
     doc.walk(collect)
     return found

@@ -10,6 +10,15 @@ def _is_embed_url(url):
     return url and not _is_remote_url(url) and url.lower().endswith('.md')
 
 
+def _is_include_link(elem):
+    """Return True if elem is a Link with the exact 'include' class and a local .md URL."""
+    return (
+        isinstance(elem, pf.Link)
+        and 'include' in elem.classes
+        and _is_embed_url(elem.url)
+    )
+
+
 def embed_filter(elem, doc):
     """Rewrite standalone .md image embeds to LaTeX \\input{stem} blocks."""
     if isinstance(elem, pf.Figure):
@@ -20,11 +29,14 @@ def embed_filter(elem, doc):
 
     if isinstance(elem, pf.Para):
         children = list(elem.content)
-        if (len(children) == 1
-                and isinstance(children[0], pf.Image)
-                and _is_embed_url(children[0].url)):
-            stem = Path(children[0].url).stem
-            return pf.RawBlock(f'\\input{{{stem}}}\n', format='latex')
+        if len(children) == 1:
+            child = children[0]
+            if isinstance(child, pf.Image) and _is_embed_url(child.url):
+                stem = Path(child.url).stem
+                return pf.RawBlock(f'\\input{{{stem}}}\n', format='latex')
+            if _is_include_link(child):
+                stem = Path(child.url).stem
+                return pf.RawBlock(f'\\input{{{stem}}}\n', format='latex')
 
 
 def main(doc=None):

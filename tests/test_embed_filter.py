@@ -55,3 +55,51 @@ def test_stem_extraction_from_subpath():
 def test_import_smoke():
     from texmark.filters.embed import embed_filter as ef
     assert callable(ef)
+
+
+def test_include_link_rewritten_to_input():
+    link = pf.Link(pf.Str('Chapter 1'), url='chapter1.md', classes=['include'])
+    doc = pf.Doc(pf.Para(link))
+    doc = run_filter(doc)
+    block = doc.content[0]
+    assert isinstance(block, pf.RawBlock)
+    assert block.text == '\\input{chapter1}\n'
+    assert block.format == 'latex'
+
+
+def test_include_link_matches_image_output():
+    img_doc = pf.Doc(pf.Para(pf.Image(url='chapter1.md')))
+    img_doc = run_filter(img_doc)
+    link_doc = pf.Doc(pf.Para(pf.Link(pf.Str('X'), url='chapter1.md', classes=['include'])))
+    link_doc = run_filter(link_doc)
+    assert img_doc.content[0].text == link_doc.content[0].text
+
+
+def test_include_link_subpath_stem():
+    link = pf.Link(pf.Str('Intro'), url='chapters/intro.md', classes=['include'])
+    doc = pf.Doc(pf.Para(link))
+    doc = run_filter(doc)
+    assert doc.content[0].text == '\\input{intro}\n'
+
+
+def test_link_without_include_class_not_rewritten():
+    link = pf.Link(pf.Str('Chapter 1'), url='chapter1.md')
+    doc = pf.Doc(pf.Para(link))
+    doc = run_filter(doc)
+    assert isinstance(doc.content[0], pf.Para)
+    assert isinstance(doc.content[0].content[0], pf.Link)
+
+
+def test_include_link_non_md_not_rewritten():
+    link = pf.Link(pf.Str('Sheet'), url='data.csv', classes=['include'])
+    doc = pf.Doc(pf.Para(link))
+    doc = run_filter(doc)
+    assert isinstance(doc.content[0], pf.Para)
+    assert isinstance(doc.content[0].content[0], pf.Link)
+
+
+def test_include_class_exact_match():
+    link = pf.Link(pf.Str('X'), url='chapter1.md', classes=['includes'])
+    doc = pf.Doc(pf.Para(link))
+    doc = run_filter(doc)
+    assert isinstance(doc.content[0], pf.Para)
