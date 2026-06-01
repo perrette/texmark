@@ -45,6 +45,35 @@ def _embed_command(doc):
     return '\\input'
 
 
+def _per_chapter_bib(doc):
+    """Return True when the active document opts into biblatex per-chapter
+    bibliographies (``bibliography_per_chapter: true`` in its YAML)."""
+    if doc is None:
+        return False
+    return bool(doc.get_metadata('bibliography_per_chapter', False))
+
+
+def _embed_rawblock(cmd, stem, doc):
+    """Build the RawBlock LaTeX for one embed.
+
+    Normally just ``\\input{stem}`` / ``\\include{stem}``. When the document
+    requested per-chapter bibliographies (Item 18) *and* this is a top-level
+    book-family ``\\include`` embed, wrap it in a biblatex ``refsection`` so the
+    chapter prints its own References section. Nested embeds (which emit
+    ``\\input``) are never wrapped — they live inside their parent's refsection.
+    """
+    if cmd == '\\include' and _per_chapter_bib(doc):
+        text = (
+            '\\begin{refsection}\n'
+            f'{cmd}{{{stem}}}\n'
+            '\\printbibliography[heading=subbibliography]\n'
+            '\\end{refsection}\n'
+        )
+    else:
+        text = f'{cmd}{{{stem}}}\n'
+    return pf.RawBlock(text, format='latex')
+
+
 def embed_filter(elem, doc):
     """Rewrite standalone .md embeds to LaTeX ``\\input{stem}`` or
     ``\\include{stem}`` blocks (class-aware via ``embed_depth`` + template)."""
@@ -58,7 +87,7 @@ def embed_filter(elem, doc):
         elem.walk(_gather)
         if len(images) == 1 and _is_embed_url(images[0].url):
             stem = Path(images[0].url).stem
-            return pf.RawBlock(f'{cmd}{{{stem}}}\n', format='latex')
+            return _embed_rawblock(cmd, stem, doc)
 
     if isinstance(elem, pf.Para):
         children = list(elem.content)
@@ -66,10 +95,10 @@ def embed_filter(elem, doc):
             child = children[0]
             if isinstance(child, pf.Image) and _is_embed_url(child.url):
                 stem = Path(child.url).stem
-                return pf.RawBlock(f'{cmd}{{{stem}}}\n', format='latex')
+                return _embed_rawblock(cmd, stem, doc)
             if _is_include_link(child):
                 stem = Path(child.url).stem
-                return pf.RawBlock(f'{cmd}{{{stem}}}\n', format='latex')
+                return _embed_rawblock(cmd, stem, doc)
 
 
 def main(doc=None):

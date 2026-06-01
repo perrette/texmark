@@ -92,6 +92,18 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     metadata.setdefault('longtable', False)
     metadata.setdefault('packages', []).extend(packages or [])
 
+    # bibliography_per_chapter (Item 18) only makes sense for book-family
+    # templates, which emit \include + carry the biblatex refsection scaffolding.
+    # For article-class templates the flag is silently ignored at the template
+    # and embed-filter level; warn once (on the master/companion build, not the
+    # body-only chunks) so the user knows their flag had no effect.
+    if (metadata.get('bibliography_per_chapter')
+            and journal_template not in BOOK_FAMILY_TEMPLATES
+            and not body_only):
+        logger.warning(
+            "texmark: bibliography_per_chapter requires a book-family template; ignoring."
+        )
+
     # Make build_dir, source_dir and cwd visible to pandoc filters so they
     # can rewrite figure paths relative to where pdflatex will run.
     # cwd is the texmark invocation directory; figure URLs that don't
@@ -245,8 +257,23 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     # so append their \include / \input directives to the master body here.
     # Class-aware, matching the embed filter: book-family -> \include.
     if extra_includes and not body_only:
-        cmd = '\\include' if journal_template in BOOK_FAMILY_TEMPLATES else '\\input'
-        body = body + '\n' + ''.join(f'{cmd}{{{stem}}}\n' for stem in extra_includes)
+        is_book = journal_template in BOOK_FAMILY_TEMPLATES
+        per_chapter = is_book and bool(metadata.get('bibliography_per_chapter'))
+        cmd = '\\include' if is_book else '\\input'
+        parts = []
+        for stem in extra_includes:
+            if per_chapter:
+                # Mirror the embed filter: wrap top-level book-family chapters
+                # in a biblatex refsection so each prints its own bibliography.
+                parts.append(
+                    '\\begin{refsection}\n'
+                    f'\\include{{{stem}}}\n'
+                    '\\printbibliography[heading=subbibliography]\n'
+                    '\\end{refsection}\n'
+                )
+            else:
+                parts.append(f'{cmd}{{{stem}}}\n')
+        body = body + '\n' + ''.join(parts)
 
     with open(output_tex, "w") as f:
         if body_only:
@@ -259,7 +286,8 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
 
 
 def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
-                bib_file='references.bib', resource_path='', backend='latexmk'):
+                bib_file='references.bib', resource_path='', backend='latexmk',
+                biblatex=False):
     """
     Step 2: Compile LaTeX source into PDF.
 
@@ -271,6 +299,11 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
         unconditionally. Use when latexmk isn't available.
       - 'tectonic': uses the standalone `tectonic` binary, which bundles
         engine + driver + bibtex-equivalent. `engine` is ignored in this mode.
+
+    biblatex (Item 18): when True the document uses biblatex, so its
+    bibliography backend is biber rather than bibtex. The 'raw' backend runs
+    `biber <stem>` instead of `bibtex <stem>.aux`. latexmk and tectonic both
+    auto-detect biber from the emitted `.bcf` file, so they need no extra flag.
     """
     build_dir = Path(build_dir)
 
@@ -309,7 +342,10 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
     elif backend == 'raw':
         cmd = [engine, '-interaction=nonstopmode', tex_name]
         run(cmd, cwd=build_dir, check=False)
-        bibcmd = ["bibtex", Path(input_tex).with_suffix(".aux").name]
+        if biblatex:
+            bibcmd = ["biber", Path(input_tex).stem]
+        else:
+            bibcmd = ["bibtex", Path(input_tex).with_suffix(".aux").name]
         run(bibcmd, cwd=build_dir, check=False)
         run(cmd, cwd=build_dir, check=False)
         run(cmd, cwd=build_dir, check=False)
@@ -580,19 +616,28 @@ def main():
             )
             companion_builds.append((comp_path, comp_tex, comp_pdf, comp_meta))
 
+        # bibliography_per_chapter (Item 18) swaps the root to a biblatex+biber
+        # pipeline. Only the root honours this flag, and only for book-family
+        # templates; companions are decoupled and always use their own (bibtex)
+        # pipeline regardless of the root's flag.
+        root_biblatex = (bool(root_metadata.get('bibliography_per_chapter'))
+                         and root_template in BOOK_FAMILY_TEMPLATES)
+
         if want_pdf:
-            # Build target list: (input_tex, output_pdf, bib_file, resource_path).
+            # Build target list: (input_tex, output_pdf, bib_file, resource_path, biblatex).
             # Body-only embeds are inputs to the master, never compile targets.
             targets = [(
                 tex_file, pdf_file,
                 str(root_metadata.get('bibliography') or ''),
                 str(root_metadata.get('resource_path') or ''),
+                root_biblatex,
             )]
             for _cp, c_tex, c_pdf, c_meta in companion_builds:
                 targets.append((
                     c_tex, c_pdf,
                     str(c_meta.get('bibliography') or ''),
                     str(c_meta.get('resource_path') or ''),
+                    False,
                 ))
 
             # Companions need multi-pass coordination: xr-hyper resolves
@@ -602,9 +647,10 @@ def main():
             if project.companion_files:
                 prev_snapshot = None
                 for pass_idx in range(1, MAX_PASSES + 1):
-                    for in_tex, out_pdf, bib, rp in targets:
+                    for in_tex, out_pdf, bib, rp, bl in targets:
                         compile_pdf(in_tex, out_pdf, engine=engine, build_dir=args.build,
-                                    bib_file=bib, resource_path=rp, backend=backend)
+                                    bib_file=bib, resource_path=rp, backend=backend,
+                                    biblatex=bl)
                     cur_snapshot = _aux_files_snapshot(project, build_dir)
                     if prev_snapshot is not None and cur_snapshot == prev_snapshot:
                         break
@@ -615,9 +661,10 @@ def main():
                         f"{MAX_PASSES} passes; cross-refs may be stale"
                     )
             else:
-                in_tex, out_pdf, bib, rp = targets[0]
+                in_tex, out_pdf, bib, rp, bl = targets[0]
                 compile_pdf(in_tex, out_pdf, engine=engine, build_dir=args.build,
-                            bib_file=bib, resource_path=rp, backend=backend)
+                            bib_file=bib, resource_path=rp, backend=backend,
+                            biblatex=bl)
 
         return root_metadata
 

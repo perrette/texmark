@@ -30,7 +30,14 @@
 \usepackage{subcaption}
 
 %% References and hyperlinks (load hyperref last among these)
+{% if bibliography_per_chapter -%}
+\usepackage[backend=biber,style=authoryear]{biblatex}
+{% if bibliography -%}
+\addbibresource{ {{ bibliography }} }
+{% endif -%}
+{% else -%}
 \usepackage{natbib}
+{% endif -%}
 \usepackage{url}
 \usepackage[colorlinks=true,
             linkcolor=blue,
@@ -116,7 +123,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % REFERENCES
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-{% if bibliography -%}
+{% if bibliography and not bibliography_per_chapter -%}
 \bibliographystyle{ {{ biblio_style if biblio_style else "plainnat" }} }
 \bibliography{ {{bibliography}} }
 {% endif %}
