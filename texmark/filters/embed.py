@@ -77,7 +77,13 @@ def _embed_rawblock(cmd, stem, doc):
 def embed_filter(elem, doc):
     """Rewrite standalone .md embeds to LaTeX ``\\input{stem}`` or
     ``\\include{stem}`` blocks (class-aware via ``embed_depth`` + template)."""
-    cmd = _embed_command(doc)
+    # _embed_command's inputs (embed_depth, journal.template) are constant
+    # for the whole doc, so resolve it once per walk instead of repeating the
+    # metadata lookups for every element (~6944 calls on a typical paper).
+    cmd = getattr(doc, '_texmark_embed_cmd', None)
+    if cmd is None:
+        cmd = _embed_command(doc)
+        doc._texmark_embed_cmd = cmd
 
     if isinstance(elem, pf.Figure):
         images = []
