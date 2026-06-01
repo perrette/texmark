@@ -543,7 +543,31 @@ def main():
         # is convenient when iterating on a new template.
         rp = metadata.get('resource_path')
         tmpl_path = Path(str(rp)) / 'template.tex' if rp else None
-        watch_loop(do_build, [primary_input, bib, tmpl_path])
+
+        watch_paths: list = [primary_input, bib, tmpl_path]
+        watch_paths.extend(project.embedded_files)
+        watch_paths.extend(project.companion_files)
+
+        for comp_path in project.companion_files:
+            comp_meta = frontmatter.loads(comp_path.read_text()).metadata
+            comp_bib = comp_meta.get('bibliography')
+            if comp_bib:
+                watch_paths.append(Path(comp_path).parent / comp_bib)
+            comp_jt = comp_meta.get('journal', {}).get('template') or 'default'
+            watch_paths.append(rootpath / f'templates/{comp_jt}/template.tex')
+
+        # Deduplicate preserving first-occurrence order, dropping None/empty.
+        seen_resolved: set[str] = set()
+        deduped: list = []
+        for p in watch_paths:
+            if not p:
+                continue
+            key = str(Path(p).resolve())
+            if key not in seen_resolved:
+                seen_resolved.add(key)
+                deduped.append(p)
+
+        watch_loop(do_build, deduped)
     else:
         do_build()
 
