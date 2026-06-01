@@ -247,6 +247,12 @@ journal:
 | `memoir` | `\documentclass{memoir}` | `\frontmatter` / `\mainmatter` / `\backmatter`; configurable chapter styles | [docs](docs/journals/memoir.md) |
 | `classicthesis` | `\documentclass{scrreprt}` + bundled `classicthesis.sty` | Bringhurst-inspired typography; no front/main/back matter macros | [docs](docs/journals/classicthesis.md) |
 
+**Presentation templates** (Beamer slide decks):
+
+| template | aliases | covers | docs |
+| --- | --- | --- | --- |
+| `beamer` | `slides`, `presentation` | Lecture slides, conference presentations, seminar talks | [docs](docs/journals/beamer.md) |
+
 Book-family templates support `\include{...}` for chapters (enabling
 `--only` for selective recompilation), front-matter YAML keys
 (`dedication:`, `list_of_figures:`, etc.), and
