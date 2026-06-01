@@ -13,6 +13,7 @@ from texmark.filters.__main__ import (
     header_to_paragraph,
     header_to_unnumbered,
     extract_table_identifier,
+    apply_figure_defaults,
 )
 
 
@@ -211,3 +212,45 @@ class TestExtractTableIdentifier:
         body = pf.TableBody(pf.TableRow(pf.TableCell(pf.Plain(pf.Str("v1")))))
         t = pf.Table(body, head=head)
         extract_table_identifier(t, make_doc())  # should not raise
+
+
+# ---- apply_figure_defaults ------------------------------------------------
+
+
+def _figure_with_image_attrs(**attrs):
+    img = pf.Image(pf.Str("caption"), url="images/x.png", attributes=attrs)
+    return pf.Figure(pf.Plain(img))
+
+
+class TestApplyFigureDefaults:
+    def test_per_figure_span_full_wraps_in_figure_star(self):
+        # Pandoc puts `figure-span=full` on the inner Image, not the Figure.
+        fig = _figure_with_image_attrs(**{"figure-span": "full"})
+        out = apply_figure_defaults(fig, make_doc())
+        assert isinstance(out, pf.RawBlock)
+        assert r"\begin{figure*}" in out.text
+        assert r"\end{figure*}" in out.text
+
+    def test_per_figure_span_column_stays_figure(self):
+        fig = _figure_with_image_attrs(**{"figure-span": "column"})
+        out = apply_figure_defaults(fig, make_doc())
+        assert out is None  # unchanged Figure left in place
+
+    def test_no_span_attr_leaves_figure_alone(self):
+        fig = _figure_with_image_attrs()
+        out = apply_figure_defaults(fig, make_doc())
+        assert out is None
+
+    def test_doc_metadata_span_full_applies_globally(self):
+        doc = pf.Doc(metadata={"figure-span": "full"})
+        fig = _figure_with_image_attrs()
+        out = apply_figure_defaults(fig, doc)
+        assert isinstance(out, pf.RawBlock)
+        assert r"\begin{figure*}" in out.text
+
+    def test_per_figure_overrides_doc_metadata(self):
+        # Global says full, but this figure asks for column.
+        doc = pf.Doc(metadata={"figure-span": "full"})
+        fig = _figure_with_image_attrs(**{"figure-span": "column"})
+        out = apply_figure_defaults(fig, doc)
+        assert out is None

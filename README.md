@@ -136,6 +136,7 @@ journal:
 collect_figures_and_tables: true       # optional: see section below
 figure-width: 80%                      # optional: pandoc figure default
 figure-span: full                      # optional: wraps in figure* (full text width)
+                                       #   per-figure override: ![cap](img){figure-span=full}
 ```
 
 Section-style metadata can also be given as markdown `# ...` headings. Any

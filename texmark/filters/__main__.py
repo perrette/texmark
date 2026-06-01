@@ -120,6 +120,8 @@ def apply_figure_defaults(elem, doc):
       to the full text width.
     - `figure-span` (default `column`) — when set to `full`, wrap the figure in
       a `figure*` environment so it spans both columns in two-column layouts.
+      Can be set globally via document metadata or per-figure via the image's
+      attribute syntax: ``![cap](img){figure-span=full}``.
     """
     if not isinstance(elem, pf.Figure):
         return
@@ -128,7 +130,15 @@ def apply_figure_defaults(elem, doc):
     if "width" not in target.attributes:
         target.attributes['width'] = doc.get_metadata('figure-width', '100%')
 
-    if doc.get_metadata('figure-span', 'column') == 'full':
+    # Pandoc puts ``#id`` on the Figure but other ``{...}`` attributes on the
+    # inner Image, so check both before falling back to the document default.
+    span = (
+        target.attributes.pop('figure-span', None)
+        or elem.attributes.pop('figure-span', None)
+        or doc.get_metadata('figure-span', 'column')
+    )
+
+    if span == 'full':
         latex = pf.convert_text(
             elem,
             input_format='panflute',
