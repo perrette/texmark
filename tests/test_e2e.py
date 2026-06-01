@@ -6,11 +6,15 @@ full pipeline: markdown → pandoc filters → LaTeX → real PDF via tectonic.
 import os
 import re
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
 import pytest
+
+try:
+    import pypdf
+except ImportError:
+    pypdf = None
 
 from texmark.build import main
 from tests import pandoc_available
@@ -114,14 +118,16 @@ def test_e2e_main_si_cross_refs(tmp_path, monkeypatch):
 
     # Final positive check: the rendered PDF actually contains the
     # resolved cross-document reference. Without this, all the upstream
-    # checks could pass while the PDF reads "See ?? for ...". Skip if
-    # pdftotext isn't available (poppler-utils ships on ubuntu-latest).
-    if shutil.which("pdftotext"):
-        text = subprocess.check_output(
-            ["pdftotext", str(build_dir / "main.pdf"), "-"],
-            text=True,
-        )
-        assert "See S1" in text, (
-            f"main.pdf does not render resolved cross-doc reference 'S1'; "
-            f"got: {text!r}"
-        )
+    # checks could pass while the PDF reads "See ?? for ...". We use
+    # pypdf rather than shelling out to pdftotext so the assertion runs
+    # in any environment with the test deps installed (poppler-utils is
+    # not guaranteed on ubuntu-latest GitHub runners).
+    assert pypdf is not None, (
+        "pypdf not installed — required for the e2e PDF text assertion"
+    )
+    reader = pypdf.PdfReader(str(build_dir / "main.pdf"))
+    pdf_text = "\n".join(page.extract_text() or "" for page in reader.pages)
+    assert "See S1" in pdf_text, (
+        f"main.pdf does not render resolved cross-doc reference 'S1'; "
+        f"got: {pdf_text!r}"
+    )

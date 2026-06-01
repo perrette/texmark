@@ -43,10 +43,12 @@ jobs:
           "$HOME/.local/bin/tectonic" --version
       - name: Install
         # pypandoc_binary bundles the pandoc binary on PyPI, so we avoid the
-        # apt-get update + install round-trip.
+        # apt-get update + install round-trip. pypdf is used by the e2e tests
+        # to extract text from the rendered PDF (pure Python, no system dep
+        # — poppler-utils/pdftotext are not guaranteed on ubuntu-latest).
         run: |
           python -m pip install --upgrade pip
-          pip install -e . pytest pypandoc_binary
+          pip install -e . pytest pypandoc_binary pypdf
       - name: Run tests
         run: pytest -v
 
