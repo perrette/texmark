@@ -500,8 +500,11 @@ def apply_figure_defaults(elem, doc):
       given on the figure itself. Percent values are interpreted by pandoc as a
       fraction of `\\linewidth`, which inside `figure*` automatically expands
       to the full text width.
-    - `figure-span` (default `column`) — when set to `full`, wrap the figure in
-      a `figure*` environment so it spans both columns in two-column layouts.
+    - `figure-span` (default `column`) — when set to `full`, wrap the figure
+      in sentinel RawBlocks. ``expand_figstar_sentinels`` (called from
+      build.py after pandoc renders the body) rewrites the surrounding
+      ``\\begin{figure}``/``\\end{figure}`` into ``figure*``. Doing it in
+      post-render avoids one pandoc subprocess per full-span figure.
       Can be set globally via document metadata or per-figure via the image's
       attribute syntax: ``![cap](img){figure-span=full}``.
     """
@@ -521,15 +524,11 @@ def apply_figure_defaults(elem, doc):
     )
 
     if span == 'full':
-        latex = pf.convert_text(
+        return [
+            pf.RawBlock(FIGSTAR_BEGIN, format='latex'),
             elem,
-            input_format='panflute',
-            output_format='latex',
-            extra_args=['--natbib'],
-        )
-        latex = latex.replace(r'\begin{figure}', r'\begin{figure*}')
-        latex = latex.replace(r'\end{figure}', r'\end{figure*}')
-        return pf.RawBlock(latex, format='latex')
+            pf.RawBlock(FIGSTAR_END, format='latex'),
+        ]
 
 basic_filters = [embed_filter, crossref_filter, strip_leading_slash, resolve_image_paths, stringify_captions, tag_figures, apply_figure_defaults, table_to_latex]
 

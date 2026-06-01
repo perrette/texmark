@@ -733,13 +733,21 @@ def _figure_with_image_attrs(**attrs):
 
 
 class TestApplyFigureDefaults:
-    def test_per_figure_span_full_wraps_in_figure_star(self):
+    """The full-span branch emits a 3-element list:
+    ``[RawBlock(FIGSTAR_BEGIN), Figure, RawBlock(FIGSTAR_END)]``. The actual
+    ``\\begin{figure}`` -> ``\\begin{figure*}`` rewrite happens later in
+    ``expand_figstar_sentinels`` (called from build.py after pandoc renders
+    the LaTeX body). The filter itself does no pandoc subprocess."""
+
+    def test_per_figure_span_full_wraps_in_sentinels(self):
+        from texmark.filters.__main__ import FIGSTAR_BEGIN, FIGSTAR_END
         # Pandoc puts `figure-span=full` on the inner Image, not the Figure.
         fig = _figure_with_image_attrs(**{"figure-span": "full"})
         out = apply_figure_defaults(fig, make_doc())
-        assert isinstance(out, pf.RawBlock)
-        assert r"\begin{figure*}" in out.text
-        assert r"\end{figure*}" in out.text
+        assert isinstance(out, list) and len(out) == 3
+        assert isinstance(out[0], pf.RawBlock) and out[0].text == FIGSTAR_BEGIN
+        assert out[1] is fig
+        assert isinstance(out[2], pf.RawBlock) and out[2].text == FIGSTAR_END
 
     def test_per_figure_span_column_stays_figure(self):
         fig = _figure_with_image_attrs(**{"figure-span": "column"})
@@ -752,11 +760,12 @@ class TestApplyFigureDefaults:
         assert out is None
 
     def test_doc_metadata_span_full_applies_globally(self):
+        from texmark.filters.__main__ import FIGSTAR_BEGIN
         doc = pf.Doc(metadata={"figure-span": "full"})
         fig = _figure_with_image_attrs()
         out = apply_figure_defaults(fig, doc)
-        assert isinstance(out, pf.RawBlock)
-        assert r"\begin{figure*}" in out.text
+        assert isinstance(out, list) and len(out) == 3
+        assert isinstance(out[0], pf.RawBlock) and out[0].text == FIGSTAR_BEGIN
 
     def test_per_figure_overrides_doc_metadata(self):
         # Global says full, but this figure asks for column.
@@ -764,6 +773,47 @@ class TestApplyFigureDefaults:
         fig = _figure_with_image_attrs(**{"figure-span": "column"})
         out = apply_figure_defaults(fig, doc)
         assert out is None
+
+
+class TestExpandFigstarSentinels:
+    """Unit tests for the post-render sentinel rewriter that converts
+    ``apply_figure_defaults``' sentinels into ``figure*`` environments."""
+
+    def test_paired_sentinels_rewrite_to_figure_star(self):
+        from texmark.filters.__main__ import expand_figstar_sentinels
+        body = (
+            "% TEXMARK-FIGSTAR-BEGIN\n"
+            "\\begin{figure}\n"
+            "\\centering\n"
+            "\\includegraphics{x.png}\n"
+            "\\caption{c}\n"
+            "\\end{figure}\n"
+            "% TEXMARK-FIGSTAR-END\n"
+        )
+        out = expand_figstar_sentinels(body)
+        assert r"\begin{figure*}" in out
+        assert r"\end{figure*}" in out
+        assert "TEXMARK-FIGSTAR-BEGIN" not in out
+        assert "TEXMARK-FIGSTAR-END" not in out
+
+    def test_orphan_sentinels_are_stripped(self):
+        # If a downstream filter dropped the figure but left the wrapper,
+        # the leftover sentinels still get cleaned out of the .tex.
+        from texmark.filters.__main__ import expand_figstar_sentinels
+        body = "% TEXMARK-FIGSTAR-BEGIN\nsome other content\n"
+        out = expand_figstar_sentinels(body)
+        assert "TEXMARK-FIGSTAR" not in out
+
+    def test_preserves_placement_specifier(self):
+        # \begin{figure}[t] etc. — keep the specifier after rewriting.
+        from texmark.filters.__main__ import expand_figstar_sentinels
+        body = (
+            "% TEXMARK-FIGSTAR-BEGIN\n"
+            "\\begin{figure}[t]\nbody\n\\end{figure}\n"
+            "% TEXMARK-FIGSTAR-END\n"
+        )
+        out = expand_figstar_sentinels(body)
+        assert r"\begin{figure*}[t]" in out
 
 
 # ---- SectionFilter drop_sections -----------------------------------------

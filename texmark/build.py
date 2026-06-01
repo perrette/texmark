@@ -304,6 +304,10 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
         extra_args=['--template', rootpath / "templates" / "body.tex"] + args,
     )
 
+    # Rewrite ``apply_figure_defaults`` sentinels into figure*/end{figure*}.
+    # See ``texmark.filters.__main__.expand_figstar_sentinels`` for details.
+    body = _filters_journal.expand_figstar_sentinels(body)
+
     # Chapters declared only via the `chapters:` YAML key (not as body
     # `![](file.md)` nodes) have no embed node for texmark-embed to rewrite,
     # so append their \include / \input directives to the master body here.
