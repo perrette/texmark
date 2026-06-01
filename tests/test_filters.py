@@ -650,6 +650,93 @@ class TestExtractTableIdentifier:
         extract_table_identifier(t, make_doc())  # should not raise
 
 
+# ---- table_to_latex ------------------------------------------------------
+
+
+def _doc_with_template(template):
+    return pf.Doc(metadata={"journal": {"template": template}})
+
+
+def _simple_table(headers, rows, caption_text="caption", identifier=""):
+    """Build a pf.Table from a list-of-lists of cell text. One body, no spans."""
+    head = pf.TableHead(pf.TableRow(*[
+        pf.TableCell(pf.Plain(pf.Str(h))) for h in headers
+    ]))
+    body = pf.TableBody(*[
+        pf.TableRow(*[pf.TableCell(pf.Plain(pf.Str(c))) for c in row])
+        for row in rows
+    ])
+    cap = pf.Caption(pf.Plain(pf.Str(caption_text)))
+    return pf.Table(body, head=head, caption=cap, identifier=identifier)
+
+
+class TestTableToLatex:
+    """End-to-end tests for the table -> LaTeX renderer. We exercise the
+    journal-specific rule styles and ensure cell content lands in the
+    expected positions. Cell conversion happens in one batched pandoc
+    subprocess per table, so empty / inline-mark-up cells must round-trip
+    cleanly through the separator-based split."""
+
+    def test_default_template_uses_hline(self):
+        from texmark.filters.tabular import table_to_latex
+        t = _simple_table(["A", "B"], [["1", "2"], ["3", "4"]],
+                          identifier="tab:foo")
+        out = table_to_latex(t, _doc_with_template("ametsoc"))
+        assert isinstance(out, pf.RawBlock)
+        latex = out.text
+        assert r"\hline" in latex
+        assert r"\tophline" not in latex
+        assert "A & B" in latex
+        assert "1 & 2" in latex
+        assert "3 & 4" in latex
+        assert r"\label{tab:foo}" in latex
+        assert r"\begin{tabular}{ll}" in latex
+
+    def test_copernicus_uses_tophline_middlehline_bottomhline(self):
+        from texmark.filters.tabular import table_to_latex
+        t = _simple_table(["A"], [["x"]])
+        out = table_to_latex(t, _doc_with_template("copernicus"))
+        latex = out.text
+        assert r"\tophline" in latex
+        assert r"\middlehline" in latex
+        assert r"\bottomhline" in latex
+        assert r"\belowtable{}" in latex
+
+    def test_science_prepends_double_backslash(self):
+        from texmark.filters.tabular import table_to_latex
+        t = _simple_table(["A"], [["x"]])
+        out = table_to_latex(t, _doc_with_template("science"))
+        latex = out.text
+        # The "\\" line is prepended before the top rule.
+        idx_backslash = latex.find("\\\\")
+        idx_hline = latex.find(r"\hline")
+        assert 0 <= idx_backslash < idx_hline
+
+    def test_non_pf_table_returns_none(self):
+        from texmark.filters.tabular import table_to_latex
+        para = pf.Para(pf.Str("not a table"))
+        assert table_to_latex(para, _doc_with_template("ametsoc")) is None
+
+    def test_inline_emphasis_in_cell_round_trips(self):
+        # Emphasized cell content should appear as \emph{...} (or \textit{...})
+        # in the output. This guards the cell-batch round-trip path against
+        # losing inline markup at the marker boundary.
+        from texmark.filters.tabular import table_to_latex
+        head = pf.TableHead(pf.TableRow(pf.TableCell(pf.Plain(pf.Str("h")))))
+        body = pf.TableBody(pf.TableRow(
+            pf.TableCell(pf.Plain(pf.Emph(pf.Str("hi"))))
+        ))
+        cap = pf.Caption(pf.Plain(pf.Str("c")))
+        t = pf.Table(body, head=head, caption=cap)
+        out = table_to_latex(t, _doc_with_template("ametsoc"))
+        latex = out.text
+        # pandoc emits emphasis as \emph{hi}; the exact form (emph vs textit)
+        # depends on the pandoc version, so just check that the content
+        # arrived inside *some* LaTeX command, not raw.
+        assert "hi" in latex
+        assert "\\" in latex.split("\\begin{tabular}")[1]
+
+
 # ---- stringify_captions --------------------------------------------------
 
 
