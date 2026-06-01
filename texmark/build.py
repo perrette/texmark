@@ -396,14 +396,19 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
     # Figure bundling (copy_figures mode) is handled inside the
     # resolve_image_paths filter during the pandoc pass, so we don't need
     # to stage anything here.
-    for f in (input_tex, bib_file):
-        if not f:
-            continue
-        src = Path(f)
-        if not src.exists():
-            continue
-        if src.parent.resolve() != build_dir.resolve():
+    if input_tex:
+        src = Path(input_tex)
+        if src.exists() and src.parent.resolve() != build_dir.resolve():
             shutil.copy2(src, build_dir)
+    # Bibliography gets rewritten on the way in: non-ASCII codepoints are
+    # replaced with their pylatexenc-supplied LaTeX equivalents so pdflatex's
+    # 8-bit font stack stops dropping characters from titles, journal names,
+    # etc. The source .bib stays untouched. See texmark/unicode_bib.py.
+    if bib_file:
+        src = Path(bib_file)
+        if src.exists() and src.parent.resolve() != build_dir.resolve():
+            from texmark.unicode_bib import stage_bib
+            stage_bib(src, build_dir)
     tex_name = Path(input_tex).name
 
     if backend == 'latexmk':

@@ -3,4 +3,5 @@ jinja2
 pyyaml
 panflute
 python-frontmatter
+pylatexenc
 requests
