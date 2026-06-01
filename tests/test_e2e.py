@@ -6,6 +6,7 @@ full pipeline: markdown → pandoc filters → LaTeX → real PDF via tectonic.
 import os
 import re
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -90,30 +91,37 @@ def test_e2e_main_si_cross_refs(tmp_path, monkeypatch):
         assert pdf.exists(), f"{stem}.pdf not produced"
         assert pdf.read_bytes()[:4] == b"%PDF", f"{stem}.pdf lacks PDF magic bytes"
 
-    # SI's aux must contain the label fig:noise with a resolved (non-??) value.
-    # tectonic --keep-intermediates retains .aux files alongside the .pdf.
+    # SI's aux defines fig:noise. The first {...} after the label is the
+    # value \ref expands to — should be "S1" (prefix S + figure 1) and
+    # never "??" (which would mean LaTeX never resolved the counter).
     si_aux = build_dir / "si.aux"
     assert si_aux.exists(), "si.aux not found; tectonic may not have kept intermediates"
     aux_text = si_aux.read_text(errors="replace")
-    assert r"\newlabel{fig:noise}" in aux_text, (
-        "\\newlabel{fig:noise} missing from si.aux — label not defined in SI"
-    )
-    m = re.search(r"\\newlabel\{fig:noise\}\{([^}]*)\}", aux_text)
-    assert m is not None
-    assert "??" not in m.group(1), (
-        f"fig:noise still unresolved (??) in si.aux: {m.group(1)!r}"
+    m = re.search(r"\\newlabel\{fig:noise\}\{\{([^}]*)\}", aux_text)
+    assert m is not None, "\\newlabel{fig:noise} missing from si.aux"
+    assert m.group(1) == "S1", (
+        f"fig:noise resolves to {m.group(1)!r} in si.aux, expected 'S1'"
     )
 
-    # main.log must show xr-hyper importing si.aux and the si:fig:noise
-    # reference resolving. xr-hyper imports external labels into LaTeX's
-    # in-memory label table, so they don't appear in main.aux directly —
-    # we verify resolution through the log instead.
+    # main.log must show xr-hyper importing si.aux. xr-hyper imports
+    # external labels into LaTeX's in-memory label table, so they don't
+    # appear in main.aux directly — the log is the load-time trace.
     main_log = build_dir / "main.log"
-    assert main_log.exists(), "main.log not found"
     main_log_text = main_log.read_text(errors="replace")
     assert "IMPORTING LABELS FROM si.aux" in main_log_text, (
-        "xr-hyper did not attempt to import si.aux"
+        "xr-hyper did not import si.aux"
     )
-    assert "Reference `si:fig:noise' on page" not in main_log_text, (
-        "si:fig:noise still appears in undefined-reference warnings in main.log"
-    )
+
+    # Final positive check: the rendered PDF actually contains the
+    # resolved cross-document reference. Without this, all the upstream
+    # checks could pass while the PDF reads "See ?? for ...". Skip if
+    # pdftotext isn't available (poppler-utils ships on ubuntu-latest).
+    if shutil.which("pdftotext"):
+        text = subprocess.check_output(
+            ["pdftotext", str(build_dir / "main.pdf"), "-"],
+            text=True,
+        )
+        assert "See S1" in text, (
+            f"main.pdf does not render resolved cross-doc reference 'S1'; "
+            f"got: {text!r}"
+        )
