@@ -22,6 +22,21 @@ from texmark.filters import crossref as _filters_crossref
 from texmark.filters import __main__ as _filters_journal
 
 
+# In-process filters (texmark-journal in particular) call panflute's
+# `pf.convert_text`, which looks up pandoc via `shutil.which('pandoc')`. When
+# the user installed via `pypandoc_binary`, the bundled pandoc lives outside
+# PATH — pypandoc finds it through its own resolver but panflute does not. So
+# add the bundled binary's directory to PATH once at import time. Guarded
+# because `get_pandoc_path()` raises if pandoc is missing entirely, and we
+# want that failure to surface at build time rather than at import.
+try:
+    _pandoc_dir = os.path.dirname(pypandoc.get_pandoc_path())
+except OSError:
+    _pandoc_dir = ''
+if _pandoc_dir and _pandoc_dir not in os.environ.get('PATH', '').split(os.pathsep):
+    os.environ['PATH'] = _pandoc_dir + os.pathsep + os.environ.get('PATH', '')
+
+
 # Built-in filters that can run inside this Python process instead of via
 # pandoc's --filter mechanism. Each --filter spawns a fresh Python interpreter
 # that re-imports panflute and round-trips the full AST through JSON; on a
