@@ -14,9 +14,22 @@ import pytest
 from texmark.build import build_tex
 
 
+def _pandoc_available():
+    if shutil.which("pandoc") is not None:
+        return True
+    # pypandoc_binary ships the binary inside the package (not on PATH);
+    # pypandoc finds it via get_pandoc_path().
+    try:
+        import pypandoc
+        pypandoc.get_pandoc_path()
+        return True
+    except Exception:
+        return False
+
+
 pytestmark = pytest.mark.skipif(
-    shutil.which("pandoc") is None,
-    reason="pandoc binary not available on PATH",
+    not _pandoc_available(),
+    reason="pandoc binary not available (neither on PATH nor via pypandoc)",
 )
 
 

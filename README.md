@@ -36,10 +36,14 @@ Write scientific articles in markdown — and submit them to any journal.
 ### External dependencies
 
 texmark itself is pure Python, but it shells out to a few external tools to
-produce the final PDF. Install them via your system package manager.
+produce the final PDF.
 
-- **pandoc** — the markdown → tex engine (the `pypandoc` PyPI dependency is
-  a wrapper, the binary is not installable via pip).
+- **pandoc** — the markdown → tex engine. The easiest install is
+  `pip install pypandoc_binary`, which ships the pandoc binary as a PyPI
+  wheel (no system package manager, no sudo, same on Linux/macOS/Windows,
+  recent pandoc 3.x). If you'd rather have a single shared install across
+  venvs, use your system package manager instead (see below) — texmark
+  picks up either.
 - **A LaTeX distribution** providing `pdflatex`, `bibtex`, and `latexmk`
   (texmark's default driver) plus the standard package set (`hyperref`,
   `natbib`, `amsmath`, `graphicx`, `geometry`, `microtype`, `booktabs`,
