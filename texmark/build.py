@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import re
 import subprocess
 import shutil
 from pathlib import Path
@@ -414,7 +415,25 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
             'xelatex': '-pdfxe',
             'lualatex': '-pdflua',
         }.get(engine, '-pdf')
-        cmd = ['latexmk', engine_flag, '-interaction=nonstopmode', '-f', tex_name]
+        # Stuck-state recovery: latexmk records its previous run's outcome in
+        # <stem>.fdb_latexmk. When that outcome was a pdflatex error AND the
+        # input fingerprint hasn't changed since, latexmk says "Nothing to do"
+        # and exits nonzero with "gave an error in previous invocation of
+        # latexmk". The user then sees an error message with no obvious way
+        # to act on it — the stale error masks whatever the current state is.
+        #
+        # Heuristic: if the previous engine pass left errors in <stem>.log,
+        # pass -g (force-make) so latexmk re-runs the engine and surfaces
+        # the current errors (or, if the source has since been fixed, a
+        # clean build). On a clean log we run incrementally as before.
+        log_file = build_dir / Path(tex_name).with_suffix('.log').name
+        force = []
+        if log_file.exists():
+            log_text = log_file.read_text(errors='replace')
+            # pdflatex prefixes every error line with `! ` at column 0.
+            if re.search(r'(?m)^!', log_text):
+                force = ['-g']
+        cmd = ['latexmk', engine_flag, '-interaction=nonstopmode', '-f'] + force + [tex_name]
         run(cmd, cwd=build_dir, check=False)
     elif backend == 'tectonic':
         cmd = ['tectonic', '--keep-intermediates', '--keep-logs', tex_name]
