@@ -114,10 +114,11 @@ class SectionTracker:
 #                 doc.metadata[meta_key].append(RawInline(latex, format='latex'))
 
 class SectionFilter:
-    def __init__(self, extract_sections, sections_map={}, remap_command_sections={}):
+    def __init__(self, extract_sections, sections_map={}, remap_command_sections={}, drop_sections=()):
         self.extract_sections = extract_sections
         self.sections_map = sections_map or {}
         self.remap_command_sections = remap_command_sections or {}
+        self.drop_sections = list(drop_sections)
 
     def prepare(self, doc):
         self.sections = {}
@@ -141,21 +142,24 @@ class SectionFilter:
         figure_blocks = []
         tables_blocks = []
 
+        all_collect = list(self.extract_sections) + list(self.drop_sections)
+
         # Ensure section storage
-        collected = {key: [] for key in self.extract_sections}
-        collected_figures = {key: [] for key in self.extract_sections}
-        collected_tables = {key: [] for key in self.extract_sections}
+        collected = {key: [] for key in all_collect}
+        collected_titles = {}
+        collected_figures = {key: [] for key in all_collect}
+        collected_tables = {key: [] for key in all_collect}
 
         for blk in doc.content:
             if isinstance(blk, pf.Header):
                 sid = blk.identifier
                 if collecting:
                     collecting = False
-                if sid in self.extract_sections:
+                if sid in all_collect:
                     current = sid
                     collecting = True
                     section_level = blk.level
-                    # collected[sid].append(blk)
+                    collected_titles[sid] = pf.stringify(blk)
                     logger.info(f"Collecting section: {sid} level: {blk.level}")
                     continue  # skip header from main doc
                 # else:
@@ -207,6 +211,13 @@ class SectionFilter:
             if not blocks:
                 continue
 
+            if sec_id in self.drop_sections:
+                logger.warning(
+                    f"dropping section '{collected_titles.get(sec_id, sec_id)}' "
+                    f"(not used by this template)"
+                )
+                continue
+
             # Get remapped metadata key if any
             meta_key = self.sections_map.get(sec_id, sec_id)
 
@@ -219,6 +230,17 @@ class SectionFilter:
                 doc.metadata[meta_key] = pf.MetaList(latex_inline)
             else:
                 doc.metadata[meta_key].content.append(latex_inline)
+
+            # Store the original heading text in <meta_key>titles, in parallel
+            # with <meta_key>. Templates that want the original heading (e.g.
+            # ametsoc's \appendixtitle) can read appendixtitles[i]; others
+            # simply ignore it.
+            titles_key = f"{meta_key}titles"
+            title_inline = pf.MetaString(collected_titles.get(sec_id, ''))
+            if titles_key not in doc.metadata:
+                doc.metadata[titles_key] = pf.MetaList(title_inline)
+            else:
+                doc.metadata[titles_key].content.append(title_inline)
 
 
 def main(doc=None):

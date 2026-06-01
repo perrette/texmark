@@ -125,7 +125,10 @@
 {% else -%}
 \appendix[{{ appendix_letters[loop.index0] }}]
 {% endif -%}
-\appendixtitle{ {{ appendixtitles[loop.index0] if appendixtitles and appendixtitles|length > loop.index0 else "Appendix" }} }
+{%- set _title = appendixtitles[loop.index0] if appendixtitles and appendixtitles|length > loop.index0 else '' %}
+{% if _title and _title|lower != 'appendix' -%}
+\appendixtitle{ {{ _title }} }
+{% endif -%}
 {{ section }}
 {% endfor -%}
 {% endif %}

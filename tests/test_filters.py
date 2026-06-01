@@ -15,6 +15,7 @@ from texmark.filters.__main__ import (
     extract_table_identifier,
     apply_figure_defaults,
 )
+from texmark.sectiontracker import SectionFilter
 
 
 def make_doc():
@@ -254,3 +255,56 @@ class TestApplyFigureDefaults:
         fig = _figure_with_image_attrs(**{"figure-span": "column"})
         out = apply_figure_defaults(fig, doc)
         assert out is None
+
+
+# ---- SectionFilter drop_sections -----------------------------------------
+
+
+def _doc_with_author_contributions():
+    return pf.Doc(
+        pf.Header(pf.Str("Intro"), level=1, identifier="intro"),
+        pf.Para(pf.Str("Body.")),
+        pf.Header(pf.Str("Author"), pf.Space(), pf.Str("contributions"),
+                  level=1, identifier="author-contributions"),
+        pf.Para(pf.Str("A.B."), pf.Space(), pf.Str("wrote"), pf.Space(), pf.Str("it.")),
+        pf.Header(pf.Str("References"), level=1, identifier="references"),
+    )
+
+
+class TestSectionFilterDrop:
+    def test_drop_section_removes_from_body(self):
+        doc = _doc_with_author_contributions()
+        sf = SectionFilter(extract_sections=[], drop_sections=['author-contributions'])
+        sf.prepare(doc)
+        sf.finalize(doc)
+        identifiers = [b.identifier for b in doc.content if isinstance(b, pf.Header)]
+        assert 'author-contributions' not in identifiers
+        assert identifiers == ['intro', 'references']
+
+    def test_drop_section_not_injected_into_metadata(self):
+        doc = _doc_with_author_contributions()
+        sf = SectionFilter(extract_sections=[], drop_sections=['author-contributions'])
+        sf.prepare(doc)
+        sf.finalize(doc)
+        assert 'author-contributions' not in doc.metadata
+        assert 'authorcontribution' not in doc.metadata
+
+    def test_drop_section_warns(self, caplog):
+        doc = _doc_with_author_contributions()
+        sf = SectionFilter(extract_sections=[], drop_sections=['author-contributions'])
+        sf.prepare(doc)
+        with caplog.at_level("WARNING", logger="texmark"):
+            sf.finalize(doc)
+        assert any("dropping section" in r.message and "Author contributions" in r.message
+                   for r in caplog.records)
+
+    def test_absent_drop_section_does_not_warn(self, caplog):
+        doc = pf.Doc(
+            pf.Header(pf.Str("Intro"), level=1, identifier="intro"),
+            pf.Para(pf.Str("Body.")),
+        )
+        sf = SectionFilter(extract_sections=[], drop_sections=['author-contributions'])
+        sf.prepare(doc)
+        with caplog.at_level("WARNING", logger="texmark"):
+            sf.finalize(doc)
+        assert not any("dropping section" in r.message for r in caplog.records)

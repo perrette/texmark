@@ -235,6 +235,7 @@ ametsoc_filters = [
             'data-availability-statement': 'dataavailability',
             **{section: 'appendix' for section in si_sections},
         },
+        drop_sections=['author-contributions'],
     ),
 ]
 
@@ -323,6 +324,7 @@ agu_filters = [
             'data-availability-statement': 'dataavailability',
             **{section: 'appendix' for section in si_sections},
         },
+        drop_sections=['author-contributions'],
     ),
 ]
 
