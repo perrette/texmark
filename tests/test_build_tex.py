@@ -53,6 +53,39 @@ SAMPLE_MD = textwrap.dedent(
 )
 
 
+SAMPLE_BEAMER_MD = textwrap.dedent(
+    """\
+    ---
+    title: "A short sample talk"
+    authors:
+      - firstname: Test
+        lastname: Speaker
+    date: "2026-06-02"
+    journal:
+        template: beamer
+    ---
+
+    # Methods
+
+    ## Slide one
+
+    First bullet point.
+
+    Second bullet point.
+
+    ## Slide two
+
+    More content here.
+
+    # Results
+
+    ## Slide three
+
+    Some results to discuss.
+    """
+)
+
+
 # (template name, expected fragment that proves the right template was used)
 TEMPLATES = [
     ("copernicus", r"\documentclass[cp"),
@@ -147,3 +180,26 @@ def test_apacite_cite_applied_for_agu(workdir):
     assert r"\citet{tierney_zhu2020}" not in tex
     assert r"\citet{knutti2008}" not in tex
     assert r"\citep{knutti2008}" not in tex
+
+
+def test_beamer_template_renders(workdir):
+    """Beamer template produces a beamer document with frame environments."""
+    md = workdir / "slides.md"
+    md.write_text(SAMPLE_BEAMER_MD)
+
+    tex_path = workdir / "build" / "slides.tex"
+    build_tex(
+        str(md),
+        str(tex_path),
+        build_dir=str(workdir / "build"),
+        journal_template="beamer",
+    )
+
+    tex = tex_path.read_text()
+    assert r"\documentclass[" in tex and "]{beamer}" in tex, (
+        f"Expected beamer documentclass not found. First 400 chars:\n{tex[:400]}"
+    )
+    assert tex.count(r"\begin{frame}") >= 2, (
+        f"Expected at least 2 \\begin{{frame}} in beamer output, "
+        f"found {tex.count(chr(92) + 'begin{frame}')}. First 800 chars:\n{tex[:800]}"
+    )
