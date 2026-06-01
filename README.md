@@ -124,6 +124,92 @@ Combine with an auto-reloading PDF viewer (zathura, evince, okular) for a
 live-preview workflow — the output PDF is rewritten in place so viewers
 that follow inode changes keep your scroll position.
 
+In multi-file projects `--watch` also tracks every embedded chapter and
+every companion document (plus each companion's bibliography and template).
+
+## Multi-file projects
+
+Split a long manuscript across files by embedding chapters directly in
+the markdown body:
+
+```markdown
+![](chapters/introduction.md)
+![](chapters/methods.md)
+![](chapters/results.md)
+```
+
+Or use the GitHub-clean link form (renders as a plain link on GitHub):
+
+```markdown
+[Introduction](chapters/introduction.md){.include}
+```
+
+Alternatively, declare the chapter set in YAML:
+
+```yaml
+chapters:
+  - chapters/introduction.md
+  - chapters/methods.md
+  - chapters/results.md
+```
+
+texmark compiles each chapter to a body-only `.tex` and wires them
+together with `\input{...}` (article-class templates) or `\include{...}`
+(book-family templates). From LaTeX's perspective it is one document, so
+all labels and cross-references work natively.
+
+For book-family templates, `--only chapter.md` injects
+`\includeonly{chapter}` for fast single-chapter iteration.
+
+See [docs/multi-file.md](docs/multi-file.md) for the full reference.
+
+## Main paper + supplementary information
+
+Declare a companion document (separate PDF) in the root YAML:
+
+```yaml
+companions:
+  - si.md
+```
+
+Reference a label in the companion using a `#anchor` markdown link:
+
+```markdown
+As shown in [Fig.~S1](si.md#fig:noise), the signal is clear.
+```
+
+texmark rewrites this to `\ref{si:fig:noise}` using xr-hyper's
+`\externaldocument` machinery. Cross-references are validated at compile
+time; a renamed label in the SI breaks the main paper's build, not just
+the rendered output.
+
+Give the companion independent figure numbering via its own YAML:
+
+```yaml
+# si.md
+prefix: S
+```
+
+texmark loops the compile cycle (up to 4 passes) until all `.aux` files
+stabilize, so xr-hyper cross-document references resolve correctly.
+
+See [docs/multi-file.md](docs/multi-file.md) for the full reference,
+including `prefix:`/per-counter overrides and watch-mode coverage.
+
+## Custom preamble
+
+Inject `\newcommand`, theorem environments, or package configuration
+into the preamble without forking the template:
+
+```yaml
+preamble: |
+  \newcommand{\degC}{^\circ\mathrm{C}}
+  \DeclareMathOperator{\std}{std}
+```
+
+Also accepts a file path (`preamble: macros.tex`) or a list of paths.
+Works across all templates. See [docs/preamble.md](docs/preamble.md).
+
 ## Journal templates
 
 Pick the template that matches your target journal and add it to the yaml
@@ -135,6 +221,8 @@ journal:
     options: twocol            # optional, per-template — see the docs page
 ```
 
+**Article-class templates** (single PDF, any journal):
+
 | template | covers | example | docs |
 | --- | --- | --- | --- |
 | `copernicus` (aliases `cp`, `esd`, ...) | Copernicus / EGU: ACP, BG, CP, ESD, HESS, NHESS, TC, ... | [PDF](build/example.pdf) | [docs](docs/journals/copernicus.md) |
@@ -145,6 +233,20 @@ journal:
 | `agujournal` (aliases `agu`, `jgr`, `grl`, `james`, `wrr`, ...) | AGU: JGR family, GRL, Earth's Future, JAMES, ... | [PDF](build/example-agujournal.pdf) | [docs](docs/journals/agujournal.md) |
 | `springernature` (aliases `nature`, `naturecomms`, `natclimchange`, `natgeoscience`, `scirep`) | Springer Nature: Nature, Nature Communications, Nature Climate Change, Nature Geoscience, Scientific Reports, ... | [PDF](build/example-springernature.pdf) | [docs](docs/journals/springernature.md) |
 | `pnas` | PNAS | [PDF](build/example-pnas.pdf) | [docs](docs/journals/pnas.md) |
+
+**Book-family templates** (theses, monographs, multi-chapter documents):
+
+| template | document class | structure | docs |
+| --- | --- | --- | --- |
+| `book` | `\documentclass{book}` | `\frontmatter` / `\mainmatter` / `\backmatter` | [docs](docs/journals/book.md) |
+| `report` | `\documentclass{report}` | No front/main/back matter macros | [docs](docs/journals/report.md) |
+| `memoir` | `\documentclass{memoir}` | `\frontmatter` / `\mainmatter` / `\backmatter`; configurable chapter styles | [docs](docs/journals/memoir.md) |
+| `classicthesis` | `\documentclass{scrreprt}` + bundled `classicthesis.sty` | Bringhurst-inspired typography; no front/main/back matter macros | [docs](docs/journals/classicthesis.md) |
+
+Book-family templates support `\include{...}` for chapters (enabling
+`--only` for selective recompilation), front-matter YAML keys
+(`dedication:`, `list_of_figures:`, etc.), and
+`bibliography_per_chapter: true` for per-chapter biblatex bibliographies.
 
 Each template ships a default `journal.options` value chosen to produce a
 **publication-style** PDF (typeset 2-column journal look, no draft watermarks).
@@ -187,6 +289,19 @@ figure-span: full                      # optional: wraps in figure* (full text w
 copy_figures: false                    # optional: see "Figure paths" below
 figure_folders: [images, ../shared]    # optional: see "Figure paths" below
 project_root: .                        # optional: see "Figure paths" below
+# Multi-file keys (see docs/multi-file.md)
+chapters: [chapters/intro.md, ...]    # optional: alternative to body embed syntax
+companions: [si.md]                   # optional: companion documents (separate PDFs)
+prefix: S                             # optional: counter prefix for companion docs
+# Book-family template keys
+dedication: "To my advisor"           # optional
+list_of_figures: true                 # optional
+list_of_tables: true                  # optional
+bibliography_per_chapter: true        # optional: biblatex per-chapter refs
+chapter-style: veelo                  # optional: memoir only
+classicthesis-options: "parts"        # optional: classicthesis only
+# Custom LaTeX preamble (see docs/preamble.md)
+preamble: macros.tex                  # optional: file path or inline block scalar
 ```
 
 Section-style metadata can also be given as markdown `# ...` headings. Any
@@ -195,7 +310,8 @@ of `# Abstract`, `# Acknowledgments`, `# Data Availability`, `# Appendix`,
 `# Plain Language Summary`, `# Author Contributions`, `# Competing Interests`,
 `# Materials and Methods`, `# Funding`, `# Highlights`, `# Keywords` will be
 extracted out of the body and injected into the right LaTeX command for the
-target journal. The exact list each template recognises is in
+target journal. Book-family templates additionally recognise `# Preface` and
+`# Foreword`. The exact list each template recognises is in
 [texmark/filters/__main__.py](/texmark/filters/__main__.py).
 
 ## Figure paths
