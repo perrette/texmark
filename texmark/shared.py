@@ -37,6 +37,13 @@ body_formats = {
     'default': {'format': 'latex', 'template': 'body.tex'},
 }
 
+# Beamer presentations ask pandoc for beamer-flavored output (frames) wrapped
+# by templates/body-beamer.tex, instead of the article-class latex/body.tex
+# pair. `slides` and `presentation` are aliases for the same target.
+body_formats['beamer'] = {'format': 'beamer', 'template': 'body-beamer.tex'}
+body_formats['slides'] = body_formats['beamer']
+body_formats['presentation'] = body_formats['beamer']
+
 # Templates whose document class is book-family (book, report, memoir,
 # classicthesis). Top-level embeds in these templates emit ``\include{stem}``
 # so ``\includeonly{}`` can scope them; nested embeds and article-class

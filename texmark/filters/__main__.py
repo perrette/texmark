@@ -534,6 +534,16 @@ basic_filters = [embed_filter, crossref_filter, strip_leading_slash, resolve_ima
 
 default_filters = basic_filters
 
+# Beamer presentations: a slim chain. apply_figure_defaults is dropped because
+# its figure*/`figure-span: full` behaviour is article-class-specific (beamer
+# frames have no two-column figure* environment), and no SectionFilter is
+# registered because slide decks have no abstract / data-availability /
+# appendix sections to extract into the preamble.
+beamer_filters = [f for f in basic_filters if f is not apply_figure_defaults]
+
+for _beamer_name in ["beamer", "slides", "presentation"]:
+    filters[_beamer_name] = beamer_filters
+
 si_sections = ["appendix", "supplementary-material", "supplementary-information"]
 method_sections = ["methods", "materials-and-methods", "methodology"]
 
