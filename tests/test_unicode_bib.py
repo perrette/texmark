@@ -168,3 +168,77 @@ def test_super_sub_merge_in_isolation():
     text = "@a{k, title = {x¹²³⁴⁵y}}"
     out, _ = rewrite_text(text)
     assert r"\textsuperscript{12345}" in out
+
+
+def test_html_italic_tag_to_textit():
+    text = "@a{k, title = {Global <i>D</i> calibration}}"
+    out, _ = rewrite_text(text)
+    assert "<i>" not in out and "</i>" not in out
+    assert r"\textit{D}" in out
+
+
+def test_html_sup_sub_tags_to_textsuperscript_subscript():
+    text = "@a{k, title = {H<sub>2</sub>O and <sup>18</sup>O}}"
+    out, _ = rewrite_text(text)
+    assert "<sub>" not in out and "<sup>" not in out
+    assert r"\textsubscript{2}" in out
+    assert r"\textsuperscript{18}" in out
+
+
+def test_crossref_style_malevich_title_round_trip():
+    """The actual CrossRef-exported malevich_vetter2019 title: combines
+    HTML <i> + <sup> with a Unicode δ. Should produce
+    \\textit{\\ensuremath{\\delta}}\\textsuperscript{18}O — no stray
+    angle brackets, no orphaned Unicode."""
+    text = (
+        "@article{malevich_vetter2019,\n"
+        "  title = {Global Core Top Calibration of "
+        "<i>δ</i><sup>18</sup>O in Planktic Foraminifera}\n"
+        "}\n"
+    )
+    out, unmapped = rewrite_text(text)
+    assert "<" not in out and ">" not in out.replace("\\>", "")  # no stray HTML
+    assert "δ" not in out
+    assert r"\textit{\ensuremath{\delta}}" in out
+    assert r"\textsuperscript{18}" in out
+    assert unmapped == []
+
+
+def test_html_strong_b_em_tags():
+    text = "@a{k, title = {<b>bold</b> <strong>strong</strong> <em>emph</em>}}"
+    out, _ = rewrite_text(text)
+    assert r"\textbf{bold}" in out
+    assert r"\textbf{strong}" in out
+    assert r"\emph{emph}" in out
+
+
+def test_html_nested_same_tag_inside_out():
+    text = "@a{k, title = {<i>outer <i>inner</i> tail</i>}}"
+    out, _ = rewrite_text(text)
+    assert r"\textit{outer \textit{inner} tail}" in out
+
+
+def test_html_unknown_tag_left_alone():
+    """Future-proof: tags not in our table stay intact so a future
+    custom-tag user isn't silently rewritten."""
+    text = "@a{k, title = {<custom>x</custom>}}"
+    out, _ = rewrite_text(text)
+    assert "<custom>" in out
+    assert "</custom>" in out
+
+
+def test_html_orphan_open_tag_left_alone():
+    """A `<i>` with no closing tag should not be touched."""
+    text = "@a{k, title = {This is <i>broken}}"
+    out, _ = rewrite_text(text)
+    assert "<i>" in out
+
+
+def test_html_only_no_unicode_still_merges_adjacent_superscripts():
+    """Even when pylatexenc isn't invoked (no non-ASCII chars),
+    adjacent superscript blocks created by HTML tag conversion should
+    still merge so the result is one block."""
+    text = "@a{k, title = {<sup>1</sup><sup>8</sup>O}}"
+    out, _ = rewrite_text(text)
+    assert r"\textsuperscript{18}" in out
+    assert r"\textsuperscript{1}\textsuperscript{8}" not in out

@@ -52,6 +52,50 @@ _NON_ASCII_RE = re.compile(r'[^\x00-\x7F]')
 _ENTRY_RE = re.compile(r'^[ \t]*@\w+\s*\{\s*([^,\s}]+)', re.MULTILINE)
 
 
+# CrossRef-style ``.bib`` exports embed inline HTML markup in titles
+# (``<i>δ</i><sup>18</sup>O``). bibtex passes those tags through verbatim
+# and pdflatex renders ``<`` and ``>`` as the literal glyphs in
+# the current font, which on the AMS template come out as "¡i¿".
+# Convert the handful of inline tags that turn up in practice.
+_HTML_TAG_MAP: dict[str, str] = {
+    'i':      'textit',
+    'em':     'emph',
+    'b':      'textbf',
+    'strong': 'textbf',
+    'sup':    'textsuperscript',
+    'sub':    'textsubscript',
+    'scp':    'textsc',
+    'tt':     'texttt',
+    'u':      'underline',
+}
+
+
+def _rewrite_html_inline_tags(text: str) -> str:
+    """Replace ``<tag>...</tag>`` pairs from the table above with their
+    LaTeX command equivalents.
+
+    Non-greedy matching handles nesting from the inside out across
+    multiple tags (e.g. ``<i><sup>18</sup></i>`` becomes
+    ``\\textit{\\textsuperscript{18}}``). Tags not in the table are left
+    in place so a future user-defined tag doesn't get silently rewritten.
+    """
+    for tag, cmd in _HTML_TAG_MAP.items():
+        pattern = re.compile(
+            r'<' + tag + r'\b[^>]*>(.*?)</' + tag + r'>',
+            re.IGNORECASE | re.DOTALL,
+        )
+        # Loop until stable so deeply nested same-tag uses converge:
+        # <i>a<i>b</i>c</i> → \textit{a<i>b</i>c} → \textit{a\textit{b}c}
+        prev = None
+        while prev != text:
+            prev = text
+            text = pattern.sub(
+                lambda m, c=cmd: '\\' + c + '{' + m.group(1) + '}',
+                text,
+            )
+    return text
+
+
 # Codepoints pylatexenc doesn't translate but that come up routinely in
 # scientific bibliographies — primarily Unicode super/subscript blocks
 # (U+2070-U+208E). The Latin-1 superscripts ¹²³ (U+00B9, B2, B3) are also
@@ -134,8 +178,12 @@ def rewrite_text(text: str) -> tuple[str, list[tuple[int, int, str | None]]]:
     If ``pylatexenc`` is unavailable, returns ``(text, [])`` — the file
     is staged unchanged.
     """
+    # Rewrite inline HTML tags first. They're independent of the
+    # Unicode conversion and can run even when pylatexenc is absent.
+    text = _rewrite_html_inline_tags(text)
+
     if unicode_to_latex is None or not _NON_ASCII_RE.search(text):
-        return text, []
+        return _adjacent_super_sub_merge(text), []
 
     out_parts: list[str] = []
     unmapped: list[tuple[int, int, str | None]] = []
