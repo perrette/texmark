@@ -72,7 +72,7 @@ def join_if_list(value, sep='\n\n'):
 
 def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
               filters=None, journal_template=None, filters_module=None, packages=None,
-              copy_figures=None, figure_folders=None, project_root=None):
+              copy_figures=None, figure_folders=None, project_root=None, body_only=False):
     # 1. Parse Markdown
     input_text = open(input_md).read()
     post = frontmatter.loads(input_text)
@@ -134,8 +134,7 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
 
     if not bib_file:
         bib_file = metadata.get('bibliography', None)
-    if bib_file:
-        bib_args = ['--bibliography', bib_file]
+    bib_args = ['--bibliography', bib_file] if bib_file else []
     args = bib_args + metadata.get('pandoc_args', []) + [
         "--natbib",
     ]
@@ -165,10 +164,11 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     doc = pf.load(io.StringIO(ast_json_str))  # <-- no input_format argument
     metadata.update(normalize_metadata(doc.metadata))
 
-    # Step 2. Render Jinja2 Template
-    env = jinja2.Environment(loader=jinja2.FileSystemLoader(resource_path))
-    env.filters['join_if_list'] = join_if_list
-    template = env.get_template(template_name)
+    # Step 2. Render Jinja2 Template (skipped for body-only chunks).
+    if not body_only:
+        env = jinja2.Environment(loader=jinja2.FileSystemLoader(resource_path))
+        env.filters['join_if_list'] = join_if_list
+        master_template = env.get_template(template_name)
 
     build_dir = Path(build_dir)
     build_dir.mkdir(parents=True, exist_ok=True)
@@ -184,7 +184,10 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     )
 
     with open(output_tex, "w") as f:
-        f.write(template.render(body=body, **metadata))  # Includes authors/abstract
+        if body_only:
+            f.write(body)
+        else:
+            f.write(master_template.render(body=body, **metadata))  # Includes authors/abstract
 
     metadata["resource_path"] = str(resource_path)
     return metadata
@@ -296,7 +299,7 @@ def main():
 
     parser = argparse.ArgumentParser(description='Two-step build: Markdown → LaTeX → PDF')
     parser.add_argument('--version', action='version', version=f'%(prog)s {texmark.__version__}')
-    parser.add_argument('input', help='Input markdown file')
+    parser.add_argument('inputs', nargs='+', help='Input markdown file(s). The first is the root document.')
     parser.add_argument('-j', '--journal-template', help='Pandoc LaTeX + filter template family. Update journal -> template yaml field)')
     parser.add_argument('-t', '--template', help='Pandoc LaTeX template. Update template yaml field)')
     parser.add_argument('-f', '--filters', nargs='*', help='Additional, custom filters. By default the pre-defined, custom filters for the journal are used via the `texmark-filter` utility.')
@@ -349,20 +352,45 @@ def main():
               "auto-detected from the markdown and (with --copy-figures) bundled "
               "into <build>/images/.", file=sys.stderr)
 
-    # Derive filenames
+    # Derive filenames (from the root / first input)
     build_dir = Path(args.build)
-    tex_file = args.tex or build_dir / Path(args.input).with_suffix(".tex").name
-    pdf_file = args.output or build_dir / Path(args.input).with_suffix(".pdf").name
+    primary_input = args.inputs[0]
+    tex_file = args.tex or build_dir / Path(primary_input).with_suffix(".tex").name
+    pdf_file = args.output or build_dir / Path(primary_input).with_suffix(".pdf").name
 
     want_pdf = args.pdf or args.watch
+
+    # Resolve the project once up-front: discovers embedded files (via
+    # ![](file.md) body syntax) and companions (via `companions:` yaml).
+    # When the resolved project has no embeds, no companions, and a
+    # single input, downstream behaviour is identical to the historical
+    # single-file pipeline.
+    from texmark.project import resolve_project
+    project = resolve_project([Path(p) for p in args.inputs])
 
     def do_build():
         # Resolve engine/backend per-build so editing YAML in --watch mode takes effect.
         # Precedence: CLI > YAML > built-in default.
-        yaml_meta = frontmatter.loads(open(args.input).read()).metadata
+        yaml_meta = frontmatter.loads(open(primary_input).read()).metadata
         engine = str(args.engine or yaml_meta.get('engine') or 'pdflatex')
         backend = str(args.backend or yaml_meta.get('backend') or 'latexmk')
-        metadata = build_tex(args.input, tex_file, template=args.template, bib_file=args.bib,
+
+        # Body-only builds for each embedded chapter, written as
+        # `<build>/<stem>.tex` so the master's `\input{<stem>}` resolves at
+        # LaTeX time. compile_pdf is invoked once, on the master.
+        for embed_path in project.embedded_files:
+            embed_tex = Path(args.build) / f"{embed_path.stem}.tex"
+            build_tex(str(embed_path), str(embed_tex),
+                      template=args.template, bib_file=args.bib,
+                      build_dir=args.build,
+                      filters=args.filters, journal_template=args.journal_template,
+                      filters_module=args.filters_module, packages=args.packages,
+                      copy_figures=args.copy_figures,
+                      figure_folders=args.figure_folders,
+                      project_root=args.project_root,
+                      body_only=True)
+
+        metadata = build_tex(primary_input, tex_file, template=args.template, bib_file=args.bib,
                              build_dir=args.build,
                              filters=args.filters, journal_template=args.journal_template,
                              filters_module=args.filters_module, packages=args.packages,
@@ -383,7 +411,7 @@ def main():
         # is convenient when iterating on a new template.
         rp = metadata.get('resource_path')
         tmpl_path = Path(str(rp)) / 'template.tex' if rp else None
-        watch_loop(do_build, [args.input, bib, tmpl_path])
+        watch_loop(do_build, [primary_input, bib, tmpl_path])
     else:
         do_build()
 
