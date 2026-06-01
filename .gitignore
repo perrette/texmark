@@ -174,3 +174,7 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Autonomous roadmap workflows (local coordination artifacts; never committed)
+workflows/
+.worktrees/
