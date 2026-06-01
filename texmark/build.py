@@ -73,7 +73,8 @@ def join_if_list(value, sep='\n\n'):
 def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
               filters=None, journal_template=None, filters_module=None, packages=None,
               copy_figures=None, figure_folders=None, project_root=None, body_only=False,
-              companion_stems=None, embed_stems=None, own_stem=None):
+              companion_stems=None, embed_stems=None, own_stem=None,
+              figure_manifest_accumulate=False):
     # 1. Parse Markdown
     input_text = open(input_md).read()
     post = frontmatter.loads(input_text)
@@ -128,6 +129,14 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     metadata['crossref_companion_stems'] = list(companion_stems or [])
     metadata['crossref_embed_stems'] = list(embed_stems or [])
     metadata['crossref_own_stem'] = own_stem or Path(input_md).stem
+
+    # In multi-file builds, each body-only chunk and the master run
+    # resolve_image_paths in their own subprocess. The chunk's local
+    # ``self.copied`` is just its own slice of the figure set; treating it
+    # as authoritative would let each chunk's finalize delete the previous
+    # chunk's bundled figures. With this flag, finalize unions the new
+    # copies into the on-disk manifest instead of replacing it.
+    metadata['figure_manifest_accumulate'] = bool(figure_manifest_accumulate)
 
      # 2. Apply filters and convert to AST
 
@@ -407,6 +416,21 @@ def main():
     embed_stems = [p.stem for p in project.embedded_files]
     root_stem = Path(primary_input).stem
 
+    # Effective project_root used for leading-slash figure URL resolution:
+    # CLI override wins; otherwise the value resolved by ``resolve_project``
+    # (yaml > git > root.parent) is threaded into every body-only embed and
+    # the master build so all chapters interpret ``/foo`` against the same
+    # base, instead of each running its own per-file ``git rev-parse``.
+    effective_project_root = args.project_root or str(project.project_root)
+
+    # In multi-file copy_figures mode, each body-only chunk runs the bundle
+    # filter independently in its own subprocess. The filter's finalize
+    # cleanup (which deletes files no longer in self.copied) would otherwise
+    # wipe figures the previous chunk just copied. Tell the filter to
+    # accumulate the on-disk manifest across chunks rather than treat its
+    # local self.copied as authoritative.
+    manifest_accumulate = bool(project.embedded_files)
+
     def do_build():
         # Resolve engine/backend per-build so editing YAML in --watch mode takes effect.
         # Precedence: CLI > YAML > built-in default.
@@ -426,11 +450,12 @@ def main():
                       filters_module=args.filters_module, packages=args.packages,
                       copy_figures=args.copy_figures,
                       figure_folders=args.figure_folders,
-                      project_root=args.project_root,
+                      project_root=effective_project_root,
                       body_only=True,
                       companion_stems=companion_stems,
                       embed_stems=embed_stems,
-                      own_stem=embed_path.stem)
+                      own_stem=embed_path.stem,
+                      figure_manifest_accumulate=manifest_accumulate)
 
         # Build the master .tex for the root.
         root_metadata = build_tex(
@@ -440,10 +465,11 @@ def main():
             filters_module=args.filters_module, packages=args.packages,
             copy_figures=args.copy_figures,
             figure_folders=args.figure_folders,
-            project_root=args.project_root,
+            project_root=effective_project_root,
             companion_stems=companion_stems,
             embed_stems=embed_stems,
             own_stem=root_stem,
+            figure_manifest_accumulate=manifest_accumulate,
         )
 
         # Build each companion's standalone .tex. Each companion gets the

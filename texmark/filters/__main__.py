@@ -95,6 +95,9 @@ class ResolveImagePathsFilter:
         self.figure_folders = []
         # Explicit project_root from metadata, or None to auto-detect.
         self._project_root_explicit = None
+        # Multi-file build flag: finalize merges into the existing manifest
+        # instead of treating self.copied as the canonical set.
+        self._manifest_accumulate = False
 
     def _detect_project_root(self):
         """Resolve the project_root used to interpret leading-slash URLs.
@@ -245,6 +248,7 @@ class ResolveImagePathsFilter:
         self.source_dir = Path(doc.get_metadata('source_dir', '.')).resolve()
         self.cwd = Path(doc.get_metadata('cwd', '.')).resolve()
         self._project_root_explicit = doc.get_metadata('project_root', None) or None
+        self._manifest_accumulate = bool(doc.get_metadata('figure_manifest_accumulate', False))
         # figure_folders only have meaning in non-copy mode; ignored
         # silently otherwise so users can keep them set in yaml without
         # toggling.
@@ -315,14 +319,21 @@ class ResolveImagePathsFilter:
         if not bundle.is_dir():
             return
         previous = self._read_manifest()
-        for name in previous - self.copied:
-            p = bundle / name
-            if p.is_file():
-                logger.info(f"removing stale bundled figure: {p}")
-                p.unlink()
+        if self._manifest_accumulate:
+            # Multi-file build: each chunk only sees a slice of the figure
+            # set; union into the manifest rather than treating self.copied
+            # as authoritative. Stale-cleanup is skipped here.
+            keep = previous | self.copied
+        else:
+            for name in previous - self.copied:
+                p = bundle / name
+                if p.is_file():
+                    logger.info(f"removing stale bundled figure: {p}")
+                    p.unlink()
+            keep = self.copied
         # Persist the new manifest (sorted for stable, diffable output).
         manifest = bundle / self.MANIFEST_NAME
-        manifest.write_text("\n".join(sorted(self.copied)) + "\n")
+        manifest.write_text("\n".join(sorted(keep)) + "\n")
 
 
 resolve_image_paths = ResolveImagePathsFilter()

@@ -22,7 +22,11 @@ def _is_include_link(elem):
 def embed_filter(elem, doc):
     """Rewrite standalone .md image embeds to LaTeX \\input{stem} blocks."""
     if isinstance(elem, pf.Figure):
-        images = [e for e in elem.walk() if isinstance(e, pf.Image)]
+        images = []
+        def _gather(e, d):
+            if isinstance(e, pf.Image):
+                images.append(e)
+        elem.walk(_gather)
         if len(images) == 1 and _is_embed_url(images[0].url):
             stem = Path(images[0].url).stem
             return pf.RawBlock(f'\\input{{{stem}}}\n', format='latex')
