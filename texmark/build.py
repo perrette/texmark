@@ -190,9 +190,19 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     return metadata
 
 
-def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build', bib_file='references.bib', resource_path=''):
+def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
+                bib_file='references.bib', resource_path='', backend='latexmk'):
     """
     Step 2: Compile LaTeX source into PDF.
+
+    backend selects the driver:
+      - 'latexmk' (default): runs latexmk, which skips reruns whose inputs
+        (.aux/.bbl/.fls) haven't changed. Typical incremental edit collapses
+        to one engine pass instead of three.
+      - 'raw': the original pdflatex → bibtex → pdflatex → pdflatex sequence,
+        unconditionally. Use when latexmk isn't available.
+      - 'tectonic': uses the standalone `tectonic` binary, which bundles
+        engine + driver + bibtex-equivalent. `engine` is ignored in this mode.
     """
     build_dir = Path(build_dir)
 
@@ -205,20 +215,81 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build', bib
     # resolve_image_paths filter during the pandoc pass, so we don't need
     # to stage anything here.
     for f in (input_tex, bib_file):
+        if not f:
+            continue
         src = Path(f)
+        if not src.exists():
+            continue
         if src.parent.resolve() != build_dir.resolve():
             shutil.copy2(src, build_dir)
-    cmd = [engine, '-interaction=nonstopmode', Path(input_tex).name]
-    run(cmd, cwd=build_dir, check=False)
-    bibcmd = ["bibtex", Path(input_tex).with_suffix(".aux").name]
-    run(bibcmd, cwd=build_dir, check=False)
-    run(cmd, cwd=build_dir, check=False)
-    run(cmd, cwd=build_dir, check=False)
+    tex_name = Path(input_tex).name
+
+    if backend == 'latexmk':
+        # -f keeps latexmk going (matching the raw backend's check=False reruns)
+        # even when an engine pass returns nonzero, so the .pdf still appears
+        # for downstream inspection.
+        engine_flag = {
+            'pdflatex': '-pdf',
+            'xelatex': '-pdfxe',
+            'lualatex': '-pdflua',
+        }.get(engine, '-pdf')
+        cmd = ['latexmk', engine_flag, '-interaction=nonstopmode', '-f', tex_name]
+        run(cmd, cwd=build_dir, check=False)
+    elif backend == 'tectonic':
+        cmd = ['tectonic', '--keep-intermediates', '--keep-logs', tex_name]
+        run(cmd, cwd=build_dir, check=False)
+    elif backend == 'raw':
+        cmd = [engine, '-interaction=nonstopmode', tex_name]
+        run(cmd, cwd=build_dir, check=False)
+        bibcmd = ["bibtex", Path(input_tex).with_suffix(".aux").name]
+        run(bibcmd, cwd=build_dir, check=False)
+        run(cmd, cwd=build_dir, check=False)
+        run(cmd, cwd=build_dir, check=False)
+    else:
+        raise ValueError(f"Unknown backend {backend!r}; use 'latexmk', 'raw', or 'tectonic'.")
+
     actual_pdf = Path(build_dir) / Path(input_tex).with_suffix(".pdf").name
     if Path(output_pdf) != actual_pdf:
         # copy (not move) so the destination inode is preserved across rebuilds —
         # PDF viewers like evince keep scroll position when content changes in place.
         shutil.copyfile(actual_pdf, output_pdf)
+
+
+def watch_loop(do_build, paths, interval=0.5):
+    """Rebuild whenever any of `paths` changes mtime. Loops until Ctrl-C.
+
+    Callers are expected to have run an initial build already, so we prime
+    mtimes here and only trigger do_build on subsequent changes.
+    """
+    import time
+    paths = [Path(p) for p in paths if p]
+    last = {}
+    for p in paths:
+        try:
+            last[p] = p.stat().st_mtime
+        except FileNotFoundError:
+            pass
+    print(f"texmark: watching {len(paths)} path(s); Ctrl-C to stop.")
+    try:
+        while True:
+            time.sleep(interval)
+            changed = False
+            for p in paths:
+                try:
+                    mt = p.stat().st_mtime
+                except FileNotFoundError:
+                    continue
+                if last.get(p) != mt:
+                    last[p] = mt
+                    changed = True
+            if changed:
+                try:
+                    do_build()
+                    print("texmark: build OK; watching for next change.")
+                except Exception as e:
+                    print(f"texmark: build failed: {e}", file=sys.stderr)
+    except KeyboardInterrupt:
+        print("\ntexmark: stopped watching.")
 
 
 def main():
@@ -231,7 +302,19 @@ def main():
     parser.add_argument('-f', '--filters', nargs='*', help='Additional, custom filters. By default the pre-defined, custom filters for the journal are used via the `texmark-filter` utility.')
     parser.add_argument('--filters-module', help='Load a custom filter module. This is a Python module that may extend the filters dict defined in the `texmark.shared` module.')
     parser.add_argument('-o', '--output', help='Final PDF output filename')
-    parser.add_argument('-e', '--engine', default='pdflatex', help='LaTeX engine (e.g. pdflatex, xelatex)')
+    parser.add_argument('-e', '--engine', default=None,
+                        help='LaTeX engine (pdflatex, xelatex, lualatex). Default: pdflatex. '
+                             'Ignored when --backend=tectonic. YAML key: engine.')
+    parser.add_argument('-b', '--backend', choices=['latexmk', 'raw', 'tectonic'], default=None,
+                        help='LaTeX driver. latexmk (default) skips reruns whose inputs haven\'t '
+                             'changed — typically 2-3x faster on incremental edits. raw runs the '
+                             'pdflatex+bibtex+pdflatex+pdflatex sequence unconditionally (use when '
+                             'latexmk is unavailable). tectonic uses the standalone tectonic '
+                             'binary. YAML key: backend.')
+    parser.add_argument('-w', '--watch', action='store_true',
+                        help='Rebuild whenever the input markdown, bibliography, or template '
+                             'changes. Combine with an auto-reloading PDF viewer (zathura, '
+                             'evince, okular) for live preview. Implies --pdf.')
     parser.add_argument('-d', '--build', default='build', help='build directory')
     parser.add_argument('--bib', help='bibliography file')
     parser.add_argument('--tex', help='LaTeX output filename')
@@ -271,18 +354,38 @@ def main():
     tex_file = args.tex or build_dir / Path(args.input).with_suffix(".tex").name
     pdf_file = args.output or build_dir / Path(args.input).with_suffix(".pdf").name
 
-    metadata = build_tex(args.input, tex_file, template=args.template, bib_file=args.bib,
-                         build_dir=args.build,
-                         filters=args.filters, journal_template=args.journal_template,
-                         filters_module=args.filters_module, packages=args.packages,
-                         copy_figures=args.copy_figures,
-                         figure_folders=args.figure_folders,
-                         project_root=args.project_root)
+    want_pdf = args.pdf or args.watch
 
-    if args.pdf:
-        compile_pdf(tex_file, pdf_file, args.engine, args.build,
-                    bib_file=metadata.get('bibliography'),
-                    resource_path=metadata.get('resource_path'))
+    def do_build():
+        # Resolve engine/backend per-build so editing YAML in --watch mode takes effect.
+        # Precedence: CLI > YAML > built-in default.
+        yaml_meta = frontmatter.loads(open(args.input).read()).metadata
+        engine = str(args.engine or yaml_meta.get('engine') or 'pdflatex')
+        backend = str(args.backend or yaml_meta.get('backend') or 'latexmk')
+        metadata = build_tex(args.input, tex_file, template=args.template, bib_file=args.bib,
+                             build_dir=args.build,
+                             filters=args.filters, journal_template=args.journal_template,
+                             filters_module=args.filters_module, packages=args.packages,
+                             copy_figures=args.copy_figures,
+                             figure_folders=args.figure_folders,
+                             project_root=args.project_root)
+        if want_pdf:
+            compile_pdf(tex_file, pdf_file, engine=engine, build_dir=args.build,
+                        bib_file=str(metadata.get('bibliography') or ''),
+                        resource_path=str(metadata.get('resource_path') or ''),
+                        backend=backend)
+        return metadata
+
+    if args.watch:
+        metadata = do_build()
+        bib = metadata.get('bibliography')
+        # The journal template lives under texmark's install dir; watching it
+        # is convenient when iterating on a new template.
+        rp = metadata.get('resource_path')
+        tmpl_path = Path(str(rp)) / 'template.tex' if rp else None
+        watch_loop(do_build, [args.input, bib, tmpl_path])
+    else:
+        do_build()
 
 
 if __name__ == '__main__':

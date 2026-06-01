@@ -40,11 +40,13 @@ produce the final PDF. Install them via your system package manager.
 
 - **pandoc** — the markdown → tex engine (the `pypandoc` PyPI dependency is
   a wrapper, the binary is not installable via pip).
-- **A LaTeX distribution** providing `pdflatex` and `bibtex` plus the
-  standard package set (`hyperref`, `natbib`, `amsmath`, `graphicx`,
-  `geometry`, `microtype`, `booktabs`, `caption`, `mathptmx`, `newtxtext`,
-  `newtxmath`, `apacite`, `draftwatermark`, `mdframed`, `tikz`, `xcolor`,
-  `appendix`, `lineno`, `epstopdf`, …).
+- **A LaTeX distribution** providing `pdflatex`, `bibtex`, and `latexmk`
+  (texmark's default driver) plus the standard package set (`hyperref`,
+  `natbib`, `amsmath`, `graphicx`, `geometry`, `microtype`, `booktabs`,
+  `caption`, `mathptmx`, `newtxtext`, `newtxmath`, `apacite`,
+  `draftwatermark`, `mdframed`, `tikz`, `xcolor`, `appendix`, `lineno`,
+  `epstopdf`, …). Optionally `tectonic` as a single-binary alternative
+  (see [Build backends](#build-backends-and-engines)).
 
 On Debian / Ubuntu:
 
@@ -83,6 +85,44 @@ For testing it is also possible to pass `-j` for `--journal-template`:
     texmark example.md --pdf -j science -o build/example-science.pdf --tex build/example-science.tex
 
 See the example tex and pdf results in [build](/build)
+
+## Build backends and engines
+
+texmark separates the **driver** (what orchestrates LaTeX passes and bibtex)
+from the **engine** (the actual TeX program). Both have sensible defaults and
+both are configurable from the CLI or YAML.
+
+| `--backend` | What it does | Honors `--engine`? |
+| --- | --- | --- |
+| `latexmk` *(default)* | Reads `.aux`/`.fls`/`.bbl` between passes and reruns *only* what's stale. Drives bibtex automatically. Typically **2–3× faster** on incremental edits than the old fixed 3-pass sequence. | yes |
+| `raw` | Runs `engine → bibtex → engine → engine` unconditionally — the original behaviour. Use when latexmk isn't available. | yes |
+| `tectonic` | Standalone Rust rewrite of the TeX stack: engine + driver + bibtex-equivalent in one binary. Auto-fetches missing packages on first run. | no — uses its own XeTeX-derived engine |
+
+`--engine` selects the TeX program when the backend honors it:
+
+- `pdflatex` *(default)* — broadest package compatibility, fastest cold start.
+- `xelatex` — native Unicode + system OpenType fonts (`fontspec`).
+- `lualatex` — LuaTeX scripting + modern fontspec.
+
+YAML frontmatter equivalents:
+
+```yaml
+backend: latexmk          # or raw, tectonic
+engine: pdflatex          # or xelatex, lualatex
+```
+
+CLI flags win over YAML.
+
+## Live preview (`--watch`)
+
+```
+texmark sources/main.md --pdf --watch
+```
+
+Rebuilds whenever the input markdown, bibliography, or template changes.
+Combine with an auto-reloading PDF viewer (zathura, evince, okular) for a
+live-preview workflow — the output PDF is rewritten in place so viewers
+that follow inode changes keep your scroll position.
 
 ## Journal templates
 
