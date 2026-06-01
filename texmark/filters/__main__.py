@@ -711,6 +711,13 @@ pnas_filters = [
 filters['pnas'] = pnas_filters
 
 
+# Book-family templates share the basic filter chain. Front-matter section
+# extraction (Dedication / Preface / Foreword) is added in Item 17.
+book_filters = list(basic_filters)
+
+filters['book'] = book_filters
+
+
 def run_filters(doc):
 
     if doc is not None:

@@ -74,7 +74,7 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
               filters=None, journal_template=None, filters_module=None, packages=None,
               copy_figures=None, figure_folders=None, project_root=None, body_only=False,
               companion_stems=None, embed_stems=None, own_stem=None,
-              figure_manifest_accumulate=False):
+              figure_manifest_accumulate=False, embed_depth=0):
     # 1. Parse Markdown
     input_text = open(input_md).read()
     post = frontmatter.loads(input_text)
@@ -137,6 +137,13 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     # chunk's bundled figures. With this flag, finalize unions the new
     # copies into the on-disk manifest instead of replacing it.
     metadata['figure_manifest_accumulate'] = bool(figure_manifest_accumulate)
+
+    # embed_depth: the texmark-embed filter uses this to pick \input vs
+    # \include. Top-level (depth 0) embeds in book-family templates emit
+    # \include so \includeonly can scope them; nested embeds (body-only
+    # chunks pass embed_depth=1) always emit \input — LaTeX forbids nested
+    # \include.
+    metadata['embed_depth'] = int(embed_depth)
 
     # preamble: YAML field — custom LaTeX injected just before \begin{document}.
     # Supports: inline block scalar (starts with \ or contains \n), single
@@ -476,7 +483,8 @@ def main():
                       companion_stems=companion_stems,
                       embed_stems=embed_stems,
                       own_stem=embed_path.stem,
-                      figure_manifest_accumulate=manifest_accumulate)
+                      figure_manifest_accumulate=manifest_accumulate,
+                      embed_depth=1)
 
         # Build the master .tex for the root.
         root_metadata = build_tex(

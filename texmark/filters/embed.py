@@ -1,6 +1,8 @@
 import panflute as pf
 from pathlib import Path
 
+from texmark.shared import BOOK_FAMILY_TEMPLATES
+
 
 def _is_remote_url(url):
     return url.startswith(('http://', 'https://'))
@@ -19,8 +21,35 @@ def _is_include_link(elem):
     )
 
 
+def _embed_command(doc):
+    """Return ``\\include`` for top-level embeds in book-family templates,
+    ``\\input`` otherwise.
+
+    Nested embeds always use ``\\input`` (LaTeX forbids nested ``\\include``);
+    the body-only embed build passes ``embed_depth=1`` in metadata to signal
+    that.
+    """
+    if doc is None:
+        return '\\input'
+    depth_meta = doc.get_metadata('embed_depth', 0)
+    try:
+        depth = int(depth_meta) if depth_meta is not None else 0
+    except (TypeError, ValueError):
+        depth = 0
+    if depth >= 1:
+        return '\\input'
+    journal = doc.get_metadata('journal', {}) or {}
+    template = journal.get('template') if isinstance(journal, dict) else None
+    if template in BOOK_FAMILY_TEMPLATES:
+        return '\\include'
+    return '\\input'
+
+
 def embed_filter(elem, doc):
-    """Rewrite standalone .md image embeds to LaTeX \\input{stem} blocks."""
+    """Rewrite standalone .md embeds to LaTeX ``\\input{stem}`` or
+    ``\\include{stem}`` blocks (class-aware via ``embed_depth`` + template)."""
+    cmd = _embed_command(doc)
+
     if isinstance(elem, pf.Figure):
         images = []
         def _gather(e, d):
@@ -29,7 +58,7 @@ def embed_filter(elem, doc):
         elem.walk(_gather)
         if len(images) == 1 and _is_embed_url(images[0].url):
             stem = Path(images[0].url).stem
-            return pf.RawBlock(f'\\input{{{stem}}}\n', format='latex')
+            return pf.RawBlock(f'{cmd}{{{stem}}}\n', format='latex')
 
     if isinstance(elem, pf.Para):
         children = list(elem.content)
@@ -37,10 +66,10 @@ def embed_filter(elem, doc):
             child = children[0]
             if isinstance(child, pf.Image) and _is_embed_url(child.url):
                 stem = Path(child.url).stem
-                return pf.RawBlock(f'\\input{{{stem}}}\n', format='latex')
+                return pf.RawBlock(f'{cmd}{{{stem}}}\n', format='latex')
             if _is_include_link(child):
                 stem = Path(child.url).stem
-                return pf.RawBlock(f'\\input{{{stem}}}\n', format='latex')
+                return pf.RawBlock(f'{cmd}{{{stem}}}\n', format='latex')
 
 
 def main(doc=None):
