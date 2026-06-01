@@ -409,27 +409,88 @@ def extract_table_identifier(elem, doc):
         elem.attributes.update(attributes)
 
 
-def stringify_captions(elem, doc):
+def _science_bold_first_sentence(caption_text):
+    """Wrap the first sentence of a rendered LaTeX caption in ``\\textbf{}``.
 
+    Science requires the first sentence of every figure/table caption to be
+    bold (per their submission guide). Operates on the LaTeX string after
+    pandoc has rendered the panflute caption.
+    """
+    parts = caption_text.split(".")
+    parts[0] = r"\textbf{" + parts[0] + r"}"
+    return ".".join(parts)
+
+
+# Per-template, post-render caption munging hooks. Each entry takes the
+# rendered LaTeX caption string and returns the possibly-modified version.
+#
+# ─── To add a journal-specific caption tweak ───────────────────────────────
+# Register a callable here keyed by the journal template name
+# (e.g. ``"nature"``, ``"copernicus"``). The hook receives the caption
+# already rendered as LaTeX and returns the modified string.
+# ───────────────────────────────────────────────────────────────────────────
+#
+# Performance note: any template listed here triggers one pandoc subprocess
+# *per figure/table* in stringify_captions, because the caption has to be
+# rendered to LaTeX before the munger can run. Templates *not* listed take
+# the fast path: pandoc renders the caption natively on the final
+# json->latex pass, no extra subprocess. So only register a munger when the
+# template genuinely needs string-level LaTeX surgery that can't be done
+# via the panflute AST or via the journal's LaTeX class.
+CAPTION_MUNGERS = {
+    "science": _science_bold_first_sentence,
+}
+
+
+def stringify_captions(elem, doc):
+    """Apply per-template caption tweaks (e.g. Science's bold first sentence).
+
+    Templates not registered in ``CAPTION_MUNGERS`` take the fast path:
+    pandoc renders the caption natively on the final json->latex pass — no
+    per-caption pandoc subprocess.
+    """
     if isinstance(elem, (pf.Table)):
         extract_table_identifier(elem, doc)
 
-    if isinstance(elem, (pf.Figure, pf.Table)):
-        # Safely extract caption
-        if elem.caption:
-            caption_text = pf.convert_text(elem.caption.content,
-                input_format='panflute',
-                output_format='latex',
-                extra_args=['--natbib']
-            )
+    if not isinstance(elem, (pf.Figure, pf.Table)) or not elem.caption:
+        return
 
-            # Science template: make the first sentence bold
-            if doc.get_metadata('journal', {}).get("template") == "science":
-                caption_parts = caption_text.split(".")
-                caption_parts[0] = r"\textbf{" + caption_parts[0] + r"}"
-                caption_text = ".".join(caption_parts)
+    template = doc.get_metadata('journal', {}).get("template")
+    munger = CAPTION_MUNGERS.get(template)
+    if munger is None:
+        return  # fast path
 
-            elem.caption.content = [pf.RawBlock(caption_text, format='latex')]
+    caption_text = pf.convert_text(elem.caption.content,
+        input_format='panflute',
+        output_format='latex',
+        extra_args=['--natbib']
+    )
+    caption_text = munger(caption_text)
+    elem.caption.content = [pf.RawBlock(caption_text, format='latex')]
+
+
+FIGSTAR_BEGIN = '% TEXMARK-FIGSTAR-BEGIN'
+FIGSTAR_END = '% TEXMARK-FIGSTAR-END'
+
+
+def expand_figstar_sentinels(body):
+    """Rewrite ``\\begin{figure}``/``\\end{figure}`` wrapped between
+    ``FIGSTAR_BEGIN``/``FIGSTAR_END`` sentinels into ``figure*`` equivalents,
+    then strip the sentinel comments. Called from build.py after pandoc
+    renders the body to LaTeX. See ``apply_figure_defaults`` for the
+    upstream emitter."""
+    body = re.sub(
+        re.escape(FIGSTAR_BEGIN) + r'\s*\\begin\{figure\}',
+        r'\\begin{figure*}', body)
+    body = re.sub(
+        r'\\end\{figure\}\s*' + re.escape(FIGSTAR_END),
+        r'\\end{figure*}', body)
+    # Drop any sentinel that didn't pair with a figure (e.g. a downstream
+    # filter dropped the figure but left the wrapper). They are valid LaTeX
+    # comments either way, but removing them keeps the .tex tidy.
+    body = re.sub(re.escape(FIGSTAR_BEGIN) + r'\n?', '', body)
+    body = re.sub(re.escape(FIGSTAR_END) + r'\n?', '', body)
+    return body
 
 
 def apply_figure_defaults(elem, doc):

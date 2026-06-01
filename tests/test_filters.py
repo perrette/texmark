@@ -16,6 +16,7 @@ from texmark.filters.__main__ import (
     header_to_unnumbered,
     extract_table_identifier,
     apply_figure_defaults,
+    stringify_captions,
 )
 from texmark.sectiontracker import SectionFilter
 
@@ -647,6 +648,80 @@ class TestExtractTableIdentifier:
         body = pf.TableBody(pf.TableRow(pf.TableCell(pf.Plain(pf.Str("v1")))))
         t = pf.Table(body, head=head)
         extract_table_identifier(t, make_doc())  # should not raise
+
+
+# ---- stringify_captions --------------------------------------------------
+
+
+def _figure_with_caption(*caption_inlines, **fig_kwargs):
+    img = pf.Image(pf.Str("alt"), url="images/x.png")
+    return pf.Figure(
+        pf.Plain(img),
+        caption=pf.Caption(pf.Plain(*caption_inlines)),
+        **fig_kwargs,
+    )
+
+
+def _table_with_caption(*caption_inlines, **tbl_kwargs):
+    header = pf.TableHead(pf.TableRow(pf.TableCell(pf.Plain(pf.Str("h1")))))
+    body = pf.TableBody(pf.TableRow(pf.TableCell(pf.Plain(pf.Str("v1")))))
+    return pf.Table(
+        body,
+        head=header,
+        caption=pf.Caption(pf.Plain(*caption_inlines)),
+        **tbl_kwargs,
+    )
+
+
+class TestStringifyCaptions:
+    """The filter only converts captions to LaTeX for the science template
+    (where it wraps the first sentence in ``\\textbf{}``). For every other
+    template the panflute caption is left in place so pandoc's final
+    json->latex pass renders it natively — saves one pandoc subprocess per
+    figure/table."""
+
+    def test_non_science_template_leaves_figure_caption_as_panflute(self):
+        fig = _figure_with_caption(pf.Str("Hello"), pf.Space(), pf.Str("world."))
+        doc = pf.Doc(metadata={"journal": {"template": "ametsoc"}})
+        stringify_captions(fig, doc)
+        assert fig.caption is not None
+        # Caption still holds Plain([Str, Space, Str]) — no RawBlock injection.
+        only_block = fig.caption.content[0]
+        assert isinstance(only_block, pf.Plain)
+        assert not any(isinstance(c, pf.RawBlock) for c in fig.caption.content)
+
+    def test_non_science_template_leaves_table_caption_as_panflute(self):
+        tbl = _table_with_caption(pf.Str("Counts."))
+        doc = pf.Doc(metadata={"journal": {"template": "copernicus"}})
+        stringify_captions(tbl, doc)
+        only_block = tbl.caption.content[0]
+        assert isinstance(only_block, pf.Plain)
+
+    def test_science_template_wraps_first_sentence_in_textbf(self):
+        fig = _figure_with_caption(pf.Str("Hello"), pf.Space(), pf.Str("world."),
+                                    pf.Space(), pf.Str("More."))
+        doc = pf.Doc(metadata={"journal": {"template": "science"}})
+        stringify_captions(fig, doc)
+        only_block = fig.caption.content[0]
+        assert isinstance(only_block, pf.RawBlock)
+        # The first sentence is wrapped in \textbf{}; the rest stays.
+        assert r"\textbf{Hello world}" in only_block.text
+        assert "More." in only_block.text
+
+    def test_table_identifier_still_extracted_for_non_science(self):
+        # ``extract_table_identifier`` must still run regardless of template;
+        # the short-circuit only skips the caption conversion.
+        tbl = _table_with_caption(pf.Str("c"))
+        # Tables carry their identifier on the first paragraph of their
+        # caption via a ``{#tab:foo}`` attr in markdown; here we drop one in.
+        tbl.caption.content[0].content = (
+            *tbl.caption.content[0].content,
+            pf.Space(),
+            pf.Str("{#tab:foo}"),
+        )
+        doc = pf.Doc(metadata={"journal": {"template": "ametsoc"}})
+        stringify_captions(tbl, doc)
+        assert tbl.identifier == "tab:foo"
 
 
 # ---- apply_figure_defaults ------------------------------------------------
