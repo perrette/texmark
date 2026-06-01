@@ -1,6 +1,5 @@
 """Tests for biblatex per-chapter bibliographies (Item 18)."""
 import os
-import shutil
 import sys
 from pathlib import Path
 
@@ -8,14 +7,15 @@ import pytest
 
 import texmark.build
 from texmark.build import build_tex, compile_pdf, main
+from tests import pandoc_available
 
 
 REPO_ROOT = Path(__file__).parent.parent
 
 
 pytestmark = pytest.mark.skipif(
-    shutil.which("pandoc") is None,
-    reason="pandoc binary not available on PATH",
+    not pandoc_available(),
+    reason="pandoc not available (install pypandoc_binary or system pandoc)",
 )
 
 

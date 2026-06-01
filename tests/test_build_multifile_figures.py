@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from texmark.build import main
+from tests import pandoc_available
 
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "multifile_figures"
@@ -14,8 +15,8 @@ REPO_ROOT = Path(__file__).parent.parent
 
 
 pytestmark = pytest.mark.skipif(
-    shutil.which("pandoc") is None,
-    reason="pandoc binary not available on PATH",
+    not pandoc_available(),
+    reason="pandoc not available (install pypandoc_binary or system pandoc)",
 )
 
 

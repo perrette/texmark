@@ -6,30 +6,17 @@ PATH. Each test asserts the resulting .tex contains some template-specific
 LaTeX command, proving the right template + filters were applied.
 """
 from pathlib import Path
-import shutil
 import textwrap
 
 import pytest
 
 from texmark.build import build_tex
-
-
-def _pandoc_available():
-    if shutil.which("pandoc") is not None:
-        return True
-    # pypandoc_binary ships the binary inside the package (not on PATH);
-    # pypandoc finds it via get_pandoc_path().
-    try:
-        import pypandoc
-        pypandoc.get_pandoc_path()
-        return True
-    except Exception:
-        return False
+from tests import pandoc_available
 
 
 pytestmark = pytest.mark.skipif(
-    not _pandoc_available(),
-    reason="pandoc binary not available (neither on PATH nor via pypandoc)",
+    not pandoc_available(),
+    reason="pandoc not available (install pypandoc_binary or system pandoc)",
 )
 
 

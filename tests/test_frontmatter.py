@@ -1,18 +1,18 @@
 """Tests for Item 17: front-matter YAML keys + # Dedication / # Preface / # Foreword extraction."""
 import os
-import shutil
 import sys
 from pathlib import Path
 
 import pytest
 
 from texmark.build import build_tex, main
+from tests import pandoc_available
 
 REPO_ROOT = Path(__file__).parent.parent
 
 pytestmark = pytest.mark.skipif(
-    shutil.which("pandoc") is None,
-    reason="pandoc binary not available on PATH",
+    not pandoc_available(),
+    reason="pandoc not available (install pypandoc_binary or system pandoc)",
 )
 
 

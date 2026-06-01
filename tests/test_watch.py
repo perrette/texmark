@@ -5,18 +5,18 @@ Patches ``watch_loop`` to capture the path list rather than blocking.
 from __future__ import annotations
 
 import os
-import shutil
 import sys
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from tests import pandoc_available
 
 REPO_ROOT = Path(__file__).parent.parent
 
 pytestmark = pytest.mark.skipif(
-    shutil.which("pandoc") is None,
-    reason="pandoc binary not available on PATH",
+    not pandoc_available(),
+    reason="pandoc not available (install pypandoc_binary or system pandoc)",
 )
 
 

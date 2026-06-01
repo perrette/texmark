@@ -1,6 +1,5 @@
 """Tests for texmark/project.py — Project model and resolve_project()."""
 
-import shutil
 import textwrap
 import unittest.mock
 from pathlib import Path
@@ -8,11 +7,12 @@ from pathlib import Path
 import pytest
 
 from texmark.project import Project, resolve_project
+from tests import pandoc_available
 
 
 pytestmark = pytest.mark.skipif(
-    shutil.which("pandoc") is None,
-    reason="pandoc binary not available on PATH",
+    not pandoc_available(),
+    reason="pandoc not available (install pypandoc_binary or system pandoc)",
 )
 
 

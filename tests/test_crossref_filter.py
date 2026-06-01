@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import os
-import shutil
 from pathlib import Path
 
 import panflute as pf
@@ -10,6 +9,7 @@ import pytest
 
 from texmark.build import build_tex
 from texmark.filters.crossref import CrossrefFilter, crossref_filter
+from tests import pandoc_available
 
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "companions"
@@ -103,8 +103,8 @@ def test_finalize_no_targets_no_metadata_write():
 # Integration tests: run pandoc through build_tex.
 
 pytestmark_pandoc = pytest.mark.skipif(
-    shutil.which("pandoc") is None,
-    reason="pandoc binary not available on PATH",
+    not pandoc_available(),
+    reason="pandoc not available (install pypandoc_binary or system pandoc)",
 )
 
 

@@ -6,7 +6,6 @@ in ``main()`` without invoking a real LaTeX engine.
 from __future__ import annotations
 
 import os
-import shutil
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -15,6 +14,7 @@ import pytest
 
 from texmark.build import _aux_files_snapshot, MAX_PASSES
 from texmark.project import resolve_project
+from tests import pandoc_available
 
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "companions"
@@ -22,8 +22,8 @@ REPO_ROOT = Path(__file__).parent.parent
 
 
 pytestmark = pytest.mark.skipif(
-    shutil.which("pandoc") is None,
-    reason="pandoc binary not available on PATH",
+    not pandoc_available(),
+    reason="pandoc not available (install pypandoc_binary or system pandoc)",
 )
 
 
