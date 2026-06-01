@@ -74,6 +74,27 @@
 
 \maketitle
 
+{% if dedication %}
+\newpage
+\thispagestyle{empty}
+\vspace*{\fill}
+\begin{center}
+\textit{ {{dedication | join_if_list}} }
+\end{center}
+\vspace*{\fill}
+\newpage
+{% endif %}
+
+{% if preface %}
+\chapter*{Preface}
+{{preface | join_if_list}}
+{% endif %}
+
+{% if foreword %}
+\chapter*{Foreword}
+{{foreword | join_if_list}}
+{% endif %}
+
 {% if abstract -%}
 \begin{abstract}
 {{ abstract | join_if_list }}
@@ -81,6 +102,14 @@
 {% endif %}
 
 \tableofcontents
+
+{% if list_of_figures %}
+\listoffigures
+{% endif %}
+
+{% if list_of_tables %}
+\listoftables
+{% endif %}
 
 {{body}}
 

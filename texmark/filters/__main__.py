@@ -11,8 +11,8 @@ from pathlib import Path
 import importlib
 import panflute as pf
 from texmark.logs import logger
-from texmark.shared import filters, Filter
-from texmark.sectiontracker import SectionFilter
+from texmark.shared import filters, Filter, BOOK_FAMILY_TEMPLATES
+from texmark.sectiontracker import SectionFilter, panflute2latex
 from texmark.filters.tabular import table_to_latex
 from texmark.filters.embed import embed_filter
 from texmark.filters.crossref import crossref_filter
@@ -711,9 +711,82 @@ pnas_filters = [
 filters['pnas'] = pnas_filters
 
 
-# Book-family templates share the basic filter chain. Front-matter section
-# extraction (Dedication / Preface / Foreword) is added in Item 17.
-book_filters = list(basic_filters)
+class FrontmatterFilter:
+    """Lift # Dedication / # Preface / # Foreword sections into metadata.
+
+    Only active for book-family templates. YAML wins: when a front-matter key
+    is declared in YAML *and* a matching ``# Section`` header also appears in
+    the body, the YAML value is kept and the body section is discarded (with a
+    warning log).  ``list_of_figures`` and ``list_of_tables`` are pure YAML
+    flags — the filter does not need to lift them; the templates read them
+    directly.
+    """
+
+    FRONT_SECTIONS = ['dedication', 'preface', 'foreword']
+
+    def __init__(self):
+        self._skip = False
+        self._yaml_has = {}
+
+    def prepare(self, doc):
+        template = doc.get_metadata('journal', {}).get('template', '')
+        self._skip = template not in BOOK_FAMILY_TEMPLATES
+        self._yaml_has = {}
+        if self._skip:
+            return
+        for key in self.FRONT_SECTIONS:
+            self._yaml_has[key] = doc.get_metadata(key, None) is not None
+
+    def action(self, elem, doc):
+        return None
+
+    def finalize(self, doc):
+        if self._skip:
+            return
+
+        new_blocks = []
+        current_key = None
+        current_content = []
+
+        for blk in doc.content:
+            if isinstance(blk, pf.Header):
+                if current_key is not None:
+                    self._flush(current_key, current_content, doc)
+                    current_key = None
+                    current_content = []
+                sid = blk.identifier.lower()
+                if sid in self.FRONT_SECTIONS:
+                    current_key = sid
+                    continue
+                new_blocks.append(blk)
+                continue
+            if current_key is not None:
+                current_content.append(blk)
+            else:
+                new_blocks.append(blk)
+
+        if current_key is not None:
+            self._flush(current_key, current_content, doc)
+
+        doc.content = new_blocks
+
+    def _flush(self, key, content, doc):
+        if self._yaml_has.get(key):
+            logger.warning(
+                f"texmark: '{key}' declared in both YAML and as a "
+                f"'# {key.capitalize()}' markdown section; "
+                f"YAML value takes precedence."
+            )
+            return
+        if content:
+            latex_str = panflute2latex(content)
+            doc.metadata[key] = pf.MetaString(latex_str)
+
+
+frontmatter_filter = FrontmatterFilter()
+
+# Book-family templates: basic filters + front-matter section extraction.
+book_filters = list(basic_filters) + [frontmatter_filter]
 
 filters['book'] = book_filters
 filters['report'] = book_filters
@@ -732,7 +805,7 @@ def _surface_chapter_style(doc):
         doc.metadata['chapter_style'] = pf.MetaString(str(cs))
 
 
-memoir_filters = list(basic_filters) + [Filter(prepare=_surface_chapter_style)]
+memoir_filters = list(basic_filters) + [Filter(prepare=_surface_chapter_style), frontmatter_filter]
 
 filters['memoir'] = memoir_filters
 
@@ -753,7 +826,7 @@ def _surface_classicthesis_options(doc):
 
 
 classicthesis_filters = list(basic_filters) + [
-    Filter(prepare=_surface_classicthesis_options)
+    Filter(prepare=_surface_classicthesis_options), frontmatter_filter
 ]
 
 filters['classicthesis'] = classicthesis_filters
