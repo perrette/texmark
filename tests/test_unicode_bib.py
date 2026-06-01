@@ -129,3 +129,42 @@ def test_stage_bib_creates_missing_dst_dir(tmp_path: Path):
     dst_path = stage_bib(src, dst_dir)
     assert dst_path is not None
     assert dst_path.exists()
+
+
+def test_unicode_superscript_eight_overridden():
+    """U+2078 (⁸) is unmapped in pylatexenc — our override fills the gap."""
+    text = "@a{k, title = {⁸}}"
+    out, unmapped = rewrite_text(text)
+    assert "⁸" not in out
+    assert r"\textsuperscript{8}" in out
+    assert unmapped == []
+
+
+def test_delta_18o_renders_consistently_and_merges():
+    """The malevich_vetter2019-style δ¹⁸O should produce \\ensuremath{\\delta}
+    followed by a single merged \\textsuperscript{18}, not two adjacent
+    \\textsuperscript blocks or \\textonesuperior + \\textsuperscript."""
+    text = "@a{k, title = {δ¹⁸O}}"
+    out, unmapped = rewrite_text(text)
+    assert r"\ensuremath{\delta}" in out
+    assert r"\textsuperscript{18}" in out
+    # No mismatched sibling commands.
+    assert r"\textonesuperior" not in out
+    assert r"\textsuperscript{1}\textsuperscript{8}" not in out
+    assert unmapped == []
+
+
+def test_subscript_digits_overridden():
+    text = "@a{k, title = {H₂O}}"
+    out, unmapped = rewrite_text(text)
+    assert "₂" not in out
+    assert r"\textsubscript{2}" in out
+    assert unmapped == []
+
+
+def test_super_sub_merge_in_isolation():
+    """The merge step is also exposed indirectly by rewriting input that
+    contains a long superscript run."""
+    text = "@a{k, title = {x¹²³⁴⁵y}}"
+    out, _ = rewrite_text(text)
+    assert r"\textsuperscript{12345}" in out
