@@ -1,0 +1,74 @@
+%% texmark Jinja2 template for Beamer presentations
+%%
+%% Beamer is a different document shape from the article-class journal
+%% templates: the body (supplied via {{body}}) is a sequence of
+%% \begin{frame}...\end{frame} blocks produced by pandoc's `-t beamer`
+%% writer, not a flat article body. This template owns only the document
+%% scaffolding — class, theme, title metadata, and the optional title and
+%% bibliography frames — while pandoc owns the frames themselves.
+
+\documentclass[t{% if beamer and beamer.aspectratio %},aspectratio={{ beamer.aspectratio }}{% endif %}]{beamer}
+
+%% Theme. A sensible, widely-available default; the `beamer:` YAML block
+%% (theme / colortheme / fonttheme / aspectratio) parameterises this.
+\usetheme{ {{- beamer.theme if beamer and beamer.theme else "default" -}} }
+{% if beamer and beamer.colortheme -%}
+\usecolortheme{ {{- beamer.colortheme -}} }
+{% endif -%}
+{% if beamer and beamer.fonttheme -%}
+\usefonttheme{ {{- beamer.fonttheme -}} }
+{% endif -%}
+
+%% Math and figures
+\usepackage{amsmath,amssymb,amsfonts,bm}
+\usepackage{graphicx}
+\usepackage{booktabs}
+
+%% References
+\usepackage{natbib}
+
+{% set already_included_packages = [
+  "amsmath", "amssymb", "amsfonts", "bm", "graphicx", "booktabs", "natbib",
+] -%}
+{% for package in packages -%}
+{% if package not in already_included_packages -%}
+\usepackage{ {{package}} }
+{% endif -%}
+{% endfor %}
+
+%% Title block
+{% if title -%}
+\title{ {{title}} }
+{% endif -%}
+{% if authors -%}
+\author{ {% for author in authors %}{{author.firstname}}~{{author.lastname}}{% if not loop.last %} \and {% endif %}{% endfor %} }
+{% endif -%}
+{% if affiliations -%}
+\institute{ {% for affil in affiliations %}{{affil}}{% if not loop.last %} \and {% endif %}{% endfor %} }
+{% endif -%}
+\date{ {{ date if date else "\\today" }} }
+
+{{ xr_preamble | default("") }}
+{{ user_preamble | default("") }}
+
+\begin{document}
+
+%% Title frame — only when a title was supplied.
+{% if title -%}
+\begin{frame}
+  \titlepage
+\end{frame}
+{% endif %}
+
+{{body}}
+
+%% Bibliography frame — only when a bibliography file was supplied.
+{% if bibliography -%}
+\begin{frame}[allowframebreaks]
+  \frametitle{References}
+  \bibliographystyle{ {{ biblio_style if biblio_style else "plainnat" }} }
+  \bibliography{ {{bibliography}} }
+\end{frame}
+{% endif %}
+
+\end{document}
