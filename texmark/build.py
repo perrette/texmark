@@ -15,7 +15,7 @@ import json
 import panflute as pf
 import io
 from texmark.logs import logger
-from texmark.shared import BOOK_FAMILY_TEMPLATES
+from texmark.shared import BOOK_FAMILY_TEMPLATES, body_formats
 from texmark.filters import download_images as _filters_download_images
 from texmark.filters import embed as _filters_embed
 from texmark.filters import crossref as _filters_crossref
@@ -297,11 +297,12 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     Path(output_tex).parent.mkdir(parents=True, exist_ok=True)
 
     # Step 3: Render AST to LaTeX (filters not needed again)
+    body_fmt = body_formats.get(journal_template, body_formats['default'])
     body = pypandoc.convert_text(
         ast_json_str,
         format="json",
-        to="latex",
-        extra_args=['--template', rootpath / "templates" / "body.tex"] + args,
+        to=body_fmt['format'],
+        extra_args=['--template', rootpath / "templates" / body_fmt['template']] + args,
     )
 
     # Rewrite ``apply_figure_defaults`` sentinels into figure*/end{figure*}.

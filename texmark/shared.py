@@ -30,6 +30,13 @@ class Filter:
 
 filters = {}
 
+# Maps template name → pandoc output format and body template file.
+# build_tex looks up body_formats[journal_template] (falling back to 'default')
+# to parameterize the step-3 pypandoc call.
+body_formats = {
+    'default': {'format': 'latex', 'template': 'body.tex'},
+}
+
 # Templates whose document class is book-family (book, report, memoir,
 # classicthesis). Top-level embeds in these templates emit ``\include{stem}``
 # so ``\includeonly{}`` can scope them; nested embeds and article-class
