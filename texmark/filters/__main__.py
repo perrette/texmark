@@ -29,32 +29,39 @@ class ResolveImagePathsFilter:
 
     Default mode (``copy_figures: false``): each local image URL is
     rewritten to a path relative to ``build_dir`` that points back at the
-    original file on disk. No files are copied.
+    original file on disk. No files are copied. If the user provides
+    ``figure_folders``, a ``\\graphicspath{...}`` block is injected at the
+    start of the document and figures that live under any of those folders
+    get short URLs (relative to the matching folder); figures elsewhere
+    fall back to the relpath-from-build_dir form.
 
     Bundle mode (``copy_figures: true`` / ``--copy-figures``): every local
     figure referenced by the document is copied flat into
-    ``<build_dir>/images/`` and the URL in the .tex is rewritten
+    ``<build_dir>/figures/`` and the URL in the .tex is rewritten
     accordingly. Files keep their basename when unique; when two figures
     share a basename but have different contents they are disambiguated as
     ``<stem>-<short-content-hash><ext>``. Any top-level figure file left in
-    ``<build_dir>/images/`` from a previous build that the current
-    document no longer references is removed.
+    ``<build_dir>/figures/`` from a previous build that the current
+    document no longer references is removed. ``figure_folders`` is
+    ignored in this mode.
 
     Inputs from metadata:
       - ``build_dir`` — directory in which pdflatex will run.
       - ``source_dir`` — directory of the input markdown; URLs resolve
         relative to it (matching GitHub's preview behaviour).
       - ``copy_figures`` — selects the mode above.
+      - ``figure_folders`` — list of absolute paths (resolved upstream by
+        ``build_tex``) to feed LaTeX's ``\\graphicspath``.
 
     Remote URLs (handled upstream by ``texmark-download-images``, which
-    drops files under ``<build_dir>/images/<hash>/<basename>``) are left
+    drops files under ``<build_dir>/figures/<hash>/<basename>``) are left
     alone in both modes; the cleanup pass only touches top-level files in
-    ``<build_dir>/images/``, so remote-download subdirectories are
+    ``<build_dir>/figures/``, so remote-download subdirectories are
     preserved.
     """
 
-    BUNDLE_SUBDIR = "images"
-    FIG_EXTS = {".png", ".jpg", ".jpeg", ".pdf", ".eps", ".svg", ".gif"}
+    BUNDLE_SUBDIR = "figures"
+    MANIFEST_NAME = ".texmark-figures"
     HASH_LEN = 7  # git-style short hash
 
     def __init__(self):
@@ -66,8 +73,10 @@ class ResolveImagePathsFilter:
         self.source_dir = Path(".")
         # original-url -> bundle-relative path written into the .tex
         self.url_map = {}
-        # basenames of files we put under <build_dir>/images/ this run
+        # basenames of files we put under <build_dir>/figures/ this run
         self.copied = set()
+        # absolute Paths fed to LaTeX's \graphicspath (non-copy mode only)
+        self.figure_folders = []
 
     @staticmethod
     def _content_hash(path, length=HASH_LEN):
@@ -123,13 +132,47 @@ class ResolveImagePathsFilter:
                 for url, _ in group:
                     self.url_map[url] = f"{self.BUNDLE_SUBDIR}/{safe}"
 
+    def _short_url_via_folder(self, abs_path):
+        """If ``abs_path`` lives under any figure_folders entry, return the
+        path written into the .tex (relative to that folder), else None.
+
+        Folder order matters: matches the search order pdflatex will use
+        when resolving via ``\\graphicspath``.
+        """
+        for folder in self.figure_folders:
+            try:
+                return str(abs_path.relative_to(folder))
+            except ValueError:
+                continue
+        return None
+
+    def _emit_graphicspath_block(self):
+        """Return a ``\\graphicspath{...}`` RawBlock built from the
+        configured figure_folders, with each entry expressed relative to
+        build_dir (so the .tex stays portable as long as the build/source
+        tree moves together)."""
+        parts = []
+        for folder in self.figure_folders:
+            rel = os.path.relpath(folder, self.build_dir)
+            # LaTeX requires a trailing slash on each \graphicspath entry.
+            parts.append(f"{{{rel}/}}")
+        latex = "\\graphicspath{" + "".join(parts) + "}"
+        return pf.RawBlock(latex, format='latex')
+
     def prepare(self, doc):
         self._reset()
         self.copy_mode = bool(doc.get_metadata('copy_figures', False))
         self.build_dir = Path(doc.get_metadata('build_dir', 'build')).resolve()
         self.source_dir = Path(doc.get_metadata('source_dir', '.')).resolve()
-
+        # figure_folders only have meaning in non-copy mode; ignored
+        # silently otherwise so users can keep them set in yaml without
+        # toggling.
         if not self.copy_mode:
+            self.figure_folders = [
+                Path(p) for p in (doc.get_metadata('figure_folders', []) or [])
+            ]
+            if self.figure_folders:
+                doc.content.insert(0, self._emit_graphicspath_block())
             return
 
         seen = {}
@@ -164,7 +207,25 @@ class ResolveImagePathsFilter:
             # (build-dir relative) or a missing file we'll let pdflatex
             # complain about. Either way, don't second-guess it here.
             return
-        elem.url = os.path.relpath(candidate, self.build_dir)
+
+        short = self._short_url_via_folder(candidate)
+        if short is not None:
+            elem.url = short
+        else:
+            elem.url = os.path.relpath(candidate, self.build_dir)
+
+    def _read_manifest(self):
+        """Return the set of basenames this filter put in the bundle on
+        the previous build. On the first build (manifest absent) fall
+        back to the current top-level listing so pre-manifest cruft also
+        gets cleaned up — after that the manifest is authoritative."""
+        bundle = self.build_dir / self.BUNDLE_SUBDIR
+        manifest = bundle / self.MANIFEST_NAME
+        if manifest.exists():
+            return {line for line in manifest.read_text().splitlines() if line}
+        if not bundle.is_dir():
+            return set()
+        return {p.name for p in bundle.iterdir() if p.is_file()}
 
     def finalize(self, doc):
         if not self.copy_mode:
@@ -172,15 +233,15 @@ class ResolveImagePathsFilter:
         bundle = self.build_dir / self.BUNDLE_SUBDIR
         if not bundle.is_dir():
             return
-        kept = {(bundle / name).resolve() for name in self.copied}
-        for p in bundle.iterdir():
-            if not p.is_file():
-                continue
-            if p.suffix.lower() not in self.FIG_EXTS:
-                continue
-            if p.resolve() not in kept:
+        previous = self._read_manifest()
+        for name in previous - self.copied:
+            p = bundle / name
+            if p.is_file():
                 logger.info(f"removing stale bundled figure: {p}")
                 p.unlink()
+        # Persist the new manifest (sorted for stable, diffable output).
+        manifest = bundle / self.MANIFEST_NAME
+        manifest.write_text("\n".join(sorted(self.copied)) + "\n")
 
 
 resolve_image_paths = ResolveImagePathsFilter()

@@ -51,17 +51,28 @@ class TestStripLeadingSlash:
 # ---- ResolveImagePathsFilter ---------------------------------------------
 
 
-def _make_doc_with_images(source_dir, build_dir, image_urls, copy_figures=False):
+def _make_doc_with_images(source_dir, build_dir, image_urls, copy_figures=False,
+                          figure_folders=None):
     """Build a pf.Doc whose body contains an Image per url, plus metadata."""
     blocks = [pf.Para(pf.Image(pf.Str("c"), url=u)) for u in image_urls]
-    return pf.Doc(
-        *blocks,
-        metadata={
-            'source_dir': str(source_dir),
-            'build_dir': str(build_dir),
-            'copy_figures': copy_figures,
-        },
-    )
+    meta = {
+        'source_dir': str(source_dir),
+        'build_dir': str(build_dir),
+        'copy_figures': copy_figures,
+    }
+    if figure_folders is not None:
+        meta['figure_folders'] = [str(p) for p in figure_folders]
+    return pf.Doc(*blocks, metadata=meta)
+
+
+def _graphicspath_block(doc):
+    """Return the text of the \\graphicspath RawBlock if the filter
+    injected one, else None."""
+    for blk in doc.content:
+        if isinstance(blk, pf.RawBlock) and blk.format == 'latex' \
+                and blk.text.startswith(r'\graphicspath'):
+            return blk.text
+    return None
 
 
 def _run_filter(f, doc):
@@ -109,10 +120,10 @@ class TestResolveImagePathsDefaultMode:
 
 
 class TestResolveImagePathsBundleMode:
-    """copy_figures=True — bundle into <build>/images/ flat, dedup, cleanup."""
+    """copy_figures=True — bundle into <build>/figures/ flat, dedup, cleanup."""
 
     def _bundle_files(self, build_dir):
-        bundle = build_dir / "images"
+        bundle = build_dir / "figures"
         if not bundle.is_dir():
             return set()
         return {p.name for p in bundle.iterdir() if p.is_file()}
@@ -126,9 +137,12 @@ class TestResolveImagePathsBundleMode:
                                     copy_figures=True)
         _run_filter(ResolveImagePathsFilter(), doc)
 
-        assert _image_urls(doc) == ["images/fig.png"]
-        assert self._bundle_files(build_dir) == {"fig.png"}
-        assert (build_dir / "images" / "fig.png").read_bytes() == b"content-A"
+        assert _image_urls(doc) == ["figures/fig.png"]
+        # The manifest counts as a top-level file; check the figure is present
+        # and the manifest exists alongside.
+        assert "fig.png" in self._bundle_files(build_dir)
+        assert (build_dir / "figures" / "fig.png").read_bytes() == b"content-A"
+        assert (build_dir / "figures" / ".texmark-figures").exists()
 
     def test_basename_collision_with_different_content_gets_hash_suffix(self, tmp_path):
         build_dir = tmp_path / "build"
@@ -143,14 +157,11 @@ class TestResolveImagePathsBundleMode:
         _run_filter(ResolveImagePathsFilter(), doc)
 
         urls = _image_urls(doc)
-        # Both rewrites must land under images/, both must use stem-hash
+        # Both rewrites must land under figures/, both must use stem-hash
         # form, and they must be distinct (different content -> different
         # hashes).
-        assert all(u.startswith("images/fig-") and u.endswith(".png") for u in urls)
+        assert all(u.startswith("figures/fig-") and u.endswith(".png") for u in urls)
         assert urls[0] != urls[1]
-        # Both files exist in the bundle, content preserved
-        bundled = self._bundle_files(build_dir)
-        assert len(bundled) == 2
         a_url, b_url = urls
         assert (build_dir / a_url).read_bytes() == b"content-A"
         assert (build_dir / b_url).read_bytes() == b"content-B"
@@ -169,15 +180,18 @@ class TestResolveImagePathsBundleMode:
 
         urls = _image_urls(doc)
         # Same content under same basename -> single bundled copy, both URLs collapse
-        assert urls == ["images/fig.png", "images/fig.png"]
-        assert self._bundle_files(build_dir) == {"fig.png"}
+        assert urls == ["figures/fig.png", "figures/fig.png"]
+        # Only the actual figure in the bundle; manifest is the other top-level file.
+        assert "fig.png" in self._bundle_files(build_dir)
 
     def test_stale_top_level_figures_removed(self, tmp_path):
+        # Pre-existing manifest claims stale.png is ours; the rebuild
+        # drops the reference, so stale.png must go.
         build_dir = tmp_path / "build"
-        bundle = build_dir / "images"
+        bundle = build_dir / "figures"
         bundle.mkdir(parents=True)
-        # Leftover from a previous build — current doc does not reference it.
         (bundle / "stale.png").write_bytes(b"old")
+        (bundle / ".texmark-figures").write_text("stale.png\n")
 
         (tmp_path / "images").mkdir()
         (tmp_path / "images" / "fig.png").write_bytes(b"new")
@@ -186,15 +200,57 @@ class TestResolveImagePathsBundleMode:
                                     copy_figures=True)
         _run_filter(ResolveImagePathsFilter(), doc)
 
-        assert self._bundle_files(build_dir) == {"fig.png"}
+        assert (bundle / "fig.png").exists()
         assert not (bundle / "stale.png").exists()
+        # Manifest now lists exactly the new figure.
+        assert (bundle / ".texmark-figures").read_text().splitlines() == ["fig.png"]
+
+    def test_first_build_cleans_pre_manifest_cruft(self, tmp_path):
+        # No manifest yet, but a leftover figure file lives in the
+        # bundle from a pre-manifest version. It should still be cleaned.
+        build_dir = tmp_path / "build"
+        bundle = build_dir / "figures"
+        bundle.mkdir(parents=True)
+        (bundle / "ancient.png").write_bytes(b"old")
+
+        (tmp_path / "images").mkdir()
+        (tmp_path / "images" / "fig.png").write_bytes(b"new")
+
+        doc = _make_doc_with_images(tmp_path, build_dir, ["images/fig.png"],
+                                    copy_figures=True)
+        _run_filter(ResolveImagePathsFilter(), doc)
+
+        assert (bundle / "fig.png").exists()
+        assert not (bundle / "ancient.png").exists()
+
+    def test_manifest_preserves_hand_managed_files_across_builds(self, tmp_path):
+        # A hand-managed file added between builds isn't in our manifest,
+        # so the cleanup pass leaves it alone.
+        build_dir = tmp_path / "build"
+        bundle = build_dir / "figures"
+        bundle.mkdir(parents=True)
+        # Pretend a previous texmark build wrote fig.png + manifest.
+        (bundle / "fig.png").write_bytes(b"old")
+        (bundle / ".texmark-figures").write_text("fig.png\n")
+        # Then the user dropped a manually-curated logo in there.
+        (bundle / "publisher-logo.png").write_bytes(b"hand-managed")
+
+        (tmp_path / "images").mkdir()
+        (tmp_path / "images" / "fig.png").write_bytes(b"new")
+
+        doc = _make_doc_with_images(tmp_path, build_dir, ["images/fig.png"],
+                                    copy_figures=True)
+        _run_filter(ResolveImagePathsFilter(), doc)
+
+        assert (bundle / "fig.png").exists()
+        assert (bundle / "publisher-logo.png").exists()
 
     def test_cleanup_skips_subdirectories(self, tmp_path):
         # texmark-download-images puts remote downloads under
-        # build/images/<hash>/<name>. The cleanup pass must leave those
+        # build/figures/<hash>/<name>. The cleanup pass must leave those
         # directories alone.
         build_dir = tmp_path / "build"
-        bundle = build_dir / "images"
+        bundle = build_dir / "figures"
         (bundle / "abc123").mkdir(parents=True)
         (bundle / "abc123" / "remote.png").write_bytes(b"remote")
 
@@ -208,21 +264,105 @@ class TestResolveImagePathsBundleMode:
         assert (bundle / "abc123" / "remote.png").exists()
         assert (bundle / "fig.png").exists()
 
-    def test_cleanup_preserves_non_figure_extensions(self, tmp_path):
-        # A hand-managed README in build/images/ should not be deleted.
+
+# ---- ResolveImagePathsFilter: figure_folders / \graphicspath -------------
+
+
+class TestResolveImagePathsFigureFolders:
+    """Non-copy mode: \\graphicspath block + short URLs when folders given."""
+
+    def test_folder_match_yields_short_url_and_graphicspath_block(self, tmp_path):
+        # source_dir = tmp_path/sources, figures live in tmp_path/figs,
+        # build = tmp_path/build. The figure URL in the markdown is
+        # "../figs/eof.png" (relative to source_dir). The filter should
+        # rewrite to "eof.png" and emit \graphicspath{{../figs/}}.
+        source_dir = tmp_path / "sources"
+        source_dir.mkdir()
         build_dir = tmp_path / "build"
-        bundle = build_dir / "images"
-        bundle.mkdir(parents=True)
-        (bundle / "NOTES.md").write_text("hand-written")
+        build_dir.mkdir()
+        figs = tmp_path / "figs"
+        figs.mkdir()
+        (figs / "eof.png").write_bytes(b"x")
 
-        (tmp_path / "images").mkdir()
-        (tmp_path / "images" / "fig.png").write_bytes(b"new")
-
-        doc = _make_doc_with_images(tmp_path, build_dir, ["images/fig.png"],
-                                    copy_figures=True)
+        doc = _make_doc_with_images(source_dir, build_dir,
+                                    ["../figs/eof.png"],
+                                    figure_folders=[figs])
         _run_filter(ResolveImagePathsFilter(), doc)
 
-        assert (bundle / "NOTES.md").exists()
+        assert _image_urls(doc) == ["eof.png"]
+        block = _graphicspath_block(doc)
+        assert block == r"\graphicspath{{../figs/}}"
+
+    def test_multiple_folders_emitted_in_order(self, tmp_path):
+        build_dir = tmp_path / "build"
+        build_dir.mkdir()
+        a = tmp_path / "A"
+        b = tmp_path / "B"
+        a.mkdir()
+        b.mkdir()
+        (a / "one.png").write_bytes(b"a")
+        (b / "two.png").write_bytes(b"b")
+
+        doc = _make_doc_with_images(tmp_path, build_dir,
+                                    ["A/one.png", "B/two.png"],
+                                    figure_folders=[a, b])
+        _run_filter(ResolveImagePathsFilter(), doc)
+
+        # Both URLs land short, in the same order as the source list.
+        assert _image_urls(doc) == ["one.png", "two.png"]
+        # graphicspath order preserves user-supplied folder order.
+        assert _graphicspath_block(doc) == r"\graphicspath{{../A/}{../B/}}"
+
+    def test_figure_outside_all_folders_falls_back_to_relpath(self, tmp_path):
+        # one fig lives under the configured folder (short URL), the
+        # other does not (relpath fallback).
+        build_dir = tmp_path / "build"
+        build_dir.mkdir()
+        figs = tmp_path / "figs"
+        figs.mkdir()
+        (figs / "inside.png").write_bytes(b"i")
+        outside_dir = tmp_path / "other"
+        outside_dir.mkdir()
+        (outside_dir / "outside.png").write_bytes(b"o")
+
+        doc = _make_doc_with_images(tmp_path, build_dir,
+                                    ["figs/inside.png", "other/outside.png"],
+                                    figure_folders=[figs])
+        _run_filter(ResolveImagePathsFilter(), doc)
+
+        urls = _image_urls(doc)
+        assert urls[0] == "inside.png"
+        assert urls[1] == "../other/outside.png"
+
+    def test_copy_mode_ignores_figure_folders(self, tmp_path):
+        # In bundle mode the .tex points at <build>/figures/<name> and no
+        # \graphicspath block is emitted.
+        build_dir = tmp_path / "build"
+        figs = tmp_path / "figs"
+        figs.mkdir()
+        (figs / "eof.png").write_bytes(b"x")
+
+        doc = _make_doc_with_images(tmp_path, build_dir,
+                                    ["figs/eof.png"],
+                                    copy_figures=True,
+                                    figure_folders=[figs])
+        _run_filter(ResolveImagePathsFilter(), doc)
+
+        assert _image_urls(doc) == ["figures/eof.png"]
+        assert _graphicspath_block(doc) is None
+
+    def test_no_folders_no_graphicspath_emitted(self, tmp_path):
+        # Sanity check: nothing changes when figure_folders is unset.
+        build_dir = tmp_path / "build"
+        build_dir.mkdir()
+        (tmp_path / "images").mkdir()
+        (tmp_path / "images" / "fig.png").write_bytes(b"x")
+
+        doc = _make_doc_with_images(tmp_path, build_dir, ["images/fig.png"])
+        _run_filter(ResolveImagePathsFilter(), doc)
+
+        assert _image_urls(doc) == ["../images/fig.png"]
+        assert _graphicspath_block(doc) is None
 
 
 # ---- tag_figures ----------------------------------------------------------

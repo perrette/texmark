@@ -138,6 +138,7 @@ figure-width: 80%                      # optional: pandoc figure default
 figure-span: full                      # optional: wraps in figure* (full text width)
                                        #   per-figure override: ![cap](img){figure-span=full}
 copy_figures: false                    # optional: see "Figure paths" below
+figure_folders: [images, ../shared]    # optional: see "Figure paths" below
 ```
 
 Section-style metadata can also be given as markdown `# ...` headings. Any
@@ -156,23 +157,35 @@ file's directory and rewrites it in the generated `.tex` to be relative to
 the build directory. The figure files stay where they are on disk; nothing
 is copied.
 
-If you instead want a self-contained build directory (e.g. to hand the
-`.tex` + figures to a journal portal), pass `--copy-figures` on the CLI
-(yaml equivalent: `copy_figures: true`). In that mode every referenced
-figure is copied flat into `<build>/images/`:
+If you would rather have short paths in the `.tex` (e.g. `eof.png`
+instead of `../images/eof.png`), pass `--figure-folders <dir> [<dir> ...]`
+on the CLI (yaml: `figure_folders: [<dir>, ...]`). Each folder is
+interpreted relative to the current working directory and feeds LaTeX's
+`\graphicspath`. Figures that live under any of these folders get short
+URLs in the `.tex`; figures elsewhere keep the relative-to-build-dir form.
+Folder search order is respected (first match wins, matching pdflatex's
+own resolution).
+
+For a self-contained build (e.g. to hand the `.tex` + figures to a
+journal portal), pass `--copy-figures` on the CLI (yaml:
+`copy_figures: true`). In that mode every referenced figure is copied
+flat into `<build>/figures/`:
 
 - Files keep their basename when unique.
 - When two figures share a basename but have different contents, both are
   renamed to `<stem>-<short-content-hash><ext>` for disambiguation.
 - Same file referenced from multiple paths collapses to a single bundled
   copy.
-- Any top-level figure file left in `<build>/images/` from a previous
-  build that the current document no longer references is removed.
-  Subdirectories (used by remote-image downloads) are not touched.
+- A `.texmark-figures` manifest in `<build>/figures/` records which files
+  texmark wrote, so the next build can delete only files it owns; files
+  you put there by hand are preserved.
+
+`--figure-folders` is ignored when `--copy-figures` is set (every figure
+ends up in `<build>/figures/` either way).
 
 Remote (`http(s)://`) figure URLs are always downloaded into
-`<build>/images/<hash>/<basename>` by the `texmark-download-images`
-filter, regardless of this setting.
+`<build>/figures/<hash>/<basename>` by the `texmark-download-images`
+filter, regardless of these settings.
 
 ## Collect figures and tables at the end of the document
 

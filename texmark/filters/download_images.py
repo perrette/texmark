@@ -30,7 +30,7 @@ def download_image(url, output_path):
 
 def action(elem, doc):
     BUILD_DIR = doc.get_metadata('build_dir', 'build')
-    IMAGE_DIR = os.path.join(BUILD_DIR, os.path.basename(doc.get_metadata('images', 'images')))
+    IMAGE_DIR = os.path.join(BUILD_DIR, 'figures')
 
     if isinstance(elem, pf.Image) and is_remote_url(elem.url):
         filename = safe_filename_from_url(elem.url)

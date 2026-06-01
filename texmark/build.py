@@ -72,7 +72,7 @@ def join_if_list(value, sep='\n\n'):
 
 def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
               filters=None, journal_template=None, filters_module=None, packages=None,
-              copy_figures=None):
+              copy_figures=None, figure_folders=None):
     # 1. Parse Markdown
     input_text = open(input_md).read()
     post = frontmatter.loads(input_text)
@@ -95,6 +95,13 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     if copy_figures is None:
         copy_figures = metadata.get('copy_figures', False)
     metadata['copy_figures'] = bool(copy_figures)
+
+    # figure-folders feed LaTeX's \graphicspath in non-copy mode. CLI wins
+    # over yaml; both are interpreted as CWD-relative and stored as
+    # absolute paths so the filter doesn't have to repeat that work.
+    if figure_folders is None:
+        figure_folders = metadata.get('figure_folders', []) or []
+    metadata['figure_folders'] = [str(Path(p).resolve()) for p in figure_folders]
 
      # 2. Apply filters and convert to AST
 
@@ -123,8 +130,11 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
         "texmark-journal",
         ] + (filters or metadata.get('filters', []))
 
-    # Step 1: Run pandoc to get JSON AST with filters applied, and updated metadata
-    cmd_json = args
+    # Step 1: Run pandoc to get JSON AST with filters applied, and updated metadata.
+    # Copy `args` so the --filter additions don't leak into the JSON->LaTeX
+    # pass below, which would re-run every filter and double any stateful
+    # transforms (e.g. resolve_image_paths injecting a \graphicspath block).
+    cmd_json = list(args)
     for f in filters:
         cmd_json.extend(['--filter', f])
 
@@ -211,10 +221,16 @@ def main():
     parser.add_argument('--tex', help='LaTeX output filename')
     parser.add_argument('--pdf', action="store_true")
     parser.add_argument('--copy-figures', action='store_true', default=None,
-                        help='copy every referenced figure into <build>/images/ and rewrite paths in the .tex '
+                        help='copy every referenced figure into <build>/figures/ and rewrite paths in the .tex '
                              'so the build directory is self-contained (handy for journal submission). '
                              'The default is to keep figures in place and rewrite paths to point at the originals. '
                              'Yaml equivalent: copy_figures: true.')
+    parser.add_argument('--figure-folders', nargs='*', default=None,
+                        help='Folders to feed LaTeX\'s \\graphicspath. Paths are interpreted relative to the '
+                             'current working directory. In the default (non-copy) mode, figures that live '
+                             'under any of these folders get short URLs in the .tex; figures elsewhere fall '
+                             'back to a path relative to the build dir. Ignored when --copy-figures is set. '
+                             'Yaml equivalent: figure_folders: [<list>].')
     parser.add_argument('--packages', nargs='*', help='custom latex packages to include')
     # Deprecated: figures are now discovered from the markdown URLs, and
     # (with --copy-figures) always bundled into <build>/images/. The flag
@@ -236,7 +252,8 @@ def main():
                          build_dir=args.build,
                          filters=args.filters, journal_template=args.journal_template,
                          filters_module=args.filters_module, packages=args.packages,
-                         copy_figures=args.copy_figures)
+                         copy_figures=args.copy_figures,
+                         figure_folders=args.figure_folders)
 
     if args.pdf:
         compile_pdf(tex_file, pdf_file, args.engine, args.build,
