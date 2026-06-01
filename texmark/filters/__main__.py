@@ -386,20 +386,62 @@ def extract_table_identifier(elem, doc):
         return
 
     inlines = cap.content[0].content
-
-    last = inlines[-1]
-    if not isinstance(last, pf.Str):
+    if not inlines:
         return
 
-    last_text = pf.stringify(last).strip()
-    match = ATTR_RE.search(last_text)
-    if not match:
+    # Pandoc splits an attribute trailer that contains internal whitespace
+    # (e.g. ``{#tab:1 width=50%}``) across multiple Str/Space inlines, so
+    # we can't just look at the last Str. Walk backward from the end,
+    # joining inline text until the accumulated suffix matches ATTR_RE
+    # (a ``{...}`` group at end-of-string with no nested ``}``). The first
+    # inline whose ``{`` opens the trailer marks the cut point.
+    def _inline_text(inline):
+        if isinstance(inline, pf.Str):
+            return inline.text
+        if isinstance(inline, pf.Space):
+            return " "
+        return pf.stringify(inline)
+
+    suffix = ""
+    cut = None  # index of the first inline that belongs to the trailer
+    match = None
+    for i in range(len(inlines) - 1, -1, -1):
+        suffix = _inline_text(inlines[i]) + suffix
+        m = ATTR_RE.search(suffix)
+        if m:
+            cut = i
+            match = m
+            break
+        # Bail out early if we've passed a closing brace without finding
+        # a match: any ``}`` in the suffix that isn't the trailer's closer
+        # means the regex (which forbids nested ``}``) can never match by
+        # extending further left.
+        if "}" in suffix and not suffix.rstrip().endswith("}"):
+            return
+
+    if cut is None or match is None:
         return
 
     attr_string = match.group(1)
     identifier, classes, attributes = parse_attr_string(attr_string)
 
-    cap.content[:] = [pf.Plain(*inlines[:-1])]
+    # Determine where the ``{`` sits inside inlines[cut]. The regex match
+    # spans the joined suffix; everything from inlines[cut] onward is part
+    # of the trailer, but inlines[cut] may also contain caption text before
+    # the ``{`` (rare, since pandoc usually separates with a Space).
+    cut_inline_text = _inline_text(inlines[cut])
+    # Position within ``suffix`` where the matched trailer starts.
+    trailer_start_in_suffix = match.start()
+    # Position within ``cut_inline_text`` where the trailer starts.
+    trailer_start_in_cut = trailer_start_in_suffix
+    head_inlines = list(inlines[:cut])
+    prefix_in_cut = cut_inline_text[:trailer_start_in_cut]
+    # Drop any trailing whitespace the regex consumed before the ``{``.
+    prefix_in_cut = prefix_in_cut.rstrip()
+    if prefix_in_cut:
+        head_inlines.append(pf.Str(prefix_in_cut))
+
+    cap.content[:] = [pf.Plain(*head_inlines)]
 
     if identifier:
         elem.identifier = identifier

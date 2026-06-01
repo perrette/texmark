@@ -622,15 +622,6 @@ class TestExtractTableIdentifier:
         extract_table_identifier(t, make_doc())
         assert t.attributes.get("width") == "50%"
 
-    @pytest.mark.xfail(
-        reason=(
-            "extract_table_identifier currently only inspects the last Str "
-            "inline; pandoc splits attr trailers with internal whitespace "
-            "across multiple Strs (e.g. {#tab:1 width=50%}), so multi-token "
-            "attrs are not picked up. Known limitation."
-        ),
-        strict=True,
-    )
     def test_pulls_multi_token_attribute_trailer(self):
         t = _table_with_caption_text("Caption text {#tab:1 width=50%}")
         extract_table_identifier(t, make_doc())
