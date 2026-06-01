@@ -15,6 +15,7 @@ import json
 import panflute as pf
 import io
 from texmark.logs import logger
+from texmark.shared import BOOK_FAMILY_TEMPLATES
 
 rootpath = Path(texmark.__file__).resolve().parent
 
@@ -74,7 +75,8 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
               filters=None, journal_template=None, filters_module=None, packages=None,
               copy_figures=None, figure_folders=None, project_root=None, body_only=False,
               companion_stems=None, embed_stems=None, own_stem=None,
-              figure_manifest_accumulate=False, embed_depth=0):
+              figure_manifest_accumulate=False, embed_depth=0,
+              includeonly='', extra_includes=None):
     # 1. Parse Markdown
     input_text = open(input_md).read()
     post = frontmatter.loads(input_text)
@@ -144,6 +146,13 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     # chunks pass embed_depth=1) always emit \input — LaTeX forbids nested
     # \include.
     metadata['embed_depth'] = int(embed_depth)
+
+    # includeonly: book-family templates emit ``{{ includeonly }}`` in the
+    # preamble. Populated from the ``--only`` CLI flag (Item 13) with a full
+    # ``\includeonly{stem1,stem2}`` string, or empty for a full build /
+    # article-class templates. Set after embed_depth so it travels with the
+    # other texmark-injected metadata keys.
+    metadata['includeonly'] = includeonly or ''
 
     # preamble: YAML field — custom LaTeX injected just before \begin{document}.
     # Supports: inline block scalar (starts with \ or contains \n), single
@@ -230,6 +239,14 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
         to="latex",
         extra_args=['--template', rootpath / "templates" / "body.tex"] + args,
     )
+
+    # Chapters declared only via the `chapters:` YAML key (not as body
+    # `![](file.md)` nodes) have no embed node for texmark-embed to rewrite,
+    # so append their \include / \input directives to the master body here.
+    # Class-aware, matching the embed filter: book-family -> \include.
+    if extra_includes and not body_only:
+        cmd = '\\include' if journal_template in BOOK_FAMILY_TEMPLATES else '\\input'
+        body = body + '\n' + ''.join(f'{cmd}{{{stem}}}\n' for stem in extra_includes)
 
     with open(output_tex, "w") as f:
         if body_only:
@@ -410,6 +427,13 @@ def main():
                              'via `git rev-parse --show-toplevel` (run from the markdown\'s directory, '
                              'so submodules resolve correctly) and falls back to the current working '
                              'directory for non-git projects. Yaml equivalent: project_root: <path>.')
+    parser.add_argument('--only', default=None,
+                        help='Comma-separated list of chapters to typeset this pass, e.g. '
+                             '`--only ch1.md,ch2.md`. Injects \\includeonly{ch1,ch2} into the '
+                             'master preamble so latexmk reuses the other chapters\' cached .aux '
+                             'instead of recompiling them. Meaningful only for book-family '
+                             'templates (article-class lacks \\include); ignored with a warning '
+                             'otherwise.')
     parser.add_argument('--packages', nargs='*', help='custom latex packages to include')
     # Deprecated: figures are now discovered from the markdown URLs, and
     # (with --copy-figures) always bundled into <build>/images/. The flag
@@ -459,6 +483,36 @@ def main():
     # local self.copied as authoritative.
     manifest_accumulate = bool(project.embedded_files)
 
+    # --only / chapters: wiring (Item 13). The `chapters:` YAML key unions
+    # extra chapter files into project.embedded_files; those not also present
+    # as body `![](file.md)` nodes have no embed node, so the master build
+    # must emit their \include directives explicitly (extra_chapter_stems).
+    from texmark.project import _scan_ast_for_embeds
+    body_stems = set()
+    for inp in args.inputs:
+        for p in _scan_ast_for_embeds(Path(inp)):
+            body_stems.add(p.stem)
+    extra_chapter_stems = [p.stem for p in project.embedded_files
+                           if p.stem not in body_stems]
+
+    # The root's effective journal template decides whether --only applies:
+    # \includeonly requires \include, which only book-family templates emit.
+    root_yaml_meta = frontmatter.loads(open(primary_input).read()).metadata
+    root_template = (args.journal_template
+                     or (root_yaml_meta.get('journal', {}) or {}).get('template')
+                     or 'default')
+
+    includeonly = ''
+    if args.only:
+        only_stems = [Path(item.strip()).stem for item in args.only.split(',') if item.strip()]
+        if only_stems:
+            if root_template in BOOK_FAMILY_TEMPLATES:
+                includeonly = '\\includeonly{' + ','.join(only_stems) + '}'
+            else:
+                logger.warning(
+                    "texmark: --only is meaningful only for book-family templates; ignoring."
+                )
+
     def do_build():
         # Resolve engine/backend per-build so editing YAML in --watch mode takes effect.
         # Precedence: CLI > YAML > built-in default.
@@ -499,6 +553,8 @@ def main():
             embed_stems=embed_stems,
             own_stem=root_stem,
             figure_manifest_accumulate=manifest_accumulate,
+            includeonly=includeonly,
+            extra_includes=extra_chapter_stems,
         )
 
         # Build each companion's standalone .tex. Each companion gets the

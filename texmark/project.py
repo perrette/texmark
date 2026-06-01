@@ -140,6 +140,19 @@ def resolve_project(inputs: list[Path], project_root: Path | None = None) -> Pro
                 seen_embeds.add(child)
                 embedded_files.append(child)
 
+    # `chapters:` YAML key (root only) — an alternative way to declare the
+    # project's chapter set. It unions with the body-discovered embeds:
+    # body-discovered entries keep their first-occurrence order, then any
+    # `chapters:` entries not already present are appended in YAML order.
+    raw_chapters = metadata.get("chapters", []) or []
+    if isinstance(raw_chapters, str):
+        raw_chapters = [raw_chapters]
+    for chap in raw_chapters:
+        chap_path = (root.parent / chap).resolve()
+        if chap_path not in seen_embeds:
+            seen_embeds.add(chap_path)
+            embedded_files.append(chap_path)
+
     # Second pass: recursively scan discovered embeds to build the full graph
     # for cycle detection (but don't add further-nested embeds to embedded_files)
     pending = list(embedded_files)
