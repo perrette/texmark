@@ -104,10 +104,16 @@ def test_e2e_main_si_cross_refs(tmp_path, monkeypatch):
         f"fig:noise still unresolved (??) in si.aux: {m.group(1)!r}"
     )
 
-    # main.aux must contain the xr-hyper-imported si: prefix entry.
-    main_aux = build_dir / "main.aux"
-    assert main_aux.exists(), "main.aux not found"
-    main_aux_text = main_aux.read_text(errors="replace")
-    assert "si:fig:noise" in main_aux_text, (
-        "si:fig:noise not found in main.aux — xr-hyper did not import the SI label"
+    # main.log must show xr-hyper importing si.aux and the si:fig:noise
+    # reference resolving. xr-hyper imports external labels into LaTeX's
+    # in-memory label table, so they don't appear in main.aux directly —
+    # we verify resolution through the log instead.
+    main_log = build_dir / "main.log"
+    assert main_log.exists(), "main.log not found"
+    main_log_text = main_log.read_text(errors="replace")
+    assert "IMPORTING LABELS FROM si.aux" in main_log_text, (
+        "xr-hyper did not attempt to import si.aux"
+    )
+    assert "Reference `si:fig:noise' on page" not in main_log_text, (
+        "si:fig:noise still appears in undefined-reference warnings in main.log"
     )
