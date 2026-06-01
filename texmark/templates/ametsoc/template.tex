@@ -74,6 +74,8 @@
 {{ abstract | join_if_list(' ') | replace('\n\n', ' ') | replace('\n', ' ') }}
 }
 
+{{ xr_preamble | default("") }}
+
 \begin{document}
 
 \maketitle

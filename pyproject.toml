@@ -79,6 +79,7 @@ texmark = "texmark.build:main"
 texmark-journal = "texmark.filters.__main__:main"
 texmark-download-images = "texmark.filters.download_images:main"
 texmark-embed = "texmark.filters.embed:main"
+texmark-crossref = "texmark.filters.crossref:main"
 
 [tool.setuptools_scm]
 write_to = "texmark/_version.py"

@@ -46,6 +46,8 @@
 {% endif -%}
 {% endfor %}
 
+{{ xr_preamble | default("") }}
+
 \begin{document}
 
 \title{ {{title}} }

@@ -26,6 +26,8 @@
 
 \journalname{ {{ journal.name if journal and journal.name else "AGU Journal" }} }
 
+{{ xr_preamble | default("") }}
+
 \begin{document}
 
 \title{ {{title}} }

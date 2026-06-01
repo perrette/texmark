@@ -72,7 +72,8 @@ def join_if_list(value, sep='\n\n'):
 
 def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
               filters=None, journal_template=None, filters_module=None, packages=None,
-              copy_figures=None, figure_folders=None, project_root=None, body_only=False):
+              copy_figures=None, figure_folders=None, project_root=None, body_only=False,
+              companion_stems=None, embed_stems=None, own_stem=None):
     # 1. Parse Markdown
     input_text = open(input_md).read()
     post = frontmatter.loads(input_text)
@@ -117,6 +118,16 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     if project_root is None:
         project_root = metadata.get('project_root', None) or None
     metadata['project_root'] = str(Path(project_root).resolve()) if project_root else None
+
+    # Cross-document references (Item 4): texmark-crossref reads these to
+    # rewrite ``[](other.md#label)`` links to ``\ref{<other-stem>:label}``
+    # and to emit a ``\usepackage{xr-hyper}`` + ``\externaldocument`` block
+    # as the ``xr_preamble`` template variable. Each list is the set of
+    # stems the active document can cross-reference; ``own_stem`` is the
+    # active document's own stem, excluded from xr_targets.
+    metadata['crossref_companion_stems'] = list(companion_stems or [])
+    metadata['crossref_embed_stems'] = list(embed_stems or [])
+    metadata['crossref_own_stem'] = own_stem or Path(input_md).stem
 
      # 2. Apply filters and convert to AST
 
@@ -368,6 +379,11 @@ def main():
     from texmark.project import resolve_project
     project = resolve_project([Path(p) for p in args.inputs])
 
+    # Pre-compute the stem lists used by the crossref filter so they don't
+    # need to be re-derived on every body-only/master build call below.
+    companion_stems = [p.stem for p in project.companion_files]
+    embed_stems = [p.stem for p in project.embedded_files]
+
     def do_build():
         # Resolve engine/backend per-build so editing YAML in --watch mode takes effect.
         # Precedence: CLI > YAML > built-in default.
@@ -388,7 +404,10 @@ def main():
                       copy_figures=args.copy_figures,
                       figure_folders=args.figure_folders,
                       project_root=args.project_root,
-                      body_only=True)
+                      body_only=True,
+                      companion_stems=companion_stems,
+                      embed_stems=embed_stems,
+                      own_stem=embed_path.stem)
 
         metadata = build_tex(primary_input, tex_file, template=args.template, bib_file=args.bib,
                              build_dir=args.build,
@@ -396,7 +415,10 @@ def main():
                              filters_module=args.filters_module, packages=args.packages,
                              copy_figures=args.copy_figures,
                              figure_folders=args.figure_folders,
-                             project_root=args.project_root)
+                             project_root=args.project_root,
+                             companion_stems=companion_stems,
+                             embed_stems=embed_stems,
+                             own_stem=Path(primary_input).stem)
         if want_pdf:
             compile_pdf(tex_file, pdf_file, engine=engine, build_dir=args.build,
                         bib_file=str(metadata.get('bibliography') or ''),
