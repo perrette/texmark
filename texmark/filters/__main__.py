@@ -716,6 +716,7 @@ filters['pnas'] = pnas_filters
 book_filters = list(basic_filters)
 
 filters['book'] = book_filters
+filters['report'] = book_filters
 
 
 def run_filters(doc):

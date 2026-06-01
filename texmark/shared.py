@@ -35,4 +35,4 @@ filters = {}
 # so ``\includeonly{}`` can scope them; nested embeds and article-class
 # templates emit ``\input{stem}`` instead (LaTeX forbids nested ``\include``).
 # Future items (14 report, 15 memoir, 16 classicthesis) extend this set.
-BOOK_FAMILY_TEMPLATES = {"book"}
+BOOK_FAMILY_TEMPLATES = {"book", "report"}
