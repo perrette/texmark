@@ -7,11 +7,17 @@
 %% scaffolding — class, theme, title metadata, and the optional title and
 %% bibliography frames — while pandoc owns the frames themselves.
 
-\documentclass[t]{beamer}
+\documentclass[t{% if beamer and beamer.aspectratio %},aspectratio={{ beamer.aspectratio }}{% endif %}]{beamer}
 
 %% Theme. A sensible, widely-available default; the `beamer:` YAML block
 %% (theme / colortheme / fonttheme / aspectratio) parameterises this.
-\usetheme{default}
+\usetheme{ {{- beamer.theme if beamer and beamer.theme else "default" -}} }
+{% if beamer and beamer.colortheme -%}
+\usecolortheme{ {{- beamer.colortheme -}} }
+{% endif -%}
+{% if beamer and beamer.fonttheme -%}
+\usefonttheme{ {{- beamer.fonttheme -}} }
+{% endif -%}
 
 %% Math and figures
 \usepackage{amsmath,amssymb,amsfonts,bm}

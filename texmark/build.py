@@ -298,11 +298,19 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
 
     # Step 3: Render AST to LaTeX (filters not needed again)
     body_fmt = body_formats.get(journal_template, body_formats['default'])
+    body_args = ['--template', rootpath / "templates" / body_fmt['template']] + args
+    # Beamer frames are sliced at --slide-level (heading depth that starts a new
+    # frame). Surfaced from `beamer.slide_level` (default 2 -> "## Frame" begins a
+    # frame); passed explicitly so behavior is deterministic. Only the beamer
+    # body-format path takes this arg — article-class renders are untouched.
+    if body_fmt['format'] == 'beamer':
+        slide_level = (metadata.get('beamer') or {}).get('slide_level', 2)
+        body_args.append(f'--slide-level={slide_level}')
     body = pypandoc.convert_text(
         ast_json_str,
         format="json",
         to=body_fmt['format'],
-        extra_args=['--template', rootpath / "templates" / body_fmt['template']] + args,
+        extra_args=body_args,
     )
 
     # Rewrite ``apply_figure_defaults`` sentinels into figure*/end{figure*}.
