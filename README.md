@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-# texmark <picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/perrette/texmark/main/icons/texmark-B-m-down-tex-dark.svg"><img src="https://raw.githubusercontent.com/perrette/texmark/main/icons/texmark-B-m-down-tex.svg" alt="texmark" height="40"></picture>
+# texmark
 
 [![pypi](https://img.shields.io/pypi/v/texmark)](https://pypi.org/project/texmark)
 ![python](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fperrette%2Ftexmark%2Frefs%2Fheads%2Fmain%2Fpyproject.toml)
