@@ -2,6 +2,7 @@
 
 import shutil
 import textwrap
+import unittest.mock
 from pathlib import Path
 
 import pytest
@@ -207,3 +208,95 @@ def test_cycle_detection_raises(tmp_path):
 def test_no_inputs_raises():
     with pytest.raises((ValueError, IndexError)):
         resolve_project([])
+
+
+# ---------------------------------------------------------------------------
+# project_root resolution (Item 8)
+# ---------------------------------------------------------------------------
+
+def test_project_root_kwarg_overrides_yaml(tmp_path):
+    override = tmp_path / "override_root"
+    override.mkdir()
+    root = write(tmp_path, "root.md", """\
+        ---
+        title: Root
+        project_root: /some/yaml/path
+        ---
+        Body.
+        """)
+
+    project = resolve_project([root], project_root=override)
+
+    assert project.project_root == override.resolve()
+
+
+def test_project_root_yaml_overrides_git(tmp_path):
+    yaml_root = tmp_path / "yaml_root"
+    yaml_root.mkdir()
+    root = write(tmp_path, "root.md", f"""\
+        ---
+        title: Root
+        project_root: yaml_root
+        ---
+        Body.
+        """)
+
+    project = resolve_project([root])
+
+    assert project.project_root == yaml_root.resolve()
+
+
+def test_project_root_git_autodetect(tmp_path):
+    """project_root falls back to git toplevel when no kwarg or YAML key."""
+    root = write(tmp_path, "root.md", "---\ntitle: Root\n---\nBody.\n")
+
+    # This file is inside the texmark git repo, so git should return a real toplevel
+    project = resolve_project([root])
+
+    # The resolved root must be an absolute path and exist
+    assert project.project_root.is_absolute()
+    assert project.project_root.exists()
+
+
+def test_project_root_fallback_to_parent(tmp_path):
+    """When not in a git repo, project_root falls back to root file's parent."""
+    import texmark.project as proj_module
+
+    root = write(tmp_path, "root.md", "---\ntitle: Root\n---\nBody.\n")
+
+    with unittest.mock.patch.object(proj_module, "_detect_git_root", return_value=None):
+        project = resolve_project([root])
+
+    assert project.project_root == root.parent.resolve()
+
+
+def test_project_root_kwarg_overrides_everything(tmp_path):
+    """kwarg wins over both YAML and git."""
+    import texmark.project as proj_module
+
+    override = tmp_path / "override"
+    override.mkdir()
+    fake_git = tmp_path / "fake_git"
+    fake_git.mkdir()
+    root = write(tmp_path, "root.md", """\
+        ---
+        title: Root
+        project_root: yaml_root
+        ---
+        Body.
+        """)
+
+    with unittest.mock.patch.object(proj_module, "_detect_git_root", return_value=fake_git):
+        project = resolve_project([root], project_root=override)
+
+    assert project.project_root == override.resolve()
+
+
+def test_project_root_field_on_project_dataclass(tmp_path):
+    """Project has a project_root field and repr includes it."""
+    root = write(tmp_path, "root.md", "---\ntitle: Root\n---\nBody.\n")
+    project = resolve_project([root])
+
+    assert hasattr(project, "project_root")
+    assert isinstance(project.project_root, Path)
+    assert "project_root" in repr(project)

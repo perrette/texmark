@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -18,13 +19,29 @@ class Project:
     embedded_files: list[Path]
     companion_files: list[Path]
     metadata: dict
+    project_root: Path = field(default=None)
 
     def __repr__(self) -> str:
         return (
             f"Project(root={self.root_file.name!r}, "
             f"embedded={[p.name for p in self.embedded_files]}, "
-            f"companions={[p.name for p in self.companion_files]})"
+            f"companions={[p.name for p in self.companion_files]}, "
+            f"project_root={str(self.project_root)!r})"
         )
+
+
+def _detect_git_root(directory: Path) -> Path | None:
+    """Return the git repo root containing directory, or None if not in a git repo."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(directory), "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return Path(result.stdout.strip())
+    except subprocess.CalledProcessError:
+        return None
 
 
 def _scan_ast_for_embeds(markdown_path: Path) -> list[Path]:
@@ -76,12 +93,16 @@ def _detect_cycle(root: Path, edges: dict[Path, list[Path]]) -> None:
     dfs(root)
 
 
-def resolve_project(inputs: list[Path]) -> Project:
+def resolve_project(inputs: list[Path], project_root: Path | None = None) -> Project:
     """Discover embedded files and companions from a list of input markdowns.
 
     The first input is the root document. Its YAML frontmatter provides
     ``metadata`` and the ``companions:`` key. Each input's body is scanned
     for ``Image`` nodes whose URL ends in ``.md`` (embed syntax).
+
+    ``project_root`` sets the base path for leading-slash image URLs. When
+    omitted, it is resolved from (in order): root YAML ``project_root`` key,
+    git toplevel of the root's directory, fallback to the root's parent dir.
     """
     if not inputs:
         raise ValueError("resolve_project requires at least one input file")
@@ -146,9 +167,19 @@ def resolve_project(inputs: list[Path]) -> Project:
             f"These files appear as both companions and embeds, which is not allowed: {names}"
         )
 
+    # Resolve project_root with precedence: kwarg > YAML > git > fallback
+    if project_root is not None:
+        resolved_root = Path(project_root).resolve()
+    elif "project_root" in metadata:
+        resolved_root = (root.parent / metadata["project_root"]).resolve()
+    else:
+        git_root = _detect_git_root(root.parent)
+        resolved_root = git_root if git_root is not None else root.parent
+
     return Project(
         root_file=root,
         embedded_files=embedded_files,
         companion_files=companion_files,
         metadata=metadata,
+        project_root=resolved_root,
     )
