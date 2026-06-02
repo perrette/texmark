@@ -272,3 +272,84 @@ def test_rewrite_in_place_skips_write_when_ascii_only(tmp_path: Path):
 def test_rewrite_in_place_missing_file_returns_empty(tmp_path: Path):
     from texmark.unicode_bib import rewrite_in_place
     assert rewrite_in_place(tmp_path / "nope.tex") == []
+
+
+def test_resolve_rewrite_unicode_auto_pdflatex_enables():
+    from texmark.build import _resolve_rewrite_unicode
+    assert _resolve_rewrite_unicode('auto', 'pdflatex') is True
+    assert _resolve_rewrite_unicode(None, 'pdflatex') is True
+
+
+def test_resolve_rewrite_unicode_auto_lualatex_disables():
+    from texmark.build import _resolve_rewrite_unicode
+    assert _resolve_rewrite_unicode('auto', 'lualatex') is False
+    assert _resolve_rewrite_unicode(None, 'xelatex') is False
+
+
+def test_resolve_rewrite_unicode_explicit_overrides():
+    from texmark.build import _resolve_rewrite_unicode
+    assert _resolve_rewrite_unicode('on', 'lualatex') is True
+    assert _resolve_rewrite_unicode('off', 'pdflatex') is False
+    assert _resolve_rewrite_unicode(True, 'lualatex') is True
+    assert _resolve_rewrite_unicode(False, 'pdflatex') is False
+
+
+def test_resolve_rewrite_unicode_invalid_raises():
+    from texmark.build import _resolve_rewrite_unicode
+    import pytest as _pytest
+    with _pytest.raises(ValueError):
+        _resolve_rewrite_unicode('nonsense', 'pdflatex')
+
+
+def test_build_tex_skips_body_rewrite_when_off(tmp_path: Path):
+    """build_tex with rewrite_unicode='off' must leave non-ASCII chars
+    in the body .tex untouched even under pdflatex."""
+    from texmark import build as build_mod
+    src = tmp_path / "src.md"
+    src.write_text("Body with δ in it.\n", encoding="utf-8")
+    out = tmp_path / "out.tex"
+    build_mod.build_tex(str(src), str(out), build_dir=str(tmp_path / "build"),
+                       body_only=True,
+                       engine='pdflatex', rewrite_unicode='off')
+    content = out.read_text(encoding="utf-8")
+    assert "δ" in content
+    assert r"\ensuremath{\delta}" not in content
+
+
+def test_build_tex_rewrites_body_when_on(tmp_path: Path):
+    """rewrite_unicode='on' under lualatex still triggers the rewrite."""
+    from texmark import build as build_mod
+    src = tmp_path / "src.md"
+    src.write_text("Body with δ in it.\n", encoding="utf-8")
+    out = tmp_path / "out.tex"
+    build_mod.build_tex(str(src), str(out), build_dir=str(tmp_path / "build"),
+                       body_only=True,
+                       engine='lualatex', rewrite_unicode='on')
+    content = out.read_text(encoding="utf-8")
+    assert "δ" not in content
+    assert r"\ensuremath{\delta}" in content
+
+
+def test_build_tex_auto_pdflatex_default_rewrites(tmp_path: Path):
+    """rewrite_unicode=None (auto) under pdflatex should rewrite."""
+    from texmark import build as build_mod
+    src = tmp_path / "src.md"
+    src.write_text("Body with δ in it.\n", encoding="utf-8")
+    out = tmp_path / "out.tex"
+    build_mod.build_tex(str(src), str(out), build_dir=str(tmp_path / "build"),
+                       body_only=True, engine='pdflatex')
+    content = out.read_text(encoding="utf-8")
+    assert r"\ensuremath{\delta}" in content
+
+
+def test_build_tex_auto_lualatex_default_skips(tmp_path: Path):
+    """rewrite_unicode=None (auto) under lualatex should NOT rewrite."""
+    from texmark import build as build_mod
+    src = tmp_path / "src.md"
+    src.write_text("Body with δ in it.\n", encoding="utf-8")
+    out = tmp_path / "out.tex"
+    build_mod.build_tex(str(src), str(out), build_dir=str(tmp_path / "build"),
+                       body_only=True, engine='lualatex')
+    content = out.read_text(encoding="utf-8")
+    assert "δ" in content
+    assert r"\ensuremath{\delta}" not in content

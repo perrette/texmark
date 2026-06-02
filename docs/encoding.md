@@ -145,39 +145,67 @@ way it would have without this feature. You only see the warning, which can be u
 
 ## How the engine changes the picture
 
-texmark only runs the body `.tex` rewrite under `engine: pdflatex` (the
-default). Under `lualatex` or `xelatex`:
+By default, texmark **only runs the rewrite under `engine: pdflatex`**. Under
+`lualatex` or `xelatex` both the `.bib` and the body `.tex` stage as plain
+copies, because those engines render arbitrary UTF-8 natively from OpenType
+fonts and you may prefer raw codepoints there for proper font shaping.
 
 | | pdflatex | lualatex / xelatex |
 | --- | --- | --- |
 | Reads UTF-8 natively | yes | yes |
 | Renders arbitrary UTF-8 directly | **no** (8-bit fonts) | yes (OpenType fonts) |
-| `.bib` rewrite | runs (defensive — never hurts) | runs (defensive — never hurts) |
-| Body `.tex` rewrite | runs | **skipped** (you may prefer raw codepoints for OpenType shaping) |
+| `.bib` rewrite (default) | runs | skipped |
+| Body `.tex` rewrite (default) | runs | skipped |
 | Recommended for: | speed; broadest package compatibility | full Unicode + system fonts |
 
-So the practical knobs are:
+### Overriding the default: `rewrite_unicode`
 
-```yaml
-# Default — fast, 8-bit, texmark normalizes Unicode for you.
-engine: pdflatex
+The auto-from-engine behaviour is controlled by the `rewrite_unicode` knob.
+It takes three values:
 
-# Native UTF-8 rendering; no Unicode rewriting on the body.
-engine: lualatex
-# or
-engine: xelatex
-```
+- **`auto`** *(default)* — on for pdflatex, off for lualatex/xelatex.
+- **`on`** — always rewrite, regardless of engine. Useful under
+  lualatex/xelatex when your `.bib` is going through `bibtex` (rather than
+  biber) and you want HTML-tag normalization or sorting safety.
+- **`off`** — never rewrite. Useful under pdflatex when you've already
+  pre-cleaned your `.bib` or want raw codepoints to surface as-is for
+  debugging.
 
-CLI overrides:
+CLI:
 
 ```sh
-texmark sources/main.md --pdf --engine lualatex
+texmark sources/main.md --pdf --rewrite-unicode auto   # default
+texmark sources/main.md --pdf --rewrite-unicode on     # force on
+texmark sources/main.md --pdf --rewrite-unicode off    # force off
 ```
 
-`pylatexenc` runs on the `.bib` regardless of engine because the LaTeX
-commands it emits (`\ensuremath{\delta}`, `\textit{…}`, etc.) are valid in
-all three engines — they just become unnecessary work under lualatex /
-xelatex.
+YAML:
+
+```yaml
+rewrite_unicode: auto    # or on / off
+```
+
+CLI wins over YAML, both win over the default. Companions are first-class
+documents (like with `engine:`), so each companion's own YAML
+`rewrite_unicode` is honoured for that companion's build.
+
+```yaml
+# Default for pdflatex — fast, 8-bit, texmark normalizes Unicode for you.
+engine: pdflatex
+# rewrite_unicode defaults to auto → on
+
+# Native UTF-8 rendering, raw codepoints preserved by default.
+engine: lualatex
+# rewrite_unicode defaults to auto → off
+# Force the rewrite back on if your .bib carries CrossRef HTML markup
+# that bibtex still needs help with:
+# rewrite_unicode: on
+```
+
+`pylatexenc`'s output (`\ensuremath{\delta}`, `\textit{…}`, etc.) is valid in
+all three engines, so forcing `rewrite_unicode: on` under lualatex/xelatex is
+always safe — the commands compile, they just override whatever native
+OpenType shaping would have done for those codepoints.
 
 ## How `.bib` formatting affects what you get
 

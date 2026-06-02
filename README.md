@@ -120,7 +120,9 @@ CLI flags win over YAML.
 > **Unicode and HTML in bibliographies / body text** — texmark transparently
 > rewrites non-ASCII Unicode and CrossRef-style HTML markup
 > (`<i>δ</i><sup>18</sup>O`) into LaTeX commands at build time, so pdflatex
-> doesn't silently drop scientific characters from your references. See
+> doesn't silently drop scientific characters from your references. Default
+> behaviour is engine-aware (`--rewrite-unicode auto`): on for pdflatex,
+> off for lualatex/xelatex; pass `on`/`off` to override. See
 > [docs/encoding.md](docs/encoding.md) for the full strategy, performance
 > numbers, and how the engine choice affects it.
 

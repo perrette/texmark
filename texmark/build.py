@@ -117,12 +117,31 @@ def join_if_list(value, sep='\n\n'):
     return value
 
 
+def _resolve_rewrite_unicode(value, engine: str) -> bool:
+    """Resolve ``rewrite_unicode`` (``auto``/``on``/``off`` or a bool) given
+    the effective LaTeX engine. ``auto`` is the default and turns on only
+    under pdflatex — lualatex/xelatex render UTF-8 natively and the user
+    may prefer raw codepoints there for OpenType font shaping. Returns
+    ``True`` to run the encoding rewrite, ``False`` to skip it.
+    """
+    if value is None or value == 'auto':
+        return engine == 'pdflatex'
+    if value in (True, 'on', 'true', 'yes', '1', 1):
+        return True
+    if value in (False, 'off', 'false', 'no', '0', 0):
+        return False
+    raise ValueError(
+        f"invalid rewrite_unicode value: {value!r}; expected auto/on/off"
+    )
+
+
 def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
               filters=None, journal_template=None, filters_module=None, packages=None,
               copy_figures=None, figure_folders=None, project_root=None, body_only=False,
               companion_stems=None, embed_stems=None, own_stem=None,
               figure_manifest_accumulate=False, embed_depth=0,
-              includeonly='', extra_includes=None, engine=None):
+              includeonly='', extra_includes=None, engine=None,
+              rewrite_unicode=None):
     # 1. Parse Markdown
     input_text = open(input_md).read()
     post = frontmatter.loads(input_text)
@@ -368,12 +387,13 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     # through raw — so a δ or ⁸ written directly in the body markdown
     # ends up in the .tex and triggers "Unicode character not set up"
     # at compile time. Run the same rewriter we use on the staged .bib
-    # over the freshly written .tex so the body is covered too. Engine
-    # default is None to keep older signatures working; we treat None
-    # and 'pdflatex' the same since the rewrite is harmless either way
-    # (it just becomes a no-op when nothing matches).
+    # over the freshly written .tex so the body is covered too. Gated
+    # by ``rewrite_unicode`` (auto/on/off, default auto = on under
+    # pdflatex, off under lualatex/xelatex) so users on a UTF-8-native
+    # engine can opt out and keep raw codepoints for OpenType shaping.
     effective_engine = engine or metadata.get('engine') or 'pdflatex'
-    if effective_engine == 'pdflatex':
+    ru = rewrite_unicode if rewrite_unicode is not None else metadata.get('rewrite_unicode')
+    if _resolve_rewrite_unicode(ru, effective_engine):
         from texmark.unicode_bib import rewrite_in_place
         rewrite_in_place(output_tex)
 
@@ -383,7 +403,7 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
 
 def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
                 bib_file='references.bib', resource_path='', backend='latexmk',
-                biblatex=False):
+                biblatex=False, rewrite_unicode=None):
     """
     Step 2: Compile LaTeX source into PDF.
 
@@ -415,15 +435,22 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
         src = Path(input_tex)
         if src.exists() and src.parent.resolve() != build_dir.resolve():
             shutil.copy2(src, build_dir)
-    # Bibliography gets rewritten on the way in: non-ASCII codepoints are
-    # replaced with their pylatexenc-supplied LaTeX equivalents so pdflatex's
-    # 8-bit font stack stops dropping characters from titles, journal names,
-    # etc. The source .bib stays untouched. See texmark/unicode_bib.py.
+    # Bibliography staging. By default (rewrite_unicode='auto') and when
+    # the engine is pdflatex, non-ASCII codepoints in the .bib are replaced
+    # with pylatexenc-supplied LaTeX equivalents and CrossRef-style HTML
+    # tags are converted to LaTeX commands. Under lualatex/xelatex the
+    # rewrite is skipped so the .bib stages as a plain copy; both engines
+    # handle UTF-8 natively, and biber (used with biblatex) reads UTF-8
+    # cleanly. The flag accepts on/off to override the auto behaviour.
+    # See docs/encoding.md for the full strategy.
     if bib_file:
         src = Path(bib_file)
         if src.exists() and src.parent.resolve() != build_dir.resolve():
-            from texmark.unicode_bib import stage_bib
-            stage_bib(src, build_dir)
+            if _resolve_rewrite_unicode(rewrite_unicode, engine):
+                from texmark.unicode_bib import stage_bib
+                stage_bib(src, build_dir)
+            else:
+                shutil.copy2(src, build_dir / src.name)
     tex_name = Path(input_tex).name
 
     if backend == 'latexmk':
@@ -556,6 +583,11 @@ def main():
                              'pdflatex+bibtex+pdflatex+pdflatex sequence unconditionally (use when '
                              'latexmk is unavailable). tectonic uses the standalone tectonic '
                              'binary. YAML key: backend.')
+    parser.add_argument('--rewrite-unicode', choices=['auto', 'on', 'off'], default=None,
+                        help='Rewrite non-ASCII Unicode and inline HTML tags in .bib and .tex '
+                             'files to LaTeX equivalents (\\ensuremath{\\delta}, \\textsuperscript, '
+                             'etc.) at stage time. auto (default): on for pdflatex, off for '
+                             'lualatex/xelatex. See docs/encoding.md. YAML key: rewrite_unicode.')
     parser.add_argument('-w', '--watch', action='store_true',
                         help='Rebuild whenever the input markdown, bibliography, or template '
                              'changes. Combine with an auto-reloading PDF viewer (zathura, '
@@ -674,6 +706,12 @@ def main():
         yaml_meta = frontmatter.loads(open(primary_input).read()).metadata
         engine = str(args.engine or yaml_meta.get('engine') or 'pdflatex')
         backend = str(args.backend or yaml_meta.get('backend') or 'latexmk')
+        # rewrite_unicode flows through to build_tex (body .tex) and compile_pdf
+        # (staged .bib). Kept as the raw auto/on/off value here; the inner
+        # functions resolve it against their effective engine so companions
+        # (which use their own engine from their own YAML) get the right
+        # auto behaviour without leaking the root's engine into their build.
+        rewrite_unicode = args.rewrite_unicode or yaml_meta.get('rewrite_unicode')
 
         # Body-only builds for each embedded chapter, written as
         # `<build>/<stem>.tex` so the master's `\input{<stem>}` resolves at
@@ -693,7 +731,8 @@ def main():
                       embed_stems=embed_stems,
                       own_stem=embed_path.stem,
                       figure_manifest_accumulate=manifest_accumulate,
-                      embed_depth=1)
+                      embed_depth=1,
+                      engine=engine, rewrite_unicode=rewrite_unicode)
 
         # Build the master .tex for the root.
         root_metadata = build_tex(
@@ -710,6 +749,7 @@ def main():
             figure_manifest_accumulate=manifest_accumulate,
             includeonly=includeonly,
             extra_includes=extra_chapter_stems,
+            engine=engine, rewrite_unicode=rewrite_unicode,
         )
 
         # Build each companion's standalone .tex. Each companion gets the
@@ -769,7 +809,7 @@ def main():
                     for in_tex, out_pdf, bib, rp, bl in targets:
                         compile_pdf(in_tex, out_pdf, engine=engine, build_dir=args.build,
                                     bib_file=bib, resource_path=rp, backend=backend,
-                                    biblatex=bl)
+                                    biblatex=bl, rewrite_unicode=rewrite_unicode)
                     cur_snapshot = _aux_files_snapshot(project, build_dir)
                     if prev_snapshot is not None and cur_snapshot == prev_snapshot:
                         break
@@ -783,7 +823,7 @@ def main():
                 in_tex, out_pdf, bib, rp, bl = targets[0]
                 compile_pdf(in_tex, out_pdf, engine=engine, build_dir=args.build,
                             bib_file=bib, resource_path=rp, backend=backend,
-                            biblatex=bl)
+                            biblatex=bl, rewrite_unicode=rewrite_unicode)
 
         return root_metadata
 
