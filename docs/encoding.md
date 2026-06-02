@@ -141,8 +141,7 @@ Fix by editing the .bib entry or switching to engine: lualatex / xelatex.
 ```
 
 The build continues; the offending char gets dropped from the PDF the same
-way it would have without this feature. You only see the warning, which is
-exactly the signal you needed to triage.
+way it would have without this feature. You only see the warning, which can be used to triage.
 
 ## How the engine changes the picture
 
