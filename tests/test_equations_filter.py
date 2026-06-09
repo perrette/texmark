@@ -16,11 +16,20 @@ REPO_ROOT = Path(__file__).parent.parent
 # --- Unit tests: construct the AST pandoc would hand us, no pandoc needed. ---
 
 def _run(*inlines):
-    """Walk a one-paragraph doc through the filter and return the resulting
-    paragraph's inline list."""
+    """Run a one-paragraph doc through the filter (prepare + action, as the real
+    pipeline does) and return the resulting paragraph's inline list."""
     doc = pf.Doc(pf.Para(*inlines))
-    out = doc.walk(equations_filter)
+    equations_filter.prepare(doc)
+    out = doc.walk(equations_filter.action)
     return list(out.content[0].content)
+
+
+def _run_blocks(*blocks):
+    """Run a multi-block doc through the filter and return the resulting blocks."""
+    doc = pf.Doc(*blocks)
+    equations_filter.prepare(doc)
+    out = doc.walk(equations_filter.action)
+    return list(out.content)
 
 
 def _display(body):
@@ -106,6 +115,95 @@ def test_unknown_env_passes_through_with_warning(caplog):
     assert any("unknown math environment" in r.message for r in caplog.records)
 
 
+# --- Trailer in the following paragraph (blank-line / GitHub-friendly form). ---
+
+def test_trailer_following_paragraph_label_implies_equation():
+    blocks = _run_blocks(
+        pf.Para(_display("E = mc^2")),
+        pf.Para(pf.Str("{#eq:emc}")),
+    )
+    assert len(blocks) == 1  # the two paragraphs merged into one
+    assert blocks[0].content[0].text == \
+        "\\begin{equation}\\label{eq:emc}E = mc^2\\end{equation}"
+
+
+def test_trailer_following_paragraph_align_unwraps():
+    body = "\\begin{aligned}a &= b \\\\ c &= d\\end{aligned}"
+    blocks = _run_blocks(
+        pf.Para(_display(body)),
+        pf.Para(pf.Str("{#eq:p"), pf.Space(), pf.Str(".align}")),
+    )
+    assert len(blocks) == 1
+    text = blocks[0].content[0].text
+    assert text.startswith("\\begin{align}\\label{eq:p}")
+    assert "aligned" not in text
+
+
+def test_attr_paragraph_without_preceding_math_left_alone():
+    blocks = _run_blocks(
+        pf.Para(pf.Str("Just prose.")),
+        pf.Para(pf.Str("{#eq:foo}")),
+    )
+    assert len(blocks) == 2  # nothing to attach to -> not merged
+
+
+def test_trailer_glued_to_following_prose_flows_into_one_paragraph():
+    # blank line before the trailer, but prose follows it on the next line with
+    # no blank line (the real-world authoring pattern). The equation and the
+    # following prose stay in ONE paragraph -- no spurious break.
+    blocks = _run_blocks(
+        pf.Para(_display("a = b")),
+        pf.Para(pf.Str("{#eq:foo}"), pf.SoftBreak,
+                pf.Str("where"), pf.Space(), pf.Str("b>0.")),
+    )
+    assert len(blocks) == 1
+    para = pf.stringify(blocks[0])
+    assert blocks[0].content[0].text == \
+        "\\begin{equation}\\label{eq:foo}a = b\\end{equation}"
+    assert "{#eq:foo}" not in para and "where" in para
+
+
+def test_chained_equations_flow_into_one_paragraph():
+    # paragraph ends in one equation and begins with the next equation's trailer:
+    # the whole run collapses into a single flowing paragraph.
+    blocks = _run_blocks(
+        pf.Para(_display("a = b")),
+        pf.Para(pf.Str("{#eq:one}"), pf.SoftBreak,
+                pf.Str("then"), pf.Space(), _display("c = d")),
+        pf.Para(pf.Str("{#eq:two}")),
+    )
+    assert len(blocks) == 1
+    texts = [getattr(x, "text", "") for x in blocks[0].content]
+    assert "\\begin{equation}\\label{eq:one}a = b\\end{equation}" in texts
+    assert "\\begin{equation}\\label{eq:two}c = d\\end{equation}" in texts
+
+
+def test_blank_line_after_trailer_keeps_separate_paragraph():
+    # a trailer with nothing after it (blank line, then prose) does NOT pull the
+    # following prose in -> the author's paragraph break is preserved.
+    blocks = _run_blocks(
+        pf.Para(_display("a = b")),
+        pf.Para(pf.Str("{#eq:foo}")),
+        pf.Para(pf.Str("A new paragraph.")),
+    )
+    assert len(blocks) == 2
+    assert blocks[0].content[0].text == \
+        "\\begin{equation}\\label{eq:foo}a = b\\end{equation}"
+    assert pf.stringify(blocks[1]).strip() == "A new paragraph."
+
+
+def test_trailer_merge_inside_footnote():
+    note = pf.Note(
+        pf.Para(_display("x = y")),
+        pf.Para(pf.Str("{.equation}")),
+    )
+    blocks = _run_blocks(pf.Para(pf.Str("text"), note))
+    fn = blocks[0].content[1]
+    assert isinstance(fn, pf.Note)
+    assert len(fn.content) == 1
+    assert fn.content[0].content[0].text == "\\begin{equation}x = y\\end{equation}"
+
+
 # --- Integration: through build_tex / pandoc. ---
 
 pytestmark_pandoc = pytest.mark.skipif(
@@ -121,8 +219,10 @@ def test_build_tex_equations_end_to_end(tmp_path):
         "---\ntitle: Eq\njournal:\n  template: arxiv\n---\n\n# Math\n\n"
         "$$\n\\begin{aligned}\na &= b \\\\\nc &= d\n\\end{aligned}\n$$ {#eq:p .align}\n\n"
         "$$\n\\begin{aligned}\ne &= f\n\\end{aligned}\n$$ {#eq:q .equation}\n\n"
+        # blank-line / GitHub-friendly form: trailer in the next paragraph
+        "$$\n\\begin{aligned}\ng &= h\n\\end{aligned}\n$$\n\n{#eq:r}\n\n"
         "$$ x = y $$\n\n"
-        "See [](#eq:p) and @eq:q.\n"
+        "See [](#eq:p), @eq:q and [](#eq:r).\n"
     )
     out = tmp_path / "build" / "eq.tex"
     build_tex(str(md), str(out), build_dir=str(tmp_path / "build"),
@@ -133,8 +233,12 @@ def test_build_tex_equations_end_to_end(tmp_path):
     # single-number equation keeps aligned
     assert "\\begin{equation}\\label{eq:q}" in text
     assert "\\begin{aligned}" in text
+    # blank-line trailer attaches from the following paragraph
+    assert "\\begin{equation}\\label{eq:r}" in text
+    assert "{#eq:r}" not in text  # trailer consumed, not leaked
     # plain stays unnumbered
     assert "\\[ x = y \\]" in text
     # refs
     assert text.count("\\eqref{eq:p}") == 1
     assert "\\eqref{eq:q}" in text
+    assert "\\eqref{eq:r}" in text

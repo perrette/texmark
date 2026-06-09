@@ -32,7 +32,9 @@ $$
 \begin{aligned}
 \boldsymbol{\mathcal{X}} \sim \mathcal{N}(\bar{X}, \Sigma)
 \end{aligned}
-$$ {#eq:prior}
+$$
+
+{#eq:prior}
 
 The prior is given in [](#eq:prior) — equivalently, @eq:prior.
 ```
@@ -71,11 +73,62 @@ That previews fine and, untagged, compiles to an unnumbered `\[ … \]`.
 This is the only place texmark touches the body; every other environment is
 wrapped verbatim.
 
+## Where to put the trailer (GitHub compatibility)
+
+**Put the `{...}` trailer after a blank line, not stuck to the closing `$$`.**
+
+GitHub renders a `$$…$$` display block only when the closing `$$` ends its line.
+If the trailer is glued to it (`$$ {#eq:foo}`), GitHub never sees a valid closing
+delimiter and the whole equation falls back to literal text. Keeping the
+delimiters clean and dropping the trailer below a blank line lets the equation
+render on GitHub *and* in the VS Code preview:
+
+```markdown
+$$
+\begin{aligned}
+\boldsymbol{\mathcal{X}} \sim \mathcal{N}(\bar{X}, \Sigma)
+\end{aligned}
+$$
+
+{#eq:prior}
+where $\bar{X}$ is the weighted ensemble mean …
+```
+
+texmark attaches the trailer across **any** whitespace — same line, the next
+line, or a blank line — and it may be followed immediately by prose, which stays
+in place. So the blank-line form costs you nothing on the texmark side while
+making the equation portable.
+
+**Paragraph flow.** The blank line you add before the trailer is only there to
+satisfy the `$$` block syntax, so texmark does *not* turn it into a paragraph
+break: the equation, its trailer, and the prose on the trailer's line stay in one
+paragraph (the equation flows on into the sentence). A new paragraph starts only
+where you leave a blank line *after* the trailer's prose — paragraph breaks are
+controlled by what comes after the `{...}`, not by the syntactic blank line
+before it.
+
+```markdown
+$$
+\Sigma_{i,j} = \tfrac{1}{M-1}\textstyle\sum_m (X_i^m-\bar X_i)(X_j^m-\bar X_j)
+$$
+
+{#eq:cov}
+where $\mathcal{L}$ is the localisation kernel.   ← same paragraph as the equation
+
+This sentence starts a new paragraph.             ← blank line above => new paragraph
+```
+
+The one residual: GitHub (and the KaTeX preview) still show `{#eq:prior}` as
+literal text, since the attribute isn't part of their Markdown. That small leak
+is unavoidable while staying in pandoc syntax; the equation itself renders
+everywhere, which is the part that matters.
+
 ## Caveats
 
-- **The label shows in the preview.** KaTeX doesn't understand the `{#eq:foo}`
-  trailer, so it appears as literal text after the rendered equation in the
-  preview. The PDF is unaffected. This is cosmetic and only on labelled blocks.
+- **The label shows in the preview.** Neither KaTeX (VS Code) nor GitHub
+  understands the `{#eq:foo}` trailer, so it appears as literal text near the
+  rendered equation. The PDF is unaffected. Cosmetic, and only on labelled
+  blocks — see [Where to put the trailer](#where-to-put-the-trailer-github-compatibility).
 - **Unknown environments pass through with a warning.** A typo like
   `{.equaton}`, or an inner-only environment used standalone like `{.aligned}`
   (which errors in LaTeX), is emitted as-is and logged — so a build warning
