@@ -16,6 +16,7 @@ from texmark.sectiontracker import SectionFilter, panflute2latex
 from texmark.filters.tabular import table_to_latex
 from texmark.filters.embed import embed_filter
 from texmark.filters.crossref import crossref_filter
+from texmark.filters.equations import equations_filter
 
 def _is_remote_url(url):
     return url.startswith(('http://', 'https://', 'data:'))
@@ -572,7 +573,7 @@ def apply_figure_defaults(elem, doc):
             pf.RawBlock(FIGSTAR_END, format='latex'),
         ]
 
-basic_filters = [embed_filter, crossref_filter, strip_leading_slash, resolve_image_paths, stringify_captions, tag_figures, apply_figure_defaults, table_to_latex]
+basic_filters = [embed_filter, crossref_filter, equations_filter, strip_leading_slash, resolve_image_paths, stringify_captions, tag_figures, apply_figure_defaults, table_to_latex]
 
 default_filters = basic_filters
 

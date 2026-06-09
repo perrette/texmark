@@ -140,6 +140,36 @@ that follow inode changes keep your scroll position.
 In multi-file projects `--watch` also tracks every embedded chapter and
 every companion document (plus each companion's bibliography and template).
 
+## Numbered equations
+
+Display math written as `$$ … $$` renders in the Markdown preview (via KaTeX)
+and stays *unnumbered* in the PDF — identical in both. To number an equation,
+add a class naming the LaTeX environment to wrap it in:
+
+```
+$$ E = mc^2 $$ {.equation}     # one number
+
+$$
+\begin{aligned}
+a &= b \\
+c &= d
+\end{aligned}
+$$ {.align}                    # one number per row (inner aligned unwrapped)
+```
+
+Add a label to cross-reference it; a bare `{#eq:…}` implies `.equation`:
+
+```
+$$ \sigma^2 = \tfrac{1}{N}\textstyle\sum_i (x_i - \mu)^2 $$ {#eq:var}
+
+…the variance in [](#eq:var) — or @eq:var.
+```
+
+`[](#eq:var)` and `@eq:var` both become `\eqref{eq:var}` → `(3)`. Multi-line
+math must be written as `\begin{aligned}…\end{aligned}` to render in the
+preview; `.align` unwraps it so you get per-row numbers without losing the
+preview. See [docs/equations.md](docs/equations.md).
+
 ## Multi-file projects
 
 Split a long manuscript across files by embedding chapters directly in
