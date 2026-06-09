@@ -1518,6 +1518,13 @@ because you only label what you intend to cite, and citing needs a number.</p>
 a parenthesised, hyperlinked number — <code>(3)</code>. (Use <code>\eqref</code> rather than <code>\ref</code> so
 equations read "as in (3)", not "as in 3".)</p>
 <p>There is no range syntax: write <code>Eqs. [](#eq:a)–[](#eq:b)</code> explicitly.</p>
+<p>The <strong>same <code>@id</code> / <code>[](#id)</code> syntax cross-references figures, tables and
+sections</strong> — <code>fig:</code>, <code>tbl:</code> and <code>sec:</code> resolve to a bare <code>\ref</code> (a number, e.g.
+"Figure 3"), where <code>eq:</code> uses the parenthesised <code>\eqref</code>. Figure and table
+labels are emitted automatically (from the image / caption <code>{#fig:…}</code> / <code>{#tbl:…}</code>
+attribute); a section label needs an explicit <code>{#sec:…}</code> on the heading. Prefer
+<code>[](#fig:…)</code> over a hand-written <code>\ref{fig:…}</code> — the link form also renders in
+the Markdown preview and on GitHub.</p>
 <h2 id="multi-line-math-and-the-preview">Multi-line math and the preview<a class="headerlink" href="#multi-line-math-and-the-preview" title="Permanent link">&para;</a></h2>
 <p>KaTeX cannot render a bare <code>&amp;</code>/<code>\\</code> inside <code>$$…$$</code> — multi-line math <strong>must</strong> be
 wrapped in <code>aligned</code> to show up in the preview:</p>
