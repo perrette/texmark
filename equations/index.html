@@ -518,10 +518,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-one-rule" class="md-nav__link">
+  <a href="#classes-name-the-latex-environment" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The one rule
+        Classes name the LaTeX environment
       
     </span>
   </a>
@@ -1360,10 +1360,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#the-one-rule" class="md-nav__link">
+  <a href="#classes-name-the-latex-environment" class="md-nav__link">
     <span class="md-ellipsis">
       
-        The one rule
+        Classes name the LaTeX environment
       
     </span>
   </a>
@@ -1451,13 +1451,12 @@
 
 
 <h1 id="numbered-and-cross-referenced-equations">Numbered and cross-referenced equations<a class="headerlink" href="#numbered-and-cross-referenced-equations" title="Permanent link">&para;</a></h1>
-<p>texmark lets you write display equations once, in a form that renders live in
-the Markdown preview (VS Code, JetBrains, GitHub — all via KaTeX), and have the
-PDF come out properly numbered and cross-referenced.</p>
-<h2 id="the-one-rule">The one rule<a class="headerlink" href="#the-one-rule" title="Permanent link">&para;</a></h2>
-<p>A class on a display-math block <strong>names the LaTeX outer environment</strong> to wrap it
-in. There is no texmark-specific vocabulary to learn — if you know LaTeX's math
-environments, you know the classes.</p>
+<p>Display equations are written once. They render in the Markdown preview (VS Code
+and JetBrains use KaTeX, GitHub uses MathJax), and the PDF is numbered and
+cross-referenced by LaTeX.</p>
+<h2 id="classes-name-the-latex-environment">Classes name the LaTeX environment<a class="headerlink" href="#classes-name-the-latex-environment" title="Permanent link">&para;</a></h2>
+<p>A class on a display-math block is the name of the LaTeX environment texmark
+wraps the math in:</p>
 <table>
 <thead>
 <tr>
@@ -1470,7 +1469,7 @@ environments, you know the classes.</p>
 <tr>
 <td><code>$$ x = y $$</code></td>
 <td><code>\[ x = y \]</code></td>
-<td>unnumbered (default)</td>
+<td>unnumbered</td>
 </tr>
 <tr>
 <td><code>$$ x = y $$ {.equation}</code></td>
@@ -1485,23 +1484,22 @@ environments, you know the classes.</p>
 <tr>
 <td><code>$$ … $$ {.gather}</code></td>
 <td><code>\begin{gather} … \end{gather}</code></td>
-<td>falls out for free</td>
+<td>one number</td>
 </tr>
 <tr>
 <td><code>$$ … $$ {#eq:foo}</code></td>
 <td><code>equation</code> + <code>\label{eq:foo}</code></td>
-<td>numbered + referenceable</td>
+<td>numbered, referenceable</td>
 </tr>
 <tr>
 <td><code>$$ … $$ {#eq:foo .align}</code></td>
 <td><code>align</code> + <code>\label{eq:foo}</code></td>
-<td>per-row + referenceable</td>
+<td>per-row, referenceable</td>
 </tr>
 </tbody>
 </table>
-<p>No class means <strong>no number</strong> — so casual math stays clean and identical in
-preview and PDF. A bare label (<code>{#eq:foo}</code>, no class) implies <code>.equation</code>,
-because you only label what you intend to cite, and citing needs a number.</p>
+<p>A <code>$$…$$</code> with no class compiles to an unnumbered <code>\[ … \]</code>. A <code>{#eq:foo}</code> label
+with no class uses the <code>equation</code> environment.</p>
 <h2 id="cross-references">Cross-references<a class="headerlink" href="#cross-references" title="Permanent link">&para;</a></h2>
 <p>Reference a labelled equation with a plain Markdown link or a pandoc-style <code>@</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>$$
@@ -1564,10 +1562,9 @@ render on GitHub <em>and</em> in the VS Code preview:</p>
 <a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>{#eq:prior}
 <a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>where $\bar{X}$ is the weighted ensemble mean …
 </code></pre></div>
-<p>texmark attaches the trailer across <strong>any</strong> whitespace — same line, the next
-line, or a blank line — and it may be followed immediately by prose, which stays
-in place. So the blank-line form costs you nothing on the texmark side while
-making the equation portable.</p>
+<p>texmark attaches the trailer across any whitespace — same line, the next line,
+or a blank line — and prose may follow it directly. The blank-line form is the
+one that also renders on GitHub.</p>
 <p><strong>Paragraph flow.</strong> The blank line you add before the trailer is only there to
 satisfy the <code>$$</code> block syntax, so texmark does <em>not</em> turn it into a paragraph
 break: the equation, its trailer, and the prose on the trailer's line stay in one
@@ -1584,10 +1581,9 @@ before it.</p>
 <a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
 <a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>This sentence starts a new paragraph.             ← blank line above =&gt; new paragraph
 </code></pre></div>
-<p>The one residual: GitHub (and the KaTeX preview) still show <code>{#eq:prior}</code> as
-literal text, since the attribute isn't part of their Markdown. That small leak
-is unavoidable while staying in pandoc syntax; the equation itself renders
-everywhere, which is the part that matters.</p>
+<p>GitHub and the KaTeX preview show <code>{#eq:prior}</code> as literal text, because the
+attribute is not part of their Markdown. The equation itself still renders, and
+the PDF is unaffected.</p>
 <h2 id="caveats">Caveats<a class="headerlink" href="#caveats" title="Permanent link">&para;</a></h2>
 <ul>
 <li><strong>The label shows in the preview.</strong> Neither KaTeX (VS Code) nor GitHub
