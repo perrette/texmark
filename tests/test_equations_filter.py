@@ -208,6 +208,33 @@ def test_chained_equations_flow_into_one_paragraph():
     assert "\\begin{equation}\\label{eq:two}c = d\\end{equation}" in texts
 
 
+def test_equation_folds_into_preceding_paragraph():
+    # An equation introduced by a sentence flows into that sentence's paragraph;
+    # no paragraph starts with an equation.
+    blocks = _run_blocks(
+        pf.Para(pf.Str("We"), pf.Space(), pf.Str("define,")),
+        pf.Para(_display("a = b")),
+        pf.Para(pf.Str("{#eq:foo}"), pf.SoftBreak, pf.Str("where"), pf.Space(),
+                pf.Str("b>0.")),
+    )
+    assert len(blocks) == 1
+    text = pf.stringify(blocks[0])
+    assert "define," in text and "where" in text
+    assert any(getattr(x, "text", "") ==
+               "\\begin{equation}\\label{eq:foo}a = b\\end{equation}"
+               for x in blocks[0].content)
+
+
+def test_equation_after_heading_stays_own_paragraph():
+    # Nothing prose to merge into -> the equation paragraph is left alone.
+    blocks = _run_blocks(
+        pf.Header(pf.Str("Title"), level=2),
+        pf.Para(_display("a = b"), pf.Space(), pf.Str("{.equation}")),
+    )
+    assert len(blocks) == 2
+    assert isinstance(blocks[0], pf.Header)
+
+
 def test_blank_line_after_trailer_keeps_separate_paragraph():
     # a trailer with nothing after it (blank line, then prose) does NOT pull the
     # following prose in -> the author's paragraph break is preserved.

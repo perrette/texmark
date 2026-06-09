@@ -23,12 +23,13 @@ keeping the delimiter clean lets the equation render on GitHub too.
     {#eq:foo .align}
     where the symbols mean …
 
-**Paragraph flow.** The equation, its trailer, and any prose that follows on the
-trailer's line are kept in a single paragraph, so the blank line you add before
-the trailer (only there to satisfy the ``$$`` block syntax) does not become a
-spurious ``\\par`` in the output. A new paragraph starts only where you put a
-blank line *after* the trailer's prose -- i.e. paragraph breaks are controlled by
-what comes after the ``{...}``, not by the syntactic blank line before it.
+**Paragraph flow.** A display equation never starts or ends a paragraph on its
+own: the prose before it, the equation, its trailer, and the prose after the
+trailer are kept in one paragraph. The blank lines a ``$$`` block needs in
+Markdown therefore do not become spurious ``\\par`` breaks around the equation.
+A new paragraph starts only where you put a blank line *after* the trailer's
+prose. (An equation with no prose before it -- e.g. the first thing under a
+heading -- has nothing to merge into and stays its own paragraph.)
 
 Same-document cross-references -- written ``@eq:foo`` or ``[](#eq:foo)`` -- are
 rewritten to ``\\eqref{eq:foo}``. The same syntax works for figures (``fig:``),
@@ -208,6 +209,16 @@ def _ends_with_display_math(blk):
     )
 
 
+def _starts_with_display_math(blk):
+    if not isinstance(blk, pf.Para):
+        return False
+    for el in blk.content:
+        if isinstance(el, (pf.Space, pf.SoftBreak, pf.LineBreak)):
+            continue
+        return isinstance(el, pf.Math) and el.format == "DisplayMath"
+    return False
+
+
 def _split_leading_attr(content):
     """If ``content`` begins with a ``{...}`` attr group carrying an id and/or
     classes, return ``(attr_string, rest_inlines)`` where ``rest`` is what
@@ -260,6 +271,26 @@ def _merge_trailer_blocks(blocks):
     return blocks
 
 
+def _merge_leading_equation_blocks(blocks):
+    """Fold a paragraph that begins with a display equation into the preceding
+    prose paragraph, so an equation never starts a paragraph. The blank line a
+    ``$$`` block needs in Markdown is thus not turned into a ``\\par`` before the
+    equation. (An equation with no prose before it -- e.g. first thing under a
+    heading -- has nothing to merge into and is left as its own paragraph.)
+    """
+    result = []
+    for blk in blocks:
+        prev = result[-1] if result else None
+        if (
+            _starts_with_display_math(blk)
+            and isinstance(prev, (pf.Para, pf.Plain))
+        ):
+            prev.content = list(prev.content) + [pf.Space()] + list(blk.content)
+        else:
+            result.append(blk)
+    return result
+
+
 class EquationsFilter:
     """Promote display math to numbered/labelled LaTeX environments and rewrite
     same-document equation references."""
@@ -276,7 +307,8 @@ class EquationsFilter:
         for child in list(content):
             self._merge_recursive(child)
         if isinstance(element, _BLOCK_CONTAINERS):
-            element.content = _merge_trailer_blocks(list(element.content))
+            blocks = _merge_trailer_blocks(list(element.content))
+            element.content = _merge_leading_equation_blocks(blocks)
 
     def action(self, elem, doc):
         # Same-document cross-references -- ``@prefix:id`` (a Cite) or
