@@ -17,7 +17,9 @@ def panflute2latex(elements, wrap='none') -> str:
         doc,
         input_format='panflute',
         output_format='latex',
-        # extra_args=[f'--wrap={wrap}']
+        # Match the body render (build.py) so citations in extracted sections
+        # (e.g. an appendix) become \citet/\citep rather than literal "@key".
+        extra_args=['--natbib'],
     )
 
     # # This also breaks the figure environment (no Fig ID, caption duplicated and added after the figure outside the figure environment)
@@ -153,7 +155,9 @@ class SectionFilter:
         for blk in doc.content:
             if isinstance(blk, pf.Header):
                 sid = blk.identifier
-                if collecting:
+                # Only a same-or-higher-level header ends the current section; a
+                # deeper subsection is part of it and falls through to be collected.
+                if collecting and blk.level <= section_level:
                     collecting = False
                 if sid in all_collect:
                     current = sid
