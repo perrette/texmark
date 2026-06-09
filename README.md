@@ -12,22 +12,24 @@
 [![tests](https://github.com/perrette/texmark/actions/workflows/tests.yml/badge.svg)](https://github.com/perrette/texmark/actions/workflows/tests.yml)
 [![docs](https://img.shields.io/badge/docs-perrette.github.io%2Ftexmark-blue)](https://perrette.github.io/texmark/)
 
-Write scientific articles in markdown — and submit them to any journal.
+Write scientific articles in Markdown and convert them to journal-ready LaTeX and PDF.
 
 <!-- intro-start -->
-- **Instant preview.** Markdown renders live in most editors (VS Code, Cursor,
-  JetBrains, vim) and on GitHub itself, so you see your draft as you type. No
-  more wait-on-pdflatex cycles every time you change a sentence.
-- **Git + GitHub as a paper backend.** Branches, pull requests, issues, blame,
-  and diffs work the way they were designed to. Collaborators review changes
-  with the same tooling they already use for code.
-- **One source, any journal.** texmark compiles your markdown to any of the
-  [supported LaTeX templates](https://perrette.github.io/texmark/journals/).
-  Start writing first, decide on a target journal later, and switch mid-way
-  (or after rejection) by flipping a single yaml field — no rewriting needed.
-- **No lock-in.** The intermediate `.tex` is right there next to the PDF.
-  Unplug texmark whenever you want and continue the manuscript in plain
-  LaTeX — useful for the final polish that journals usually demand.
+- **Preview while writing.** Markdown renders in most editors (VS Code,
+  JetBrains, vim) and on GitHub — equations included — so you can read a draft
+  without running a LaTeX build.
+- **Lightweight, portable text.** Markdown uses much less markup than LaTeX, so
+  the source stays readable and works with ordinary tools: edit it on GitHub,
+  version it with Git (branches, diffs, pull requests), or paste it into a
+  Google Doc to draft interactively with collaborators who prefer that, then
+  bring it back.
+- **One source, several journal templates.** The same Markdown compiles to any
+  of the [supported LaTeX templates](https://perrette.github.io/texmark/journals/);
+  changing the target journal means editing one field in the YAML header rather
+  than reformatting the text.
+- **LaTeX output is kept.** The generated `.tex` sits next to the PDF, so you
+  can stop using texmark at any point and continue in LaTeX directly — usually
+  necessary for the final journal-specific adjustments anyway.
 <!-- intro-end -->
 
 ## 📖 Documentation
@@ -80,7 +82,7 @@ See the [quickstart](https://perrette.github.io/texmark/quickstart/) and
 
 ## From the same author
 
-A small toolkit for a Markdown-first scientific workflow.
+A few related tools I maintain, useful in a Markdown-based scientific workflow.
 
 **Scientific writing & data**
 
@@ -95,5 +97,5 @@ A small toolkit for a Markdown-first scientific workflow.
 
 ## Acknowledgements
 
-This project benefited greatly from AI support to extend the initial list of
-supported journals and further extend this package capability.
+Parts of this project — notably extending the set of supported journals — were
+developed with AI assistance.

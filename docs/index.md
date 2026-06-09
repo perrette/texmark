@@ -12,7 +12,7 @@
 
 # texmark
 
-Write scientific articles in markdown — and submit them to any journal.
+Write scientific articles in Markdown and convert them to journal-ready LaTeX and PDF.
 
 {%
   include-markdown "../README.md"
@@ -45,7 +45,7 @@ texmark example.md --pdf
 
 ## From the same author
 
-A small toolkit for a Markdown-first scientific workflow.
+A few related tools I maintain, useful in a Markdown-based scientific workflow.
 
 **Scientific writing & data**
 
