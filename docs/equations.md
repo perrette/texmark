@@ -1,27 +1,25 @@
 # Numbered and cross-referenced equations
 
-texmark lets you write display equations once, in a form that renders live in
-the Markdown preview (VS Code, JetBrains, GitHub — all via KaTeX), and have the
-PDF come out properly numbered and cross-referenced.
+Display equations are written once. They render in the Markdown preview (VS Code
+and JetBrains use KaTeX, GitHub uses MathJax), and the PDF is numbered and
+cross-referenced by LaTeX.
 
-## The one rule
+## Classes name the LaTeX environment
 
-A class on a display-math block **names the LaTeX outer environment** to wrap it
-in. There is no texmark-specific vocabulary to learn — if you know LaTeX's math
-environments, you know the classes.
+A class on a display-math block is the name of the LaTeX environment texmark
+wraps the math in:
 
 | Markdown | LaTeX | Result |
 |---|---|---|
-| `$$ x = y $$` | `\[ x = y \]` | unnumbered (default) |
+| `$$ x = y $$` | `\[ x = y \]` | unnumbered |
 | `$$ x = y $$ {.equation}` | `\begin{equation} … \end{equation}` | one number |
 | `$$ … $$ {.align}` | `\begin{align} … \end{align}` | one number per row |
-| `$$ … $$ {.gather}` | `\begin{gather} … \end{gather}` | falls out for free |
-| `$$ … $$ {#eq:foo}` | `equation` + `\label{eq:foo}` | numbered + referenceable |
-| `$$ … $$ {#eq:foo .align}` | `align` + `\label{eq:foo}` | per-row + referenceable |
+| `$$ … $$ {.gather}` | `\begin{gather} … \end{gather}` | one number |
+| `$$ … $$ {#eq:foo}` | `equation` + `\label{eq:foo}` | numbered, referenceable |
+| `$$ … $$ {#eq:foo .align}` | `align` + `\label{eq:foo}` | per-row, referenceable |
 
-No class means **no number** — so casual math stays clean and identical in
-preview and PDF. A bare label (`{#eq:foo}`, no class) implies `.equation`,
-because you only label what you intend to cite, and citing needs a number.
+A `$$…$$` with no class compiles to an unnumbered `\[ … \]`. A `{#eq:foo}` label
+with no class uses the `equation` environment.
 
 ## Cross-references
 
@@ -102,10 +100,9 @@ $$
 where $\bar{X}$ is the weighted ensemble mean …
 ```
 
-texmark attaches the trailer across **any** whitespace — same line, the next
-line, or a blank line — and it may be followed immediately by prose, which stays
-in place. So the blank-line form costs you nothing on the texmark side while
-making the equation portable.
+texmark attaches the trailer across any whitespace — same line, the next line,
+or a blank line — and prose may follow it directly. The blank-line form is the
+one that also renders on GitHub.
 
 **Paragraph flow.** The blank line you add before the trailer is only there to
 satisfy the `$$` block syntax, so texmark does *not* turn it into a paragraph
@@ -126,10 +123,9 @@ where $\mathcal{L}$ is the localisation kernel.   ← same paragraph as the equa
 This sentence starts a new paragraph.             ← blank line above => new paragraph
 ```
 
-The one residual: GitHub (and the KaTeX preview) still show `{#eq:prior}` as
-literal text, since the attribute isn't part of their Markdown. That small leak
-is unavoidable while staying in pandoc syntax; the equation itself renders
-everywhere, which is the part that matters.
+GitHub and the KaTeX preview show `{#eq:prior}` as literal text, because the
+attribute is not part of their Markdown. The equation itself still renders, and
+the PDF is unaffected.
 
 ## Caveats
 
