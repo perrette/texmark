@@ -37,19 +37,21 @@ $$
 The prior is given in [](#eq:prior) — equivalently, @eq:prior.
 ```
 
-Both `[](#eq:prior)` and `@eq:prior` become `\eqref{eq:prior}`, which renders as
-a parenthesised, hyperlinked number — `(3)`. (Use `\eqref` rather than `\ref` so
-equations read "as in (3)", not "as in 3".)
+Both `[](#eq:prior)` and `@eq:prior` become `\eqref{eq:prior}` in the PDF, which
+LaTeX renders as a parenthesised, hyperlinked number — "(3)". (`\eqref` adds the
+parentheses; `\ref` does not.)
 
-There is no range syntax: write `Eqs. [](#eq:a)–[](#eq:b)` explicitly.
-
-The **same `@id` / `[](#id)` syntax cross-references figures, tables and
-sections** — `fig:`, `tbl:` and `sec:` resolve to a bare `\ref` (a number, e.g.
-"Figure 3"), where `eq:` uses the parenthesised `\eqref`. Figure and table
+The same `@id` / `[](#id)` syntax cross-references figures, tables and sections:
+`fig:`, `tbl:` and `sec:` resolve to `\ref`, `eq:` to `\eqref`. Figure and table
 labels are emitted automatically (from the image / caption `{#fig:…}` / `{#tbl:…}`
-attribute); a section label needs an explicit `{#sec:…}` on the heading. Prefer
-`[](#fig:…)` over a hand-written `\ref{fig:…}` — the link form also renders in
-the Markdown preview and on GitHub.
+attribute); a section label needs an explicit `{#sec:…}` on the heading. There is
+no range syntax — write the two references (`\eqref{eq:a}–\eqref{eq:b}`).
+
+The reference number is computed by LaTeX, so it appears only in the PDF. In the
+Markdown preview and on GitHub neither form shows a number: `[](#fig:1)` renders
+as an empty link (nothing visible), and a raw `\ref{fig:1}` shows as literal
+text. Raw `\ref`/`\eqref` are often preferable in the source — they stay visible
+in the preview.
 
 ## Multi-line math and the preview
 
