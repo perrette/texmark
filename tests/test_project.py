@@ -258,8 +258,8 @@ def test_project_root_git_autodetect(tmp_path):
     assert project.project_root.exists()
 
 
-def test_project_root_fallback_to_parent(tmp_path):
-    """When not in a git repo, project_root falls back to root file's parent."""
+def test_project_root_fallback_to_cwd(tmp_path):
+    """When not in a git repo, project_root falls back to the caller's cwd."""
     import texmark.project as proj_module
 
     root = write(tmp_path, "root.md", "---\ntitle: Root\n---\nBody.\n")
@@ -267,7 +267,7 @@ def test_project_root_fallback_to_parent(tmp_path):
     with unittest.mock.patch.object(proj_module, "_detect_git_root", return_value=None):
         project = resolve_project([root])
 
-    assert project.project_root == root.parent.resolve()
+    assert project.project_root == Path.cwd().resolve()
 
 
 def test_project_root_kwarg_overrides_everything(tmp_path):

@@ -40,7 +40,10 @@ def _detect_git_root(directory: Path) -> Path | None:
             check=True,
         )
         return Path(result.stdout.strip())
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, FileNotFoundError, OSError):
+        # CalledProcessError: not a repo, or git refuses (e.g. dubious
+        # ownership in a root-owned container). FileNotFoundError/OSError:
+        # git is not installed. In all cases, fall back to the caller's cwd.
         return None
 
 
@@ -102,7 +105,9 @@ def resolve_project(inputs: list[Path], project_root: Path | None = None) -> Pro
 
     ``project_root`` sets the base path for leading-slash image URLs. When
     omitted, it is resolved from (in order): root YAML ``project_root`` key,
-    git toplevel of the root's directory, fallback to the root's parent dir.
+    git toplevel of the root's directory, fallback to the current working
+    directory (the caller's directory). git detection is skipped gracefully
+    when git is absent or refuses (e.g. dubious ownership in a container).
     """
     if not inputs:
         raise ValueError("resolve_project requires at least one input file")
@@ -187,7 +192,7 @@ def resolve_project(inputs: list[Path], project_root: Path | None = None) -> Pro
         resolved_root = (root.parent / metadata["project_root"]).resolve()
     else:
         git_root = _detect_git_root(root.parent)
-        resolved_root = git_root if git_root is not None else root.parent
+        resolved_root = git_root if git_root is not None else Path.cwd()
 
     return Project(
         root_file=root,
