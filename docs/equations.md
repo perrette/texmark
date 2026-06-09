@@ -45,6 +45,14 @@ equations read "as in (3)", not "as in 3".)
 
 There is no range syntax: write `Eqs. [](#eq:a)–[](#eq:b)` explicitly.
 
+The **same `@id` / `[](#id)` syntax cross-references figures, tables and
+sections** — `fig:`, `tbl:` and `sec:` resolve to a bare `\ref` (a number, e.g.
+"Figure 3"), where `eq:` uses the parenthesised `\eqref`. Figure and table
+labels are emitted automatically (from the image / caption `{#fig:…}` / `{#tbl:…}`
+attribute); a section label needs an explicit `{#sec:…}` on the heading. Prefer
+`[](#fig:…)` over a hand-written `\ref{fig:…}` — the link form also renders in
+the Markdown preview and on GitHub.
+
 ## Multi-line math and the preview
 
 KaTeX cannot render a bare `&`/`\\` inside `$$…$$` — multi-line math **must** be

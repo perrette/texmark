@@ -109,6 +109,36 @@ def test_non_eq_link_left_alone():
     assert isinstance(inlines[0], pf.Link)
 
 
+def test_figure_cite_to_plain_ref():
+    inlines = _run(pf.Cite(pf.Str("@fig:demo"),
+                           citations=[pf.Citation("fig:demo")]))
+    assert inlines[0].text == "\\ref{fig:demo}"
+
+
+def test_table_link_to_plain_ref():
+    inlines = _run(pf.Link(url="#tbl:demo"))
+    assert inlines[0].text == "\\ref{tbl:demo}"
+
+
+def test_section_link_to_plain_ref():
+    inlines = _run(pf.Link(url="#sec:intro"))
+    assert inlines[0].text == "\\ref{sec:intro}"
+
+
+def test_equation_still_uses_eqref():
+    cite = _run(pf.Cite(pf.Str("@eq:foo"), citations=[pf.Citation("eq:foo")]))
+    link = _run(pf.Link(url="#eq:foo"))
+    assert cite[0].text == "\\eqref{eq:foo}"
+    assert link[0].text == "\\eqref{eq:foo}"
+
+
+def test_unknown_prefix_left_alone():
+    # no colon (real citation key) and unknown prefix both fall through
+    assert isinstance(_run(pf.Cite(pf.Str("@smith2020"),
+                                   citations=[pf.Citation("smith2020")]))[0], pf.Cite)
+    assert isinstance(_run(pf.Link(pf.Str("x"), url="#lst:code"))[0], pf.Link)
+
+
 def test_unknown_env_passes_through_with_warning(caplog):
     inlines = _run(_display("x = y"), pf.Str("{.equaton}"))
     assert inlines[0].text == "\\begin{equaton}x = y\\end{equaton}"
