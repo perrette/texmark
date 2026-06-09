@@ -222,7 +222,7 @@ OpenType shaping would have done for those codepoints.
 - **Tags that are not in our HTML map** (e.g. `<custom>`). Left untouched so
   you don't get a surprise rewrite of something you actually meant. If you
   want one converted, add it to `_HTML_TAG_MAP` in
-  [texmark/unicode_bib.py](../texmark/unicode_bib.py) (PRs welcome).
+  [texmark/unicode_bib.py](https://github.com/perrette/texmark/blob/main/texmark/unicode_bib.py) (PRs welcome).
 - **Already-LaTeX content like `{\'e}`** is ASCII, so the rewriter ignores it.
   Safe to mix LaTeX escapes with raw Unicode in the same `.bib`.
 
@@ -290,7 +290,7 @@ typical paper). The ASCII-only path skips the write entirely.
 
 - [docs/preamble.md](preamble.md) — when you need to inject your own LaTeX
   preamble (the encoding layer doesn't get in your way).
-- [texmark/unicode_bib.py](../texmark/unicode_bib.py) — the implementation,
+- [texmark/unicode_bib.py](https://github.com/perrette/texmark/blob/main/texmark/unicode_bib.py) — the implementation,
   with extensive inline comments on why each step exists.
 - [pylatexenc on PyPI](https://pypi.org/project/pylatexenc/) — the underlying
   Unicode → LaTeX mapping table.

@@ -2,9 +2,9 @@
 
 **Template name:** `ametsoc`
 **Aliases:** `jclim`, `jas`, `mwr`, `jamc`, `jhm`, `jpo`, `jtech`, `waf`, `bams`, `amsoc`
-**Class file:** [ametsocV6.1.cls](../../texmark/templates/ametsoc/ametsocV6.1.cls) (AMS LaTeX Package v6.1, Sept 2021)
+**Class file:** [ametsocV6.1.cls](https://github.com/perrette/texmark/blob/main/texmark/templates/ametsoc/ametsocV6.1.cls) (AMS LaTeX Package v6.1, Sept 2021)
 **Citation style:** natbib with AMS `\bibpunct`
-**Example PDF:** [build/example-ametsoc.pdf](../../build/example-ametsoc.pdf)
+**Example PDF:** [build/example-ametsoc.pdf](https://github.com/perrette/texmark/blob/main/build/example-ametsoc.pdf)
 
 ## Covers
 

@@ -1,9 +1,9 @@
 # AAAS Science
 
 **Template name:** `science`
-**Class file:** Standard `article` class with the [scicite.sty](../../texmark/templates/science/scicite.sty) Science citation style
+**Class file:** Standard `article` class with the [scicite.sty](https://github.com/perrette/texmark/blob/main/texmark/templates/science/scicite.sty) Science citation style
 **Citation style:** `\cite{}` (numbered)
-**Example PDF:** [build/example-science.pdf](../../build/example-science.pdf)
+**Example PDF:** [build/example-science.pdf](https://github.com/perrette/texmark/blob/main/build/example-science.pdf)
 
 ## Covers
 

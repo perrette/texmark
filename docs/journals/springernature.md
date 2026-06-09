@@ -2,9 +2,9 @@
 
 **Template name:** `springernature`
 **Aliases:** `springer`, `nature`, `naturecomms`, `natclimchange`, `natgeoscience`, `scirep`
-**Class file:** [sn-jnl.cls](../../texmark/templates/springernature/sn-jnl.cls) (Springer Nature v2.1, April 2023)
+**Class file:** [sn-jnl.cls](https://github.com/perrette/texmark/blob/main/texmark/templates/springernature/sn-jnl.cls) (Springer Nature v2.1, April 2023)
 **Citation style:** `\cite{}` numbered (default; per-style selectable)
-**Example PDF:** [build/example-springernature.pdf](../../build/example-springernature.pdf)
+**Example PDF:** [build/example-springernature.pdf](https://github.com/perrette/texmark/blob/main/build/example-springernature.pdf)
 
 ## Covers
 

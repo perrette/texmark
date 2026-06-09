@@ -2,9 +2,9 @@
 
 **Template name:** `copernicus`
 **Aliases:** `cp`, `esd` (and any other Copernicus abbreviation registered as a filter)
-**Class file:** [copernicus.cls](../../texmark/templates/copernicus/copernicus.cls)
+**Class file:** [copernicus.cls](https://github.com/perrette/texmark/blob/main/texmark/templates/copernicus/copernicus.cls)
 **Citation style:** natbib author-year
-**Example PDF:** [build/example.pdf](../../build/example.pdf)
+**Example PDF:** [build/example.pdf](https://github.com/perrette/texmark/blob/main/build/example.pdf)
 
 ## Covers
 

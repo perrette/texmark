@@ -86,5 +86,4 @@ wrapped verbatim.
 
 ## See also
 
-- [docs/encoding.md](encoding.md) — Unicode/HTML handling in body and bib text.
-- [README](../README.md#numbered-equations) — the short version.
+- [Encoding](encoding.md) — Unicode/HTML handling in body and bib text.

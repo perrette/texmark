@@ -1,0 +1,94 @@
+site_name: texmark
+site_description: Write scientific articles in Markdown and convert them to journal-ready LaTeX/PDF
+site_url: https://perrette.github.io/texmark/
+repo_url: https://github.com/perrette/texmark
+repo_name: perrette/texmark
+edit_uri: edit/main/
+
+# All narrative content already lives as Markdown in docs/ and README.md.
+# Nothing is duplicated here: the homepage pulls the README in via the
+# include-markdown plugin, and every other page is an existing docs/*.md file.
+docs_dir: docs
+
+theme:
+  name: material
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+
+plugins:
+  - search
+  - include-markdown
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Installation: installation.md
+      - Quickstart: quickstart.md
+  - Guides:
+      - Numbered equations: equations.md
+      - Multi-file projects: multi-file.md
+      - Custom preamble: preamble.md
+      - Encoding (Unicode & HTML): encoding.md
+      - Figure paths: figures.md
+      - Build backends and engines: build-backends.md
+      - Live preview: live-preview.md
+      - Custom LaTeX templates: custom-templates.md
+  - Reference:
+      - YAML reference: yaml-reference.md
+  - Journal templates:
+      - Overview: journals/index.md
+      - Copernicus / EGU: journals/copernicus.md
+      - AAAS Science: journals/science.md
+      - AMS: journals/ametsoc.md
+      - AGU: journals/agujournal.md
+      - Elsevier: journals/elsarticle.md
+      - Springer Nature: journals/springernature.md
+      - PNAS: journals/pnas.md
+      - arXiv / preprint: journals/arxiv.md
+      - Beamer (slides): journals/beamer.md
+      - book: journals/book.md
+      - report: journals/report.md
+      - memoir: journals/memoir.md
+      - classicthesis: journals/classicthesis.md

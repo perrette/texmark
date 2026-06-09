@@ -2,9 +2,9 @@
 
 **Template name:** `elsarticle`
 **Alias:** `elsevier`
-**Class file:** [elsarticle.cls](../../texmark/templates/elsarticle/elsarticle.cls) (CTAN, Jan 2026 build)
+**Class file:** [elsarticle.cls](https://github.com/perrette/texmark/blob/main/texmark/templates/elsarticle/elsarticle.cls) (CTAN, Jan 2026 build)
 **Citation style:** natbib numbered (default `elsarticle-num.bst`)
-**Example PDF:** [build/example-elsarticle.pdf](../../build/example-elsarticle.pdf)
+**Example PDF:** [build/example-elsarticle.pdf](https://github.com/perrette/texmark/blob/main/build/example-elsarticle.pdf)
 
 ## Covers
 

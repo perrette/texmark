@@ -4,7 +4,7 @@
 **Aliases:** `preprint`
 **Class file:** Standard `article` class (no third-party file)
 **Citation style:** natbib `plainnat`
-**Example PDF:** [build/example-arxiv.pdf](../../build/example-arxiv.pdf)
+**Example PDF:** [build/example-arxiv.pdf](https://github.com/perrette/texmark/blob/main/build/example-arxiv.pdf)
 
 ## Covers
 

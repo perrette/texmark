@@ -2,9 +2,9 @@
 
 **Template name:** `agujournal`
 **Aliases:** `agu`, `jgr`, `grl`, `james`, `earthsfuture`, `wrr`, `rog`
-**Class file:** [agujournal2019.cls](../../texmark/templates/agujournal/agujournal2019.cls) (AGU / Wiley, Jan 2019)
+**Class file:** [agujournal2019.cls](https://github.com/perrette/texmark/blob/main/texmark/templates/agujournal/agujournal2019.cls) (AGU / Wiley, Jan 2019)
 **Citation style:** apacite (author-year)
-**Example PDF:** [build/example-agujournal.pdf](../../build/example-agujournal.pdf)
+**Example PDF:** [build/example-agujournal.pdf](https://github.com/perrette/texmark/blob/main/build/example-agujournal.pdf)
 
 ## Covers
 

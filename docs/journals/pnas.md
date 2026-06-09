@@ -1,9 +1,9 @@
 # PNAS
 
 **Template name:** `pnas`
-**Class file:** [pnas-new.cls](../../texmark/templates/pnas/pnas-new.cls) (PNAS 2024 LaTeX bundle)
+**Class file:** [pnas-new.cls](https://github.com/perrette/texmark/blob/main/texmark/templates/pnas/pnas-new.cls) (PNAS 2024 LaTeX bundle)
 **Citation style:** natbib `[numbers, sort&compress]` → rewritten to `\cite{}`
-**Example PDF:** [build/example-pnas.pdf](../../build/example-pnas.pdf)
+**Example PDF:** [build/example-pnas.pdf](https://github.com/perrette/texmark/blob/main/build/example-pnas.pdf)
 
 ## Covers
 
