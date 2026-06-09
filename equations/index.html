@@ -551,6 +551,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#where-to-put-the-trailer-github-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where to put the trailer (GitHub compatibility)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#caveats" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1382,6 +1393,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#where-to-put-the-trailer-github-compatibility" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where to put the trailer (GitHub compatibility)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#caveats" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1486,9 +1508,11 @@ because you only label what you intend to cite, and citing needs a number.</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>\begin{aligned}
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>\boldsymbol{\mathcal{X}} \sim \mathcal{N}(\bar{X}, \Sigma)
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>\end{aligned}
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>$$ {#eq:prior}
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>$$
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>The prior is given in [](#eq:prior) — equivalently, <span class="ni">@eq:prior</span>.
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>{#eq:prior}
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>The prior is given in [](#eq:prior) — equivalently, <span class="ni">@eq:prior</span>.
 </code></pre></div>
 <p>Both <code>[](#eq:prior)</code> and <code>@eq:prior</code> become <code>\eqref{eq:prior}</code>, which renders as
 a parenthesised, hyperlinked number — <code>(3)</code>. (Use <code>\eqref</code> rather than <code>\ref</code> so
@@ -1517,11 +1541,52 @@ wrapped in <code>aligned</code> to show up in the preview:</p>
 </ul>
 <p>This is the only place texmark touches the body; every other environment is
 wrapped verbatim.</p>
+<h2 id="where-to-put-the-trailer-github-compatibility">Where to put the trailer (GitHub compatibility)<a class="headerlink" href="#where-to-put-the-trailer-github-compatibility" title="Permanent link">&para;</a></h2>
+<p><strong>Put the <code>{...}</code> trailer after a blank line, not stuck to the closing <code>$$</code>.</strong></p>
+<p>GitHub renders a <code>$$…$$</code> display block only when the closing <code>$$</code> ends its line.
+If the trailer is glued to it (<code>$$ {#eq:foo}</code>), GitHub never sees a valid closing
+delimiter and the whole equation falls back to literal text. Keeping the
+delimiters clean and dropping the trailer below a blank line lets the equation
+render on GitHub <em>and</em> in the VS Code preview:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>$$
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>\begin{aligned}
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>\boldsymbol{\mathcal{X}} \sim \mathcal{N}(\bar{X}, \Sigma)
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>\end{aligned}
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>$$
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>{#eq:prior}
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>where $\bar{X}$ is the weighted ensemble mean …
+</code></pre></div>
+<p>texmark attaches the trailer across <strong>any</strong> whitespace — same line, the next
+line, or a blank line — and it may be followed immediately by prose, which stays
+in place. So the blank-line form costs you nothing on the texmark side while
+making the equation portable.</p>
+<p><strong>Paragraph flow.</strong> The blank line you add before the trailer is only there to
+satisfy the <code>$$</code> block syntax, so texmark does <em>not</em> turn it into a paragraph
+break: the equation, its trailer, and the prose on the trailer's line stay in one
+paragraph (the equation flows on into the sentence). A new paragraph starts only
+where you leave a blank line <em>after</em> the trailer's prose — paragraph breaks are
+controlled by what comes after the <code>{...}</code>, not by the syntactic blank line
+before it.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>$$
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>\Sigma_{i,j} = \tfrac{1}{M-1}\textstyle\sum_m (X_i^m-\bar X<span class="ge">_i)(X_</span>j^m-\bar X_j)
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>$$
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>{#eq:cov}
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>where $\mathcal{L}$ is the localisation kernel.   ← same paragraph as the equation
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>This sentence starts a new paragraph.             ← blank line above =&gt; new paragraph
+</code></pre></div>
+<p>The one residual: GitHub (and the KaTeX preview) still show <code>{#eq:prior}</code> as
+literal text, since the attribute isn't part of their Markdown. That small leak
+is unavoidable while staying in pandoc syntax; the equation itself renders
+everywhere, which is the part that matters.</p>
 <h2 id="caveats">Caveats<a class="headerlink" href="#caveats" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>The label shows in the preview.</strong> KaTeX doesn't understand the <code>{#eq:foo}</code>
-  trailer, so it appears as literal text after the rendered equation in the
-  preview. The PDF is unaffected. This is cosmetic and only on labelled blocks.</li>
+<li><strong>The label shows in the preview.</strong> Neither KaTeX (VS Code) nor GitHub
+  understands the <code>{#eq:foo}</code> trailer, so it appears as literal text near the
+  rendered equation. The PDF is unaffected. Cosmetic, and only on labelled
+  blocks — see <a href="#where-to-put-the-trailer-github-compatibility">Where to put the trailer</a>.</li>
 <li><strong>Unknown environments pass through with a warning.</strong> A typo like
   <code>{.equaton}</code>, or an inner-only environment used standalone like <code>{.aligned}</code>
   (which errors in LaTeX), is emitted as-is and logged — so a build warning
