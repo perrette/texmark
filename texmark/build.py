@@ -681,7 +681,7 @@ def _build_parser():
                              'otherwise.')
     parser.add_argument('--packages', nargs='*', help='custom latex packages to include')
     # Deprecated: figures are now discovered from the markdown URLs, and
-    # (with --copy-figures) always bundled into <build>/images/. The flag
+    # (with --copy-figures) always bundled into <build>/figures/. The flag
     # is accepted-and-ignored so existing invocations keep working.
     parser.add_argument('--images', help=argparse.SUPPRESS)
     return parser
@@ -940,7 +940,7 @@ def main():
         logger.warning(
             "warning: --images is deprecated and ignored; figures are now "
             "auto-detected from the markdown and (with --copy-figures) bundled "
-            "into <build>/images/.")
+            "into <build>/figures/.")
 
     plan = plan_project(args)
 
