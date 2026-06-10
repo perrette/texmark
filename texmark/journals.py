@@ -1,9 +1,31 @@
 """Journal filter registry: which filter chain runs for which template.
 
-Populates ``texmark.shared.filters`` (template name -> filter chain) and
-provides ``run_filters``, the entry used both in-process by build.py and by
-the ``texmark-journal`` pandoc subprocess filter. Per-journal behavioural
-hooks (citation command rewriters, front-matter extraction) live here too.
+The per-journal differences are data: which sections are extracted into
+template variables, how they are renamed, which citation command the
+document class wants. The ``JOURNALS`` table below holds that data; the
+``journal_chain`` factory turns one entry into a working filter chain.
+
+``texmark.shared.filters`` maps template name -> chain. Built-ins are
+registered as zero-argument factories so every build gets fresh filter
+instances (no state shared between builds); plain lists are also accepted
+for user registrations via ``--filters-module``. ``run_filters`` is the
+entry used both in-process by build.py and by the ``texmark-journal``
+pandoc subprocess filter.
+
+To add a journal: add a ``JOURNALS`` entry (and a matching template under
+``templates/<name>/``). Keys:
+
+  aliases                 alternative template names for the same chain
+  cite                    optional citation rewriter hook, inserted after the
+                          basic filters (e.g. ``force_cite``, ``apacite_cite``)
+  extract_sections        section identifiers lifted out of the body into
+                          template variables (SI/appendix sections are always
+                          extracted and mapped to ``appendix``; don't list them)
+  sections_map            section identifier -> template variable rename
+  remap_command_sections  section header -> raw LaTeX command replacement
+  drop_sections           sections removed with a warning (template can't
+                          place them)
+  post                    hooks appended after the SectionFilter
 """
 
 import importlib
@@ -41,39 +63,13 @@ basic_filters = [
 
 default_filters = basic_filters
 
-# Beamer presentations: a slim chain. apply_figure_defaults is dropped because
-# its figure*/`figure-span: full` behaviour is article-class-specific (beamer
-# frames have no two-column figure* environment), and no SectionFilter is
-# registered because slide decks have no abstract / data-availability /
-# appendix sections to extract into the preamble.
-beamer_filters = [f for f in basic_filters if f is not apply_figure_defaults]
-
-for _beamer_name in ["beamer", "slides", "presentation"]:
-    filters[_beamer_name] = beamer_filters
-
 si_sections = ["appendix", "supplementary-material", "supplementary-information"]
 method_sections = ["methods", "materials-and-methods", "methodology"]
 
 
-copernicus_filters = [
-    *basic_filters,
-    SectionFilter(
-        extract_sections=['abstract', 'acknowledgements', 'author-contributions', 'competing-interests'] + si_sections,
-        remap_command_sections={
-            'introduction': r'\introduction',
-            'conclusions': r'\conclusions'
-        },
-        sections_map={
-            'author-contributions': 'authorcontribution',
-            'competing-interests': 'competinginterests',
-            **{section: 'appendix' for section in si_sections},
-        },
-    ),
-]
-
-for journal in ["copernicus", "cp", "esd"]:
-    filters[journal] = copernicus_filters
-
+# ---------------------------------------------------------------------------
+# Citation-command rewriters (referenced from JOURNALS entries)
+# ---------------------------------------------------------------------------
 
 def force_cite(elem, doc):
     if isinstance(elem, pf.Cite):
@@ -81,115 +77,6 @@ def force_cite(elem, doc):
         key_str = ",".join(keys)
         # Build as raw LaTeX \cite{}
         return pf.RawInline(f'\\cite{{{key_str}}}', format='latex')
-
-
-def header_to_unnumbered(elem, doc):
-    if isinstance(elem, pf.Header):
-        # Convert header to raw LaTeX \section*{...}
-        level = elem.level
-        content = pf.stringify(elem)
-        latex_cmd = f'\\{"sub" * (level - 1)}section*{{{content}}}'
-        return pf.RawBlock(latex_cmd, format='latex')
-
-
-def header_to_paragraph(elem, doc):
-    if isinstance(elem, pf.Header):
-        # Convert header to raw LaTeX \section*{...}
-        level = elem.level
-        content = pf.stringify(elem)
-        latex_cmd = f'\\paragraph*{{{content+"."}}}'
-        return pf.RawBlock(latex_cmd, format='latex')
-
-
-science_filters = [
-    *basic_filters,
-    force_cite,
-    SectionFilter(
-        extract_sections=['abstract', 'acknowledgements', 'author-contributions',
-                            'competing-interests', 'methods', 'materials-and-methods'] + si_sections,
-        sections_map={
-            'author-contributions': 'authorcontribution',
-            'competing-interests': 'competinginterests',
-            **{section: 'materialandmethods' for section in method_sections},
-            **{section: 'appendix' for section in si_sections},
-        },
-    ),
-    header_to_paragraph,
-]
-
-filters['science'] = science_filters
-
-
-ametsoc_filters = [
-    *basic_filters,
-    SectionFilter(
-        extract_sections=[
-            'abstract', 'acknowledgements', 'acknowledgments',
-            'significance', 'significance-statement', 'capsule',
-            'data-availability', 'data-availability-statement',
-        ] + si_sections,
-        sections_map={
-            'acknowledgments': 'acknowledgements',
-            'significance-statement': 'significance',
-            'data-availability': 'dataavailability',
-            'data-availability-statement': 'dataavailability',
-            **{section: 'appendix' for section in si_sections},
-        },
-        drop_sections=['author-contributions'],
-    ),
-]
-
-for journal in ["ametsoc", "amsoc", "jclim", "jas", "mwr", "jamc", "jhm", "jpo", "jtech", "waf", "bams"]:
-    filters[journal] = ametsoc_filters
-
-
-arxiv_filters = [
-    *basic_filters,
-    SectionFilter(
-        extract_sections=[
-            'abstract', 'keywords',
-            'acknowledgements', 'acknowledgments',
-            'data-availability', 'data-availability-statement',
-            'author-contributions', 'competing-interests',
-        ] + si_sections,
-        sections_map={
-            'acknowledgments': 'acknowledgements',
-            'data-availability': 'dataavailability',
-            'data-availability-statement': 'dataavailability',
-            'author-contributions': 'authorcontribution',
-            'competing-interests': 'competinginterests',
-            **{section: 'appendix' for section in si_sections},
-        },
-    ),
-]
-
-filters['arxiv'] = arxiv_filters
-filters['preprint'] = arxiv_filters
-
-
-elsarticle_filters = [
-    *basic_filters,
-    SectionFilter(
-        extract_sections=[
-            'abstract', 'keywords', 'highlights',
-            'acknowledgements', 'acknowledgments',
-            'data-availability', 'data-availability-statement',
-            'author-contributions', 'credit', 'competing-interests',
-        ] + si_sections,
-        sections_map={
-            'acknowledgments': 'acknowledgements',
-            'data-availability': 'dataavailability',
-            'data-availability-statement': 'dataavailability',
-            'author-contributions': 'authorcontribution',
-            'credit': 'authorcontribution',
-            'competing-interests': 'competinginterests',
-            **{section: 'appendix' for section in si_sections},
-        },
-    ),
-]
-
-filters['elsarticle'] = elsarticle_filters
-filters['elsevier'] = elsarticle_filters
 
 
 def apacite_cite(elem, doc):
@@ -207,63 +94,146 @@ def apacite_cite(elem, doc):
         return pf.RawInline(f'{cmd}{{{keys}}}', format='latex')
 
 
-agu_filters = [
-    *basic_filters,
-    apacite_cite,
-    SectionFilter(
-        extract_sections=[
+def header_to_unnumbered(elem, doc):
+    if isinstance(elem, pf.Header):
+        # Convert header to raw LaTeX \section*{...}
+        level = elem.level
+        content = pf.stringify(elem)
+        latex_cmd = f'\\{"sub" * (level - 1)}section*{{{content}}}'
+        return pf.RawBlock(latex_cmd, format='latex')
+
+
+def header_to_paragraph(elem, doc):
+    if isinstance(elem, pf.Header):
+        # Convert header to raw LaTeX \paragraph*{...}
+        content = pf.stringify(elem)
+        latex_cmd = f'\\paragraph*{{{content+"."}}}'
+        return pf.RawBlock(latex_cmd, format='latex')
+
+
+# ---------------------------------------------------------------------------
+# Per-journal configuration (data only — see module docstring for the keys)
+# ---------------------------------------------------------------------------
+
+JOURNALS = {
+    'copernicus': {
+        'aliases': ['cp', 'esd'],
+        'extract_sections': [
+            'abstract', 'acknowledgements',
+            'author-contributions', 'competing-interests',
+        ],
+        'remap_command_sections': {
+            'introduction': r'\introduction',
+            'conclusions': r'\conclusions',
+        },
+        'sections_map': {
+            'author-contributions': 'authorcontribution',
+            'competing-interests': 'competinginterests',
+        },
+    },
+    'science': {
+        'cite': force_cite,
+        'extract_sections': [
+            'abstract', 'acknowledgements',
+            'author-contributions', 'competing-interests',
+            'methods', 'materials-and-methods',
+        ],
+        'sections_map': {
+            'author-contributions': 'authorcontribution',
+            'competing-interests': 'competinginterests',
+            **{section: 'materialandmethods' for section in method_sections},
+        },
+        'post': [header_to_paragraph],
+    },
+    'ametsoc': {
+        'aliases': ['amsoc', 'jclim', 'jas', 'mwr', 'jamc', 'jhm', 'jpo',
+                    'jtech', 'waf', 'bams'],
+        'extract_sections': [
+            'abstract', 'acknowledgements', 'acknowledgments',
+            'significance', 'significance-statement', 'capsule',
+            'data-availability', 'data-availability-statement',
+        ],
+        'sections_map': {
+            'acknowledgments': 'acknowledgements',
+            'significance-statement': 'significance',
+            'data-availability': 'dataavailability',
+            'data-availability-statement': 'dataavailability',
+        },
+        'drop_sections': ['author-contributions'],
+    },
+    'arxiv': {
+        'aliases': ['preprint'],
+        'extract_sections': [
+            'abstract', 'keywords',
+            'acknowledgements', 'acknowledgments',
+            'data-availability', 'data-availability-statement',
+            'author-contributions', 'competing-interests',
+        ],
+        'sections_map': {
+            'acknowledgments': 'acknowledgements',
+            'data-availability': 'dataavailability',
+            'data-availability-statement': 'dataavailability',
+            'author-contributions': 'authorcontribution',
+            'competing-interests': 'competinginterests',
+        },
+    },
+    'elsarticle': {
+        'aliases': ['elsevier'],
+        'extract_sections': [
+            'abstract', 'keywords', 'highlights',
+            'acknowledgements', 'acknowledgments',
+            'data-availability', 'data-availability-statement',
+            'author-contributions', 'credit', 'competing-interests',
+        ],
+        'sections_map': {
+            'acknowledgments': 'acknowledgements',
+            'data-availability': 'dataavailability',
+            'data-availability-statement': 'dataavailability',
+            'author-contributions': 'authorcontribution',
+            'credit': 'authorcontribution',
+            'competing-interests': 'competinginterests',
+        },
+    },
+    'agujournal': {
+        'aliases': ['agu', 'jgr', 'grl', 'james', 'earthsfuture', 'wrr', 'rog'],
+        'cite': apacite_cite,
+        'extract_sections': [
             'abstract', 'plain-language-summary', 'keypoints', 'key-points',
             'acknowledgements', 'acknowledgments',
             'data-availability', 'data-availability-statement',
-        ] + si_sections,
-        sections_map={
+        ],
+        'sections_map': {
             'acknowledgments': 'acknowledgements',
             'plain-language-summary': 'plainlanguagesummary',
             'key-points': 'keypoints',
             'data-availability': 'dataavailability',
             'data-availability-statement': 'dataavailability',
-            **{section: 'appendix' for section in si_sections},
         },
-        drop_sections=['author-contributions'],
-    ),
-]
-
-for journal in ["agujournal", "agu", "jgr", "grl", "james", "earthsfuture", "wrr", "rog"]:
-    filters[journal] = agu_filters
-
-
-springernature_filters = [
-    *basic_filters,
-    force_cite,
-    SectionFilter(
-        extract_sections=[
+        'drop_sections': ['author-contributions'],
+    },
+    'springernature': {
+        'aliases': ['springer', 'nature', 'naturecomms', 'natclimchange',
+                    'natgeoscience', 'scirep'],
+        'cite': force_cite,
+        'extract_sections': [
             'abstract', 'keywords',
             'acknowledgements', 'acknowledgments',
             'data-availability', 'data-availability-statement',
             'funding', 'ethics', 'ethics-approval',
             'author-contributions', 'competing-interests',
-        ] + si_sections,
-        sections_map={
+        ],
+        'sections_map': {
             'acknowledgments': 'acknowledgements',
             'data-availability': 'dataavailability',
             'data-availability-statement': 'dataavailability',
             'author-contributions': 'authorcontribution',
             'competing-interests': 'competinginterests',
             'ethics-approval': 'ethics',
-            **{section: 'appendix' for section in si_sections},
         },
-    ),
-]
-
-for journal in ["springernature", "springer", "nature", "naturecomms", "natclimchange", "natgeoscience", "scirep"]:
-    filters[journal] = springernature_filters
-
-
-pnas_filters = [
-    *basic_filters,
-    force_cite,
-    SectionFilter(
-        extract_sections=[
+    },
+    'pnas': {
+        'cite': force_cite,
+        'extract_sections': [
             'abstract', 'keywords',
             'significance', 'significance-statement',
             'acknowledgements', 'acknowledgments',
@@ -271,8 +241,8 @@ pnas_filters = [
             'author-contributions',
             'competing-interests', 'declaration', 'author-declaration',
             'equal-authors',
-        ] + si_sections,
-        sections_map={
+        ],
+        'sections_map': {
             'acknowledgments': 'acknowledgements',
             'significance-statement': 'significance',
             'data-availability': 'dataavailability',
@@ -282,13 +252,34 @@ pnas_filters = [
             'declaration': 'competinginterests',
             'author-declaration': 'competinginterests',
             'equal-authors': 'equalauthors',
-            **{section: 'appendix' for section in si_sections},
         },
-    ),
-]
+    },
+}
 
-filters['pnas'] = pnas_filters
 
+def journal_chain(config):
+    """Build a fresh filter chain from a ``JOURNALS`` config entry."""
+    chain = list(basic_filters)
+    if config.get('cite'):
+        chain.append(config['cite'])
+    chain.append(SectionFilter(
+        # SI/appendix sections are extracted (and mapped to 'appendix') for
+        # every journal, so configs don't have to repeat them.
+        extract_sections=list(config.get('extract_sections', [])) + si_sections,
+        sections_map={
+            **{section: 'appendix' for section in si_sections},
+            **config.get('sections_map', {}),
+        },
+        remap_command_sections=config.get('remap_command_sections', {}),
+        drop_sections=config.get('drop_sections', ()),
+    ))
+    chain.extend(config.get('post', ()))
+    return chain
+
+
+# ---------------------------------------------------------------------------
+# Book-family and beamer chains
+# ---------------------------------------------------------------------------
 
 class FrontmatterFilter:
     """Lift # Dedication / # Preface / # Foreword sections into metadata.
@@ -362,15 +353,6 @@ class FrontmatterFilter:
             doc.metadata[key] = pf.MetaString(latex_str)
 
 
-frontmatter_filter = FrontmatterFilter()
-
-# Book-family templates: basic filters + front-matter section extraction.
-book_filters = list(basic_filters) + [frontmatter_filter]
-
-filters['book'] = book_filters
-filters['report'] = book_filters
-
-
 def _surface_chapter_style(doc):
     """Copy the hyphenated ``chapter-style`` YAML key to ``chapter_style``.
 
@@ -382,11 +364,6 @@ def _surface_chapter_style(doc):
     cs = doc.get_metadata('chapter-style', None)
     if cs:
         doc.metadata['chapter_style'] = pf.MetaString(str(cs))
-
-
-memoir_filters = list(basic_filters) + [Filter(prepare=_surface_chapter_style), frontmatter_filter]
-
-filters['memoir'] = memoir_filters
 
 
 def _surface_classicthesis_options(doc):
@@ -404,15 +381,59 @@ def _surface_classicthesis_options(doc):
         doc.metadata['classicthesis_options'] = pf.MetaString(str(opts))
 
 
-classicthesis_filters = list(basic_filters) + [
-    Filter(prepare=_surface_classicthesis_options), frontmatter_filter
-]
+def book_chain(extra_hooks=()):
+    """Book-family chain: basic filters + template hooks + front matter."""
+    return list(basic_filters) + list(extra_hooks) + [FrontmatterFilter()]
 
-filters['classicthesis'] = classicthesis_filters
+
+def beamer_chain():
+    # Beamer presentations: a slim chain. apply_figure_defaults is dropped
+    # because its figure*/`figure-span: full` behaviour is article-class-
+    # specific (beamer frames have no two-column figure* environment), and no
+    # SectionFilter is registered because slide decks have no abstract /
+    # data-availability / appendix sections to extract into the preamble.
+    return [f for f in basic_filters if f is not apply_figure_defaults]
+
+
+# ---------------------------------------------------------------------------
+# Registry population
+# ---------------------------------------------------------------------------
+# Values in ``shared.filters`` are either a zero-argument factory returning a
+# filter chain (all built-ins, so each build gets fresh filter instances) or a
+# plain chain list (accepted for user registrations via --filters-module).
+
+for _name, _config in JOURNALS.items():
+    _factory = (lambda config: lambda: journal_chain(config))(_config)
+    for _alias in [_name, *_config.get('aliases', [])]:
+        filters[_alias] = _factory
+
+filters['default'] = lambda: list(default_filters)
+
+for _beamer_name in ["beamer", "slides", "presentation"]:
+    filters[_beamer_name] = beamer_chain
+
+filters['book'] = book_chain
+filters['report'] = book_chain
+filters['memoir'] = lambda: book_chain([Filter(prepare=_surface_chapter_style)])
+filters['classicthesis'] = lambda: book_chain([Filter(prepare=_surface_classicthesis_options)])
+
+
+def get_filter_chain(template):
+    """Resolve a template name to a fresh filter chain.
+
+    ``shared.filters`` entries may be factories (built-ins) or plain lists
+    (user registrations); unknown templates fall back to the default chain
+    with a warning.
+    """
+    entry = filters.get(template)
+    if entry is None:
+        logger.warning(
+            f'No filters found for journal template: {template}. Using default filter.')
+        return list(default_filters)
+    return entry() if callable(entry) else list(entry)
 
 
 def run_filters(doc):
-
     if doc is not None:
         journal = doc.get_metadata('journal') or {}
     else:
@@ -424,12 +445,7 @@ def run_filters(doc):
         logger.info(f"Loading filters module: {filters_module}")
         importlib.import_module(filters_module)
 
-    filters_ = filters.get(journal.get("template"))
-    if filters_ is None:
-        logger.warning(f'No filters found for journal template: {journal.get("template")}. Using default filter.')
-        filters_ = default_filters
-
-    for filter in filters_:
+    for filter in get_filter_chain(journal.get("template")):
         logger.info(f'Running filter: {filter} on {doc}')
         doc = pf.run_filter(action=filter.action if hasattr(filter, 'action') else filter,
                    prepare=filter.prepare if hasattr(filter, 'prepare') else None,

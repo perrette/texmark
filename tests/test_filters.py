@@ -1063,3 +1063,48 @@ class TestSectionFilterRemap:
         assert not any(isinstance(b, pf.RawBlock) and b.text == r'\introduction'
                        for b in doc.content)
         assert 'appendix' in doc.metadata
+
+
+# ---- journal registry ------------------------------------------------------
+
+
+class TestJournalRegistry:
+    def test_builtin_chains_get_fresh_filter_instances_per_build(self):
+        from texmark.journals import get_filter_chain
+        c1 = get_filter_chain('copernicus')
+        c2 = get_filter_chain('copernicus')
+        sf1 = next(f for f in c1 if isinstance(f, SectionFilter))
+        sf2 = next(f for f in c2 if isinstance(f, SectionFilter))
+        assert sf1 is not sf2
+
+    def test_aliases_resolve_to_equivalent_chain(self):
+        from texmark.journals import get_filter_chain
+        agu = get_filter_chain('agujournal')
+        grl = get_filter_chain('grl')
+        assert [type(f).__name__ for f in agu] == [type(f).__name__ for f in grl]
+        sf = next(f for f in grl if isinstance(f, SectionFilter))
+        assert 'plain-language-summary' in sf.extract_sections
+
+    def test_si_sections_always_extracted_and_mapped_to_appendix(self):
+        from texmark.journals import get_filter_chain, JOURNALS, si_sections
+        for name in JOURNALS:
+            sf = next(f for f in get_filter_chain(name) if isinstance(f, SectionFilter))
+            for section in si_sections:
+                assert section in sf.extract_sections, (name, section)
+                assert sf.sections_map[section] == 'appendix', (name, section)
+
+    def test_user_registered_plain_list_still_works(self):
+        from texmark.shared import filters as registry
+        from texmark.journals import get_filter_chain
+        registry['_test_custom'] = [tag_figures]
+        try:
+            assert get_filter_chain('_test_custom') == [tag_figures]
+        finally:
+            del registry['_test_custom']
+
+    def test_unknown_template_falls_back_to_default_chain(self, caplog):
+        from texmark.journals import get_filter_chain, default_filters
+        with caplog.at_level("WARNING", logger="texmark"):
+            chain = get_filter_chain('no-such-journal')
+        assert chain == list(default_filters)
+        assert any("No filters found" in r.message for r in caplog.records)
