@@ -945,3 +945,112 @@ class TestSectionFilterDrop:
         with caplog.at_level("WARNING", logger="texmark"):
             sf.finalize(doc)
         assert not any("dropping section" in r.message for r in caplog.records)
+
+
+# ---- SectionFilter shared-instance state ----------------------------------
+
+
+class TestSectionFilterSharedState:
+    """SectionFilter instances are module-level (shared across builds), so
+    per-document YAML config must not accumulate on the declared config."""
+
+    def test_yaml_extract_sections_do_not_accumulate_across_builds(self):
+        sf = SectionFilter(extract_sections=['abstract'])
+        doc1 = pf.Doc(
+            pf.Header(pf.Str("Extra"), level=1, identifier="extra"),
+            pf.Para(pf.Str("Body.")),
+            metadata={"extract_sections": ["extra"]},
+        )
+        sf.prepare(doc1)
+        sf.finalize(doc1)
+        assert "extra" in doc1.metadata
+
+        # Second build: a doc WITHOUT the YAML key. The previous doc's
+        # 'extra' must not still be extracted.
+        doc2 = pf.Doc(
+            pf.Header(pf.Str("Extra"), level=1, identifier="extra"),
+            pf.Para(pf.Str("Body.")),
+        )
+        sf.prepare(doc2)
+        sf.finalize(doc2)
+        assert sf.extract_sections == ['abstract']
+        assert "extra" not in doc2.metadata
+        identifiers = [b.identifier for b in doc2.content if isinstance(b, pf.Header)]
+        assert identifiers == ["extra"]
+
+    def test_yaml_sections_map_does_not_leak_across_builds(self):
+        sf = SectionFilter(extract_sections=['abstract'])
+        doc1 = pf.Doc(
+            pf.Header(pf.Str("Abstract"), level=1, identifier="abstract"),
+            pf.Para(pf.Str("Body.")),
+            metadata={"sections_map": {"abstract": "summary"}},
+        )
+        sf.prepare(doc1)
+        sf.finalize(doc1)
+        assert "summary" in doc1.metadata
+
+        doc2 = pf.Doc(
+            pf.Header(pf.Str("Abstract"), level=1, identifier="abstract"),
+            pf.Para(pf.Str("Body.")),
+        )
+        sf.prepare(doc2)
+        sf.finalize(doc2)
+        assert sf.sections_map == {}
+        assert "summary" not in doc2.metadata
+        assert "abstract" in doc2.metadata
+
+    def test_declared_config_lists_are_copied_not_referenced(self):
+        declared = ['abstract']
+        sf = SectionFilter(extract_sections=declared)
+        doc = pf.Doc(
+            pf.Para(pf.Str("Body.")),
+            metadata={"extract_sections": ["extra"]},
+        )
+        sf.prepare(doc)
+        sf.finalize(doc)
+        assert declared == ['abstract']
+
+
+# ---- SectionFilter remap_command_sections ----------------------------------
+
+
+class TestSectionFilterRemap:
+    def test_remap_header_replaced_by_latex_command(self):
+        doc = pf.Doc(
+            pf.Header(pf.Str("Introduction"), level=1, identifier="introduction"),
+            pf.Para(pf.Str("Intro"), pf.Space(), pf.Str("body.")),
+            pf.Header(pf.Str("Methods"), level=1, identifier="methods"),
+            pf.Para(pf.Str("Methods"), pf.Space(), pf.Str("body.")),
+        )
+        sf = SectionFilter(
+            extract_sections=[],
+            remap_command_sections={'introduction': r'\introduction'},
+        )
+        sf.prepare(doc)
+        sf.finalize(doc)
+        # The introduction header is replaced by the raw command; its body
+        # content stays in the document.
+        assert isinstance(doc.content[0], pf.RawBlock)
+        assert doc.content[0].text == r'\introduction'
+        assert isinstance(doc.content[1], pf.Para)
+        # Unrelated headers are untouched.
+        assert isinstance(doc.content[2], pf.Header)
+        assert doc.content[2].identifier == 'methods'
+
+    def test_remap_inside_collected_section_is_collected_not_remapped(self):
+        doc = pf.Doc(
+            pf.Header(pf.Str("Appendix"), level=1, identifier="appendix"),
+            pf.Header(pf.Str("Introduction"), level=2, identifier="introduction"),
+            pf.Para(pf.Str("Appendix"), pf.Space(), pf.Str("intro.")),
+        )
+        sf = SectionFilter(
+            extract_sections=['appendix'],
+            remap_command_sections={'introduction': r'\introduction'},
+        )
+        sf.prepare(doc)
+        sf.finalize(doc)
+        # The nested header belongs to the collected appendix: the body must
+        # not contain a stray \introduction command.
+        assert not any(isinstance(b, pf.RawBlock) and b.text == r'\introduction'
+                       for b in doc.content)
+        assert 'appendix' in doc.metadata
