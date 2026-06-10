@@ -1288,9 +1288,13 @@ package and can in principle be extended or copied.</p>
 <p>Two approaches are possible:</p>
 <ul>
 <li>Just add more filters via the <code>--filters</code> command or in the yaml metadata.</li>
-<li>Extend the existing filters in a module, e.g. <code>custom_filter.py</code>, that extends
-  the <code>filters</code> dict from the <code>texmark.filters</code> module (see the source code to
-  check the details). Then pass it via <code>--filters-module custom_filter</code>
+<li>Extend the filter registry in a module, e.g. <code>custom_filter.py</code>, that
+  registers a chain in the <code>filters</code> dict from the <code>texmark.shared</code> module —
+  either a plain list of filters, or a zero-argument callable returning one.
+  The built-in journal chains are defined in the <code>JOURNALS</code> table in
+  <a href="https://github.com/perrette/texmark/blob/main/texmark/journals.py"><code>texmark/journals.py</code></a>;
+  use <code>texmark.journals.get_filter_chain(name)</code> or <code>journal_chain(config)</code> to
+  compose with them. Then pass it via <code>--filters-module custom_filter</code>
   (or <code>custom_filter</code> in the metadata) to prompt the texmark filter to load that
   module and make it available via <code>-j your-custom-name</code>. Note that will require
   you to explicitly pass <code>--template</code> as well — unless you overwrite an existing

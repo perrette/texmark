@@ -1354,6 +1354,9 @@ renderer:</p>
   <code>--project-root &lt;path&gt;</code> on the CLI (or <code>project_root: &lt;path&gt;</code> in the
   yaml front-matter).</li>
 </ul>
+<p>A figure URL that does not resolve to an existing file is left unchanged
+and logged as a warning naming the URL and the directory it was resolved
+against — check the build output if a figure comes out missing in the PDF.</p>
 <p>Once resolved, each URL is rewritten in the generated <code>.tex</code> to be
 relative to the build directory. The figure files stay where they are on
 disk; nothing is copied.</p>
