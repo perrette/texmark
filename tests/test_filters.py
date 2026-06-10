@@ -1175,3 +1175,23 @@ class TestUnresolvedFigureWarning:
             _run_filter(ResolveImagePathsFilter(), doc)
         assert not any("remote.png" in r.message for r in caplog.records)
         assert _image_urls(doc) == ["figures/abc123/remote.png"]
+
+    def test_leading_slash_url_warns_even_if_present_under_build_dir(self, tmp_path, caplog):
+        # The build-dir exemption applies only to non-slash URLs: a
+        # leading-slash URL is project-root relative by definition, and
+        # pathlib's `build_dir / '/x'` would discard build_dir entirely.
+        root = self._layout(tmp_path)
+        bundled = root / "build" / "figures"
+        bundled.mkdir(parents=True)
+        (bundled / "fig.png").write_bytes(b"x")
+        doc = _make_doc_with_images(
+            source_dir=root / "sources",
+            build_dir=root / "build",
+            image_urls=["/figures/fig.png"],
+            cwd=root,
+            project_root=root,
+        )
+        with caplog.at_level("WARNING", logger="texmark"):
+            _run_filter(ResolveImagePathsFilter(), doc)
+        assert any("/figures/fig.png" in r.message and "not found" in r.message
+                   for r in caplog.records)

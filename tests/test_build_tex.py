@@ -203,3 +203,36 @@ def test_beamer_template_renders(workdir):
         f"Expected at least 2 \\begin{{frame}} in beamer output, "
         f"found {tex.count(chr(92) + 'begin{frame}')}. First 800 chars:\n{tex[:800]}"
     )
+
+
+# ---- regressions from the structural refactor review -----------------------
+
+
+def test_yaml_filters_module_is_imported(tmp_path, monkeypatch):
+    """`filters_module:` in YAML (no CLI flag) must still load the module."""
+    import sys
+    (tmp_path / "my_yaml_filters.py").write_text("IMPORTED = True\n")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    sys.modules.pop("my_yaml_filters", None)
+    md = tmp_path / "doc.md"
+    md.write_text("---\ntitle: T\njournal: {template: arxiv}\n"
+                  "filters_module: my_yaml_filters\n---\nBody.\n")
+    build_tex(str(md), str(tmp_path / "build" / "doc.tex"),
+              build_dir=str(tmp_path / "build"))
+    assert "my_yaml_filters" in sys.modules
+
+
+def test_bad_template_does_not_truncate_existing_output(tmp_path):
+    """A TemplateNotFound must not leave an emptied .tex behind (watch mode
+    would compile the truncated file on the next iteration)."""
+    import jinja2
+    md = tmp_path / "doc.md"
+    md.write_text("---\ntitle: T\njournal: {template: arxiv}\n---\nBody.\n")
+    out = tmp_path / "build" / "doc.tex"
+    out.parent.mkdir(parents=True)
+    out.write_text("previous content")
+    with pytest.raises(jinja2.TemplateNotFound):
+        build_tex(str(md), str(out),
+                  template='templates/definitely-missing/template.tex',
+                  build_dir=str(tmp_path / "build"))
+    assert out.read_text() == "previous content"

@@ -107,7 +107,10 @@ class ResolveImagePathsFilter:
         if url in self._warned:
             return
         self._warned.add(url)
-        if (self.build_dir / url).exists():
+        # Leading-slash URLs never get the exemption: they are project-root
+        # relative by definition (and joining an absolute path onto build_dir
+        # would silently discard build_dir anyway).
+        if not url.startswith('/') and (self.build_dir / url).exists():
             return
         if url.startswith('/'):
             base = f"project root '{self.project_root}'"

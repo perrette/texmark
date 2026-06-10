@@ -14,6 +14,8 @@ from texmark.journals import run_filters
 
 
 def main(doc=None):
+    from texmark.logs import setup_console_logging
+    setup_console_logging()
     doc = pf.load(sys.stdin)
     doc = run_filters(doc)
     return pf.dump(doc)

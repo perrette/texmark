@@ -322,6 +322,8 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     # the key is unset, it falls back to cwd).
     if project_root is None:
         project_root = metadata.get('project_root', None) or None
+    if filters_module is None:
+        filters_module = metadata.get('filters_module', None) or None
     context = BuildContext(
         build_dir=str(Path(build_dir).resolve()),
         source_dir=str(Path(input_md).resolve().parent),
@@ -383,14 +385,19 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
         body = body + '\n' + _extra_include_directives(
             extra_includes, journal_template, metadata)
 
+    if body_only:
+        output_text = body
+    else:
+        # Resolve the template before opening output_tex: a TemplateNotFound
+        # must not leave a truncated .tex behind (latexmk would then compile
+        # an empty file on the next watch iteration).
+        env = jinja2.Environment(loader=jinja2.FileSystemLoader(resource_path))
+        env.filters['join_if_list'] = join_if_list
+        master_template = env.get_template(template_name)
+        output_text = master_template.render(body=body, **metadata)
+
     with open(output_tex, "w") as f:
-        if body_only:
-            f.write(body)
-        else:
-            env = jinja2.Environment(loader=jinja2.FileSystemLoader(resource_path))
-            env.filters['join_if_list'] = join_if_list
-            master_template = env.get_template(template_name)
-            f.write(master_template.render(body=body, **metadata))
+        f.write(output_text)
 
     # pdflatex's 8-bit font stack drops non-ASCII codepoints outside
     # inputenc's default table. Pandoc converts the common typography
@@ -925,6 +932,8 @@ def _collect_watch_paths(plan, metadata):
 
 
 def main():
+    from texmark.logs import setup_console_logging
+    setup_console_logging()
     args = _build_parser().parse_args()
 
     if args.images is not None:

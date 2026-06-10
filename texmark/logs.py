@@ -3,12 +3,16 @@ import logging
 logger = logging.getLogger("texmark")
 logger.setLevel(logging.INFO)
 
-# texmark is primarily a CLI: show build progress (INFO and up) on stderr.
-# Per-element diagnostics use DEBUG and stay hidden by default. Propagation
-# stays on so embedding applications (and pytest's caplog) still receive
-# the records through the root logger; the guard avoids stacking handlers
-# when the module is re-imported.
-if not logger.handlers:
-    _handler = logging.StreamHandler()
-    _handler.setFormatter(logging.Formatter("%(message)s"))
-    logger.addHandler(_handler)
+
+def setup_console_logging():
+    """Attach a plain stderr handler for CLI use.
+
+    Called from the console entry points (texmark, texmark-journal), not at
+    import time: a library import must not add handlers, or an embedding
+    application with its own root handler would see every record twice.
+    Per-element diagnostics use DEBUG and stay hidden by default.
+    """
+    if not logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        logger.addHandler(handler)

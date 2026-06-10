@@ -55,4 +55,4 @@ of `# Abstract`, `# Acknowledgments`, `# Data Availability`, `# Appendix`,
 extracted out of the body and injected into the right LaTeX command for the
 target journal. Book-family templates additionally recognise `# Preface` and
 `# Foreword`. The exact list each template recognises is in
-[texmark/filters/\_\_main\_\_.py](https://github.com/perrette/texmark/blob/main/texmark/filters/__main__.py).
+[texmark/journals.py](https://github.com/perrette/texmark/blob/main/texmark/journals.py).
