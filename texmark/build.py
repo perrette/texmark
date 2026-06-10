@@ -20,7 +20,8 @@ from texmark.shared import BOOK_FAMILY_TEMPLATES, body_formats
 from texmark.filters import download_images as _filters_download_images
 from texmark.filters import embed as _filters_embed
 from texmark.filters import crossref as _filters_crossref
-from texmark.filters import __main__ as _filters_journal
+from texmark.filters.figures import expand_figstar_sentinels
+from texmark import journals as _journals
 
 
 # In-process filters (texmark-journal in particular) call panflute's
@@ -55,7 +56,7 @@ def _run_inproc_filter(name, doc):
     if name == 'texmark-download-images':
         return pf.run_filter(_filters_download_images.action, doc=doc)
     if name == 'texmark-journal':
-        return _filters_journal.run_filters(doc)
+        return _journals.run_filters(doc)
     if name == 'texmark-embed':
         return pf.run_filter(_filters_embed.embed_filter, doc=doc)
     if name == 'texmark-crossref':
@@ -349,8 +350,8 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     )
 
     # Rewrite ``apply_figure_defaults`` sentinels into figure*/end{figure*}.
-    # See ``texmark.filters.__main__.expand_figstar_sentinels`` for details.
-    body = _filters_journal.expand_figstar_sentinels(body)
+    # See ``texmark.filters.figures.expand_figstar_sentinels`` for details.
+    body = expand_figstar_sentinels(body)
 
     # Chapters declared only via the `chapters:` YAML key (not as body
     # `![](file.md)` nodes) have no embed node for texmark-embed to rewrite,

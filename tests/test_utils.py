@@ -3,7 +3,7 @@ import panflute as pf
 import pytest
 
 from texmark.filters.download_images import is_remote_url, safe_filename_from_url
-from texmark.filters.__main__ import parse_attr_string
+from texmark.filters.figures import parse_attr_string
 from texmark.build import join_if_list, normalize_metadata
 
 

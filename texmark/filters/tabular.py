@@ -47,10 +47,11 @@ def stringify_cell(cell):
 
 def table_to_latex(elem, doc):
 
-    table_type = doc.get_metadata('table_type') or doc.get_metadata('journal').get("template")
-
     if not isinstance(elem, pf.Table):
         return
+
+    table_type = (doc.get_metadata('table_type')
+                  or (doc.get_metadata('journal') or {}).get("template"))
 
     caption_text = pf.stringify(elem.caption) if elem.caption else ""
 

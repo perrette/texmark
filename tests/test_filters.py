@@ -6,17 +6,18 @@ from pathlib import Path
 import panflute as pf
 import pytest
 
-from texmark.filters.__main__ import (
-    strip_leading_slash,
-    ResolveImagePathsFilter,
+from texmark.filters.images import strip_leading_slash, ResolveImagePathsFilter
+from texmark.filters.figures import (
     tag_figures,
+    extract_table_identifier,
+    apply_figure_defaults,
+    stringify_captions,
+)
+from texmark.journals import (
     force_cite,
     apacite_cite,
     header_to_paragraph,
     header_to_unnumbered,
-    extract_table_identifier,
-    apply_figure_defaults,
-    stringify_captions,
 )
 from texmark.sectiontracker import SectionFilter
 
@@ -786,9 +787,16 @@ class TestStringifyCaptions:
         assert r"\textbf{Hello world}" in only_block.text
         assert "More." in only_block.text
 
-    def test_table_identifier_still_extracted_for_non_science(self):
-        # ``extract_table_identifier`` must still run regardless of template;
-        # the short-circuit only skips the caption conversion.
+    def test_table_identifier_extracted_by_own_chain_entry(self):
+        # ``extract_table_identifier`` is its own entry in the filter chain;
+        # it must run before stringify_captions (which may replace the
+        # caption) and before table_to_latex (which reads elem.identifier).
+        from texmark.journals import basic_filters
+        from texmark.filters.tabular import table_to_latex
+        assert basic_filters.index(extract_table_identifier) \
+            < basic_filters.index(stringify_captions) \
+            < basic_filters.index(table_to_latex)
+
         tbl = _table_with_caption(pf.Str("c"))
         # Tables carry their identifier on the first paragraph of their
         # caption via a ``{#tab:foo}`` attr in markdown; here we drop one in.
@@ -798,6 +806,7 @@ class TestStringifyCaptions:
             pf.Str("{#tab:foo}"),
         )
         doc = pf.Doc(metadata={"journal": {"template": "ametsoc"}})
+        extract_table_identifier(tbl, doc)
         stringify_captions(tbl, doc)
         assert tbl.identifier == "tab:foo"
 
@@ -818,7 +827,7 @@ class TestApplyFigureDefaults:
     the LaTeX body). The filter itself does no pandoc subprocess."""
 
     def test_per_figure_span_full_wraps_in_sentinels(self):
-        from texmark.filters.__main__ import FIGSTAR_BEGIN, FIGSTAR_END
+        from texmark.filters.figures import FIGSTAR_BEGIN, FIGSTAR_END
         # Pandoc puts `figure-span=full` on the inner Image, not the Figure.
         fig = _figure_with_image_attrs(**{"figure-span": "full"})
         out = apply_figure_defaults(fig, make_doc())
@@ -838,7 +847,7 @@ class TestApplyFigureDefaults:
         assert out is None
 
     def test_doc_metadata_span_full_applies_globally(self):
-        from texmark.filters.__main__ import FIGSTAR_BEGIN
+        from texmark.filters.figures import FIGSTAR_BEGIN
         doc = pf.Doc(metadata={"figure-span": "full"})
         fig = _figure_with_image_attrs()
         out = apply_figure_defaults(fig, doc)
@@ -858,7 +867,7 @@ class TestExpandFigstarSentinels:
     ``apply_figure_defaults``' sentinels into ``figure*`` environments."""
 
     def test_paired_sentinels_rewrite_to_figure_star(self):
-        from texmark.filters.__main__ import expand_figstar_sentinels
+        from texmark.filters.figures import expand_figstar_sentinels
         body = (
             "% TEXMARK-FIGSTAR-BEGIN\n"
             "\\begin{figure}\n"
@@ -877,14 +886,14 @@ class TestExpandFigstarSentinels:
     def test_orphan_sentinels_are_stripped(self):
         # If a downstream filter dropped the figure but left the wrapper,
         # the leftover sentinels still get cleaned out of the .tex.
-        from texmark.filters.__main__ import expand_figstar_sentinels
+        from texmark.filters.figures import expand_figstar_sentinels
         body = "% TEXMARK-FIGSTAR-BEGIN\nsome other content\n"
         out = expand_figstar_sentinels(body)
         assert "TEXMARK-FIGSTAR" not in out
 
     def test_preserves_placement_specifier(self):
         # \begin{figure}[t] etc. — keep the specifier after rewriting.
-        from texmark.filters.__main__ import expand_figstar_sentinels
+        from texmark.filters.figures import expand_figstar_sentinels
         body = (
             "% TEXMARK-FIGSTAR-BEGIN\n"
             "\\begin{figure}[t]\nbody\n\\end{figure}\n"
