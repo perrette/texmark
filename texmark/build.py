@@ -191,11 +191,11 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     metadata['figure_folders'] = [str(Path(p).resolve()) for p in figure_folders]
 
     # project_root is what GitHub-style leading-slash URLs resolve
-    # against. When set explicitly (CLI > yaml), the filter uses it
-    # verbatim; otherwise the filter auto-detects via `git rev-parse
-    # --show-toplevel` (run from source_dir, so submodules behave) and
-    # falls back to cwd. We resolve CWD-relative paths here so the
-    # filter doesn't have to.
+    # against. Root detection (yaml key > git toplevel > cwd) is
+    # texmark.project's job; main() threads the resolved value into every
+    # build_tex call, so the resolve_image_paths filter never detects
+    # anything itself (when the key is unset, it falls back to cwd). We
+    # resolve CWD-relative paths here so the filter doesn't have to.
     if project_root is None:
         project_root = metadata.get('project_root', None) or None
     metadata['project_root'] = str(Path(project_root).resolve()) if project_root else None
@@ -658,9 +658,10 @@ def main():
 
     # Effective project_root used for leading-slash figure URL resolution:
     # CLI override wins; otherwise the value resolved by ``resolve_project``
-    # (yaml > git > root.parent) is threaded into every body-only embed and
-    # the master build so all chapters interpret ``/foo`` against the same
-    # base, instead of each running its own per-file ``git rev-parse``.
+    # (yaml > git toplevel > cwd) is threaded into every build_tex call —
+    # embeds, master and companions — so all documents interpret ``/foo``
+    # against the same base. The resolve_image_paths filter itself never
+    # detects a root; this is the single place the value comes from.
     effective_project_root = args.project_root or str(project.project_root)
 
     # In multi-file copy_figures mode, each body-only chunk runs the bundle
@@ -770,7 +771,7 @@ def main():
                 filters_module=args.filters_module, packages=args.packages,
                 copy_figures=args.copy_figures,
                 figure_folders=args.figure_folders,
-                project_root=args.project_root,
+                project_root=effective_project_root,
                 companion_stems=peers,
                 own_stem=comp_path.stem,
             )

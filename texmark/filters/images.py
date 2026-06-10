@@ -9,7 +9,6 @@ handles the GitHub leading-slash convention for non-image links.
 import os
 import hashlib
 import shutil
-import subprocess
 from pathlib import Path
 
 import panflute as pf
@@ -80,85 +79,72 @@ class ResolveImagePathsFilter:
         self.copy_mode = False
         self.build_dir = Path("build")
         self.source_dir = Path(".")
-        # texmark's invocation directory; last-resort fallback for
-        # project_root resolution when no explicit setting and no git
-        # repo is detected.
+        # texmark's invocation directory; fallback for project_root when no
+        # explicit value is supplied.
         self.cwd = Path(".")
-        # Project root (per the GitHub leading-slash convention):
-        # resolved on demand from explicit metadata -> git rev-parse
-        # --show-toplevel (run from source_dir) -> cwd.
-        self._project_root = None
+        # Project root (per the GitHub leading-slash convention). Set in
+        # prepare() from explicit metadata, else cwd. Root *detection*
+        # (YAML key, git toplevel) is texmark.project's job; build.py
+        # threads the resolved value through metadata so this filter never
+        # has to detect anything itself.
+        self.project_root = Path(".")
         # original-url -> bundle-relative path written into the .tex
         self.url_map = {}
         # basenames of files we put under <build_dir>/figures/ this run
         self.copied = set()
         # absolute Paths fed to LaTeX's \graphicspath (non-copy mode only)
         self.figure_folders = []
-        # Explicit project_root from metadata, or None to auto-detect.
-        self._project_root_explicit = None
+        # URLs already warned about this run (one warning per URL)
+        self._warned = set()
         # Multi-file build flag: finalize merges into the existing manifest
         # instead of treating self.copied as the canonical set.
         self._manifest_accumulate = False
 
-    def _detect_project_root(self):
-        """Resolve the project_root used to interpret leading-slash URLs.
+    def _warn_unresolved(self, url):
+        """Log once per URL when a local figure path cannot be resolved.
 
-        Detection order:
-          1. Explicit ``project_root`` metadata (yaml or CLI), if set.
-          2. ``git rev-parse --show-toplevel`` run from source_dir, so
-             submodules / worktrees resolve to their own root rather than
-             the outer repo's.
-          3. cwd (texmark's invocation directory) as a last resort.
-
-        Result is cached on the instance for the rest of the build.
+        Paths that resolve from build_dir are silently accepted: that is
+        what texmark-download-images rewrites remote URLs to, and pdflatex
+        runs in build_dir so they work as-is.
         """
-        if self._project_root is not None:
-            return self._project_root
-        if self._project_root_explicit:
-            self._project_root = Path(self._project_root_explicit).resolve()
-            return self._project_root
-        try:
-            out = subprocess.check_output(
-                ['git', 'rev-parse', '--show-toplevel'],
-                cwd=self.source_dir,
-                stderr=subprocess.DEVNULL,
-                timeout=5,
-            ).decode().strip()
-            if out:
-                self._project_root = Path(out).resolve()
-                return self._project_root
-        except (subprocess.CalledProcessError, FileNotFoundError,
-                subprocess.TimeoutExpired, OSError):
-            pass
-        self._project_root = self.cwd
-        return self._project_root
+        if url in self._warned:
+            return
+        self._warned.add(url)
+        if (self.build_dir / url).exists():
+            return
+        if url.startswith('/'):
+            base = f"project root '{self.project_root}'"
+            hint = " (set --project-root or the project_root yaml key?)"
+        else:
+            base = f"source dir '{self.source_dir}'"
+            hint = ""
+        logger.warning(
+            f"texmark: figure '{url}' not found under {base}{hint}; "
+            "path left unchanged, LaTeX will not find it."
+        )
 
     def _resolve_local_url(self, url):
         """Resolve a (local) image URL to an absolute Path on disk.
 
         Markdown semantics:
           - Leading slash → strip and resolve against ``project_root``
-            (GitHub convention: ``/foo`` means "<repo>/foo"). The
-            ``project_root`` detection chain handles git submodules
-            (rev-parse runs from source_dir) and non-git projects (falls
-            back to cwd).
+            (GitHub convention: ``/foo`` means "<repo>/foo").
           - No leading slash → resolve against source_dir only, per the
             markdown spec (paths are relative to the document).
 
-        Returns None when the resolved path doesn't exist — pdflatex
-        will surface the missing-figure error at compile time, and
-        texmark-download-images output (already build_dir-relative)
-        falls through to None too.
+        Returns None (with a warning) when the resolved path doesn't exist —
+        pdflatex will surface the missing-figure error at compile time.
+        texmark-download-images output (already build_dir-relative) also
+        returns None, silently: it needs no rewriting.
         """
         if url.startswith('/'):
             stripped = url.lstrip('/')
-            p = (self._detect_project_root() / stripped).resolve()
-            if p.exists():
-                return p
-            return None
-        p = (self.source_dir / url).resolve()
+            p = (self.project_root / stripped).resolve()
+        else:
+            p = (self.source_dir / url).resolve()
         if p.exists():
             return p
+        self._warn_unresolved(url)
         return None
 
     @staticmethod
@@ -248,7 +234,8 @@ class ResolveImagePathsFilter:
         self.build_dir = Path(doc.get_metadata('build_dir', 'build')).resolve()
         self.source_dir = Path(doc.get_metadata('source_dir', '.')).resolve()
         self.cwd = Path(doc.get_metadata('cwd', '.')).resolve()
-        self._project_root_explicit = doc.get_metadata('project_root', None) or None
+        explicit_root = doc.get_metadata('project_root', None) or None
+        self.project_root = Path(explicit_root).resolve() if explicit_root else self.cwd
         self._manifest_accumulate = bool(doc.get_metadata('figure_manifest_accumulate', False))
         # figure_folders only have meaning in non-copy mode; ignored
         # silently otherwise so users can keep them set in yaml without
@@ -289,9 +276,8 @@ class ResolveImagePathsFilter:
 
         candidate = self._resolve_local_url(url)
         if candidate is None:
-            # Could be a path already rewritten by texmark-download-images
-            # (build-dir relative) or a missing file we'll let pdflatex
-            # complain about. Either way, don't second-guess it here.
+            # Build-dir-relative (texmark-download-images output) or missing
+            # (already warned). Either way, leave the URL unchanged.
             return
 
         short = self._short_url_via_folder(candidate)

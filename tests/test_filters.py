@@ -384,11 +384,10 @@ class TestResolveImagePathsFigureFolders:
 
 class TestResolveImagePathsProjectRoot:
     """Leading slash on an Image URL means project-root-relative
-    (GitHub convention). The project_root is resolved by:
-
-        1. Explicit ``project_root`` metadata (yaml or CLI)
-        2. ``git rev-parse --show-toplevel`` run from source_dir
-        3. cwd (last resort)
+    (GitHub convention). Root *detection* (yaml key, git toplevel) happens
+    once in texmark.project; build.py threads the resolved value into the
+    ``project_root`` metadata. The filter uses that value verbatim, falling
+    back to cwd when the key is unset (e.g. standalone pandoc --filter use).
 
     Non-slash URLs always resolve relative to source_dir (markdown spec)
     — no cwd fallback.
@@ -432,20 +431,18 @@ class TestResolveImagePathsProjectRoot:
         assert _image_urls(doc) == ["figures/fig.png"]
         assert (root / "build" / "figures" / "fig.png").read_bytes() == b"contents"
 
-    def test_leading_slash_falls_back_to_cwd_outside_git(self, tmp_path):
-        # No explicit project_root, no git repo -> cwd is the fallback.
-        # tmp_path is normally not a git repo, but be defensive.
+    def test_leading_slash_falls_back_to_cwd_when_unset(self, tmp_path):
+        # No project_root metadata -> the filter uses cwd, with no
+        # detection of its own (texmark.project owns detection).
         root = self._make_lgm_layout(tmp_path)
         doc = _make_doc_with_images(
             source_dir=root / "sources",
             build_dir=root / "build",
             image_urls=["/images/fig.png"],
             cwd=root,
-            # project_root unset -> auto-detect chain
+            # project_root unset -> cwd fallback
         )
         _run_filter(ResolveImagePathsFilter(), doc)
-        # Whether git-detected (root, if tmp_path happens to be inside a
-        # repo) or cwd-fallback, both point at the same root here.
         assert _image_urls(doc) == ["../images/fig.png"]
 
     def test_no_leading_slash_does_not_fall_back_to_cwd(self, tmp_path):
@@ -1108,3 +1105,73 @@ class TestJournalRegistry:
             chain = get_filter_chain('no-such-journal')
         assert chain == list(default_filters)
         assert any("No filters found" in r.message for r in caplog.records)
+
+
+# ---- ResolveImagePathsFilter: unresolved-figure warning --------------------
+
+
+class TestUnresolvedFigureWarning:
+    def _layout(self, tmp_path):
+        (tmp_path / "sources").mkdir()
+        (tmp_path / "build").mkdir()
+        return tmp_path
+
+    def test_missing_figure_warns_in_copy_mode(self, tmp_path, caplog):
+        root = self._layout(tmp_path)
+        doc = _make_doc_with_images(
+            source_dir=root / "sources",
+            build_dir=root / "build",
+            image_urls=["/images/nope.png"],
+            copy_figures=True,
+            cwd=root,
+            project_root=root,
+        )
+        with caplog.at_level("WARNING", logger="texmark"):
+            _run_filter(ResolveImagePathsFilter(), doc)
+        assert any("/images/nope.png" in r.message and "not found" in r.message
+                   for r in caplog.records)
+        # URL left unchanged
+        assert _image_urls(doc) == ["/images/nope.png"]
+
+    def test_missing_figure_warns_in_reference_mode(self, tmp_path, caplog):
+        root = self._layout(tmp_path)
+        doc = _make_doc_with_images(
+            source_dir=root / "sources",
+            build_dir=root / "build",
+            image_urls=["missing/fig.png"],
+            cwd=root,
+        )
+        with caplog.at_level("WARNING", logger="texmark"):
+            _run_filter(ResolveImagePathsFilter(), doc)
+        assert any("missing/fig.png" in r.message for r in caplog.records)
+
+    def test_warning_emitted_once_per_url(self, tmp_path, caplog):
+        root = self._layout(tmp_path)
+        doc = _make_doc_with_images(
+            source_dir=root / "sources",
+            build_dir=root / "build",
+            image_urls=["missing/fig.png", "missing/fig.png"],
+            cwd=root,
+        )
+        with caplog.at_level("WARNING", logger="texmark"):
+            _run_filter(ResolveImagePathsFilter(), doc)
+        warnings = [r for r in caplog.records if "missing/fig.png" in r.message]
+        assert len(warnings) == 1
+
+    def test_build_dir_relative_path_does_not_warn(self, tmp_path, caplog):
+        # texmark-download-images rewrites remote URLs to paths relative to
+        # build_dir; those must pass through without noise.
+        root = self._layout(tmp_path)
+        dl = root / "build" / "figures" / "abc123"
+        dl.mkdir(parents=True)
+        (dl / "remote.png").write_bytes(b"x")
+        doc = _make_doc_with_images(
+            source_dir=root / "sources",
+            build_dir=root / "build",
+            image_urls=["figures/abc123/remote.png"],
+            cwd=root,
+        )
+        with caplog.at_level("WARNING", logger="texmark"):
+            _run_filter(ResolveImagePathsFilter(), doc)
+        assert not any("remote.png" in r.message for r in caplog.records)
+        assert _image_urls(doc) == ["figures/abc123/remote.png"]
