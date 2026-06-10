@@ -191,7 +191,8 @@ companions. Resolution precedence:
 1. `--project-root <path>` CLI flag
 2. `project_root:` key in the root YAML (path relative to root file's directory)
 3. `git rev-parse --show-toplevel` from the root file's directory
-4. Fallback: root file's directory
+4. Fallback: the current working directory (also used when git is not
+   installed or refuses to run, e.g. in a container)
 
 All embedded chapters and companions share the same project root, so
 `![](/images/fig.png)` in any chapter always resolves to the same file.
