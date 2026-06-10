@@ -53,7 +53,7 @@ class SectionFilter:
         return None
 
     def finalize(self, doc):
-        logger.info(f"Finalizing sections: {self._extract_sections}")
+        logger.debug(f"Finalizing sections: {self._extract_sections}")
         new_blocks = []
         current = None
         collecting = False
@@ -81,7 +81,7 @@ class SectionFilter:
                     collecting = True
                     section_level = blk.level
                     collected_titles[sid] = pf.stringify(blk)
-                    logger.info(f"Collecting section: {sid} level: {blk.level}")
+                    logger.debug(f"Collecting section: {sid} level: {blk.level}")
                     continue  # skip header from main doc
                 if not collecting and sid in self._remap_command_sections:
                     # Headers the template's document class provides a command

@@ -1,20 +1,27 @@
 #!/usr/bin/env python3
-import re
-import subprocess
-import shutil
-from pathlib import Path
-import os
-import sys
-import pypandoc
-import json
-import yaml
-import jinja2
-import frontmatter
+"""Two-step build: Markdown -> LaTeX -> PDF.
+
+``build_tex`` turns one markdown document into a .tex file (pandoc pass with
+filters, then a Jinja master template); ``compile_pdf`` drives the LaTeX
+toolchain. ``main`` resolves the input files into a ``ProjectPlan`` (embeds,
+companions, effective settings) and builds everything, optionally in a
+watch loop.
+"""
 import argparse
-import texmark
-import json
-import panflute as pf
 import io
+import os
+import re
+import shutil
+import subprocess
+from dataclasses import dataclass
+from pathlib import Path
+
+import frontmatter
+import jinja2
+import panflute as pf
+import pypandoc
+
+import texmark
 from texmark.logs import logger
 from texmark.shared import BOOK_FAMILY_TEMPLATES, body_formats
 from texmark.context import BuildContext, METADATA_KEY as CONTEXT_METADATA_KEY
@@ -23,6 +30,7 @@ from texmark.filters import embed as _filters_embed
 from texmark.filters import crossref as _filters_crossref
 from texmark.filters.figures import expand_figstar_sentinels
 from texmark import journals as _journals
+from texmark.project import Project, resolve_project, _scan_ast_for_embeds
 
 
 # In-process filters (texmark-journal in particular) call panflute's
@@ -65,10 +73,12 @@ def _run_inproc_filter(name, doc):
         return pf.run_filter(cf.action, prepare=cf.prepare, finalize=cf.finalize, doc=doc)
     raise ValueError(f"Not a built-in in-process filter: {name!r}")
 
+
 rootpath = Path(texmark.__file__).resolve().parent
 
+
 def run(cmd, shell=False, check=True, **kwargs):
-    print(cmd if shell else ' '.join(cmd))
+    logger.info(cmd if shell else ' '.join(str(c) for c in cmd))
     return subprocess.run(cmd, shell=shell, check=check, **kwargs)
 
 
@@ -137,6 +147,137 @@ def _resolve_rewrite_unicode(value, engine: str) -> bool:
     )
 
 
+# ---------------------------------------------------------------------------
+# build_tex: one markdown document -> one .tex file
+# ---------------------------------------------------------------------------
+
+def _resolve_journal_template(metadata, journal_template):
+    """Effective journal template (CLI > yaml > 'default'), written back to
+    ``metadata['journal']['template']`` where the filters read it."""
+    if not journal_template:
+        journal_template = metadata.get('journal', {}).get('template', 'default')
+        if not journal_template:
+            journal_template = "default"
+    metadata.setdefault('journal', {})['template'] = journal_template
+    return journal_template
+
+
+def _resolve_user_preamble(metadata, src_dir):
+    """Resolve the ``preamble`` YAML field — custom LaTeX injected just before
+    ``\\begin{document}``.
+
+    Supports: inline block scalar (starts with \\ or contains a newline),
+    single file path, or a list mixing both forms. Paths resolve relative to
+    the markdown's directory. The result is rendered by every template as
+    ``{{ user_preamble | default("") }}``.
+    """
+    preamble_raw = metadata.get('preamble', None)
+    if preamble_raw is None:
+        return ''
+
+    def _resolve_item(item: str) -> str:
+        if item.startswith('\\') or '\n' in item:
+            return item
+        return (src_dir / item).read_text()
+
+    if isinstance(preamble_raw, list):
+        return '\n'.join(_resolve_item(str(it)) for it in preamble_raw)
+    return _resolve_item(str(preamble_raw))
+
+
+def _apply_filters_to_ast(post, filters, pandoc_args):
+    """Pandoc markdown -> JSON AST pass with all filters applied.
+
+    Fast path: when every filter is a built-in, call pandoc once with no
+    --filter args and walk the AST with in-process panflute filters. Each
+    --filter would otherwise spawn a fresh Python interpreter to re-import
+    panflute and round-trip the AST through JSON — ~150-470 ms per filter
+    on a typical paper, all startup overhead.
+
+    Mixed path: any user-supplied filter triggers the subprocess pipeline so
+    custom filters keep working unchanged.
+
+    Returns ``(ast_json_str, doc)`` — the filtered AST both as a JSON string
+    (input to the body render) and as the loaded panflute doc (so the caller
+    can pick up metadata the filters modified).
+    """
+    if all(f in _INPROC_FILTERS for f in filters):
+        ast_json_str = pypandoc.convert_text(
+            frontmatter.dumps(post),
+            format="markdown+footnotes",
+            to="json",
+            extra_args=pandoc_args,
+        )
+        doc = pf.load(io.StringIO(ast_json_str))
+        for f in filters:
+            doc = _run_inproc_filter(f, doc)
+        sink = io.StringIO()
+        pf.dump(doc, sink)
+        return sink.getvalue(), doc
+
+    # Copy `pandoc_args` so the --filter additions don't leak into the
+    # JSON->LaTeX pass downstream, which would re-run every filter and double
+    # any stateful transforms (e.g. resolve_image_paths injecting a
+    # \graphicspath block).
+    cmd_json = list(pandoc_args)
+    for f in filters:
+        cmd_json.extend(['--filter', f])
+    ast_json_str = pypandoc.convert_text(
+        frontmatter.dumps(post),
+        format="markdown+footnotes",
+        to="json",
+        extra_args=cmd_json,
+    )
+    return ast_json_str, pf.load(io.StringIO(ast_json_str))
+
+
+def _render_body(ast_json_str, journal_template, metadata, pandoc_args):
+    """Render the filtered AST to the LaTeX (or beamer) body string."""
+    body_fmt = body_formats.get(journal_template, body_formats['default'])
+    body_args = ['--template', rootpath / "templates" / body_fmt['template']] + pandoc_args
+    # Beamer frames are sliced at --slide-level (heading depth that starts a new
+    # frame). Surfaced from `beamer.slide_level` (default 2 -> "## Frame" begins a
+    # frame); passed explicitly so behavior is deterministic. Only the beamer
+    # body-format path takes this arg — article-class renders are untouched.
+    if body_fmt['format'] == 'beamer':
+        slide_level = (metadata.get('beamer') or {}).get('slide_level', 2)
+        body_args.append(f'--slide-level={slide_level}')
+    body = pypandoc.convert_text(
+        ast_json_str,
+        format="json",
+        to=body_fmt['format'],
+        extra_args=body_args,
+    )
+    # Rewrite ``apply_figure_defaults`` sentinels into figure*/end{figure*}.
+    # See ``texmark.filters.figures.expand_figstar_sentinels`` for details.
+    return expand_figstar_sentinels(body)
+
+
+def _extra_include_directives(extra_includes, journal_template, metadata):
+    """LaTeX directives for chapters declared only via the `chapters:` YAML
+    key (not as body ``![](file.md)`` nodes): they have no embed node for
+    texmark-embed to rewrite, so the master body gets their \\include /
+    \\input directives appended here. Class-aware, matching the embed
+    filter: book-family -> \\include."""
+    is_book = journal_template in BOOK_FAMILY_TEMPLATES
+    per_chapter = is_book and bool(metadata.get('bibliography_per_chapter'))
+    cmd = '\\include' if is_book else '\\input'
+    parts = []
+    for stem in extra_includes:
+        if per_chapter:
+            # Mirror the embed filter: wrap top-level book-family chapters
+            # in a biblatex refsection so each prints its own bibliography.
+            parts.append(
+                '\\begin{refsection}\n'
+                f'\\include{{{stem}}}\n'
+                '\\printbibliography[heading=subbibliography]\n'
+                '\\end{refsection}\n'
+            )
+        else:
+            parts.append(f'{cmd}{{{stem}}}\n')
+    return ''.join(parts)
+
+
 def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
               filters=None, journal_template=None, filters_module=None, packages=None,
               copy_figures=None, figure_folders=None, project_root=None, body_only=False,
@@ -144,18 +285,11 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
               figure_manifest_accumulate=False, embed_depth=0,
               includeonly='', extra_includes=None, engine=None,
               rewrite_unicode=None):
-    # 1. Parse Markdown
-    input_text = open(input_md).read()
-    post = frontmatter.loads(input_text)
+    # 1. Parse markdown and resolve effective metadata.
+    post = frontmatter.loads(open(input_md).read())
     metadata = post.metadata
-    content = post.content
 
-    if not journal_template:
-        journal_template = metadata.get('journal', {}).get('template', 'default')
-        if not journal_template:
-            journal_template = "default"
-
-    metadata.setdefault('journal', {})['template'] = journal_template
+    journal_template = _resolve_journal_template(metadata, journal_template)
     metadata.setdefault('longtable', False)
     metadata.setdefault('packages', []).extend(packages or [])
 
@@ -210,43 +344,20 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     # article-class templates. Template-facing (Jinja), hence top-level
     # rather than part of the filter context.
     metadata['includeonly'] = includeonly or ''
-
-    # preamble: YAML field — custom LaTeX injected just before \begin{document}.
-    # Supports: inline block scalar (starts with \ or contains \n), single
-    # file path, or a list mixing both forms. Paths resolve relative to the
-    # markdown's directory. Result is stored as `user_preamble` in metadata so
-    # every template can emit {{ user_preamble | default("") }}.
-    preamble_raw = metadata.get('preamble', None)
-    if preamble_raw is not None:
-        _src_dir = Path(input_md).resolve().parent
-        def _resolve_preamble_item(item: str) -> str:
-            if item.startswith('\\') or '\n' in item:
-                return item
-            return (_src_dir / item).read_text()
-        if isinstance(preamble_raw, list):
-            metadata['user_preamble'] = '\n'.join(
-                _resolve_preamble_item(str(it)) for it in preamble_raw
-            )
-        else:
-            metadata['user_preamble'] = _resolve_preamble_item(str(preamble_raw))
-    else:
-        metadata['user_preamble'] = ''
-
-    # 2. Apply filters and convert to AST
+    metadata['user_preamble'] = _resolve_user_preamble(
+        metadata, Path(input_md).resolve().parent)
 
     if not template:
         template = metadata.get('template')
         if not template:
             template = f'templates/{journal_template}/template.tex'
-
-    template_folder = Path(template).parent
     template_name = Path(template).name
-    resource_path = rootpath / template_folder
+    resource_path = rootpath / Path(template).parent
 
     if not bib_file:
         bib_file = metadata.get('bibliography', None)
     bib_args = ['--bibliography', bib_file] if bib_file else []
-    args = bib_args + metadata.get('pandoc_args', []) + [
+    pandoc_args = bib_args + metadata.get('pandoc_args', []) + [
         "--natbib",
     ]
 
@@ -255,108 +366,31 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
         "texmark-journal",
         ] + (filters or metadata.get('filters', []))
 
-    # Step 1: Run pandoc to get JSON AST and apply filters.
-    #
-    # Fast path: when every filter is a built-in, call pandoc once with no
-    # --filter args and walk the AST with in-process panflute filters. Each
-    # --filter would otherwise spawn a fresh Python interpreter to re-import
-    # panflute and round-trip the AST through JSON — ~150-470 ms per filter
-    # on a typical paper, all startup overhead.
-    #
-    # Mixed path: any user-supplied filter triggers the original subprocess
-    # pipeline so custom filters keep working unchanged.
+    # 2. Apply filters and convert to the JSON AST.
     post.metadata = metadata
-
-    if all(f in _INPROC_FILTERS for f in filters):
-        ast_json_str = pypandoc.convert_text(
-            frontmatter.dumps(post),
-            format="markdown+footnotes",
-            to="json",
-            extra_args=args,
-        )
-        doc = pf.load(io.StringIO(ast_json_str))
-        for f in filters:
-            doc = _run_inproc_filter(f, doc)
-        sink = io.StringIO()
-        pf.dump(doc, sink)
-        ast_json_str = sink.getvalue()
-    else:
-        # Copy `args` so the --filter additions don't leak into the JSON->LaTeX
-        # pass below, which would re-run every filter and double any stateful
-        # transforms (e.g. resolve_image_paths injecting a \graphicspath block).
-        cmd_json = list(args)
-        for f in filters:
-            cmd_json.extend(['--filter', f])
-        ast_json_str = pypandoc.convert_text(
-            frontmatter.dumps(post),
-            format="markdown+footnotes",
-            to="json",
-            extra_args=cmd_json,
-        )
-        doc = pf.load(io.StringIO(ast_json_str))
-
+    ast_json_str, doc = _apply_filters_to_ast(post, filters, pandoc_args)
     metadata.update(normalize_metadata(doc.metadata))
 
-    # Step 2. Render Jinja2 Template (skipped for body-only chunks).
-    if not body_only:
-        env = jinja2.Environment(loader=jinja2.FileSystemLoader(resource_path))
-        env.filters['join_if_list'] = join_if_list
-        master_template = env.get_template(template_name)
-
+    # 3. Render the AST to LaTeX (filters not needed again) and write the
+    # output: the bare body for body-only chunks, or the Jinja master
+    # template (authors, abstract, preamble, ...) wrapped around it.
     build_dir = Path(build_dir)
     build_dir.mkdir(parents=True, exist_ok=True)
-
     Path(output_tex).parent.mkdir(parents=True, exist_ok=True)
 
-    # Step 3: Render AST to LaTeX (filters not needed again)
-    body_fmt = body_formats.get(journal_template, body_formats['default'])
-    body_args = ['--template', rootpath / "templates" / body_fmt['template']] + args
-    # Beamer frames are sliced at --slide-level (heading depth that starts a new
-    # frame). Surfaced from `beamer.slide_level` (default 2 -> "## Frame" begins a
-    # frame); passed explicitly so behavior is deterministic. Only the beamer
-    # body-format path takes this arg — article-class renders are untouched.
-    if body_fmt['format'] == 'beamer':
-        slide_level = (metadata.get('beamer') or {}).get('slide_level', 2)
-        body_args.append(f'--slide-level={slide_level}')
-    body = pypandoc.convert_text(
-        ast_json_str,
-        format="json",
-        to=body_fmt['format'],
-        extra_args=body_args,
-    )
-
-    # Rewrite ``apply_figure_defaults`` sentinels into figure*/end{figure*}.
-    # See ``texmark.filters.figures.expand_figstar_sentinels`` for details.
-    body = expand_figstar_sentinels(body)
-
-    # Chapters declared only via the `chapters:` YAML key (not as body
-    # `![](file.md)` nodes) have no embed node for texmark-embed to rewrite,
-    # so append their \include / \input directives to the master body here.
-    # Class-aware, matching the embed filter: book-family -> \include.
+    body = _render_body(ast_json_str, journal_template, metadata, pandoc_args)
     if extra_includes and not body_only:
-        is_book = journal_template in BOOK_FAMILY_TEMPLATES
-        per_chapter = is_book and bool(metadata.get('bibliography_per_chapter'))
-        cmd = '\\include' if is_book else '\\input'
-        parts = []
-        for stem in extra_includes:
-            if per_chapter:
-                # Mirror the embed filter: wrap top-level book-family chapters
-                # in a biblatex refsection so each prints its own bibliography.
-                parts.append(
-                    '\\begin{refsection}\n'
-                    f'\\include{{{stem}}}\n'
-                    '\\printbibliography[heading=subbibliography]\n'
-                    '\\end{refsection}\n'
-                )
-            else:
-                parts.append(f'{cmd}{{{stem}}}\n')
-        body = body + '\n' + ''.join(parts)
+        body = body + '\n' + _extra_include_directives(
+            extra_includes, journal_template, metadata)
 
     with open(output_tex, "w") as f:
         if body_only:
             f.write(body)
         else:
-            f.write(master_template.render(body=body, **metadata))  # Includes authors/abstract
+            env = jinja2.Environment(loader=jinja2.FileSystemLoader(resource_path))
+            env.filters['join_if_list'] = join_if_list
+            master_template = env.get_template(template_name)
+            f.write(master_template.render(body=body, **metadata))
 
     # pdflatex's 8-bit font stack drops non-ASCII codepoints outside
     # inputenc's default table. Pandoc converts the common typography
@@ -377,6 +411,10 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     metadata["resource_path"] = str(resource_path)
     return metadata
 
+
+# ---------------------------------------------------------------------------
+# compile_pdf: one .tex file -> one .pdf
+# ---------------------------------------------------------------------------
 
 def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
                 bib_file='references.bib', resource_path='', backend='latexmk',
@@ -401,9 +439,8 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
     build_dir = Path(build_dir)
 
     if resource_path:
-        print(f"Resource path: {resource_path}")
+        logger.info(f"Resource path: {resource_path}")
         sync_tree(resource_path, build_dir)
-        # os.environ['TEXINPUTS'] = f"{resource_path}:" + os.environ.get('TEXINPUTS', '')
 
     # Figure bundling (copy_figures mode) is handled inside the
     # resolve_image_paths filter during the pandoc pass, so we don't need
@@ -518,7 +555,7 @@ def watch_loop(do_build, paths, interval=0.5):
             last[p] = p.stat().st_mtime
         except FileNotFoundError:
             pass
-    print(f"texmark: watching {len(paths)} path(s); Ctrl-C to stop.")
+    logger.info(f"texmark: watching {len(paths)} path(s); Ctrl-C to stop.")
     try:
         while True:
             time.sleep(interval)
@@ -534,15 +571,52 @@ def watch_loop(do_build, paths, interval=0.5):
             if changed:
                 try:
                     do_build()
-                    print("texmark: build OK; watching for next change.")
+                    logger.info("texmark: build OK; watching for next change.")
                 except Exception as e:
-                    print(f"texmark: build failed: {e}", file=sys.stderr)
+                    logger.error(f"texmark: build failed: {e}")
     except KeyboardInterrupt:
-        print("\ntexmark: stopped watching.")
+        logger.info("texmark: stopped watching.")
 
 
-def main():
+# ---------------------------------------------------------------------------
+# Project-level orchestration (main)
+# ---------------------------------------------------------------------------
 
+@dataclass
+class ProjectPlan:
+    """Everything ``main`` resolves once per invocation.
+
+    ``build_project`` takes a plan and performs one full build (embeds,
+    master, companions, PDF compilation); watch mode calls it repeatedly
+    with the same plan. Per-build values that may change while watching
+    (engine/backend/rewrite_unicode from YAML) are re-read by
+    ``_resolve_build_options`` on every build instead of living here.
+    """
+    args: argparse.Namespace
+    project: Project
+    primary_input: str
+    build_dir: Path
+    tex_file: object
+    pdf_file: object
+    want_pdf: bool
+    companion_stems: list
+    embed_stems: list
+    root_stem: str
+    # Single source for what leading-slash figure URLs resolve against:
+    # CLI override, else the root resolved by resolve_project (yaml > git
+    # toplevel > cwd). Threaded into every build_tex call — embeds, master
+    # and companions — so all documents interpret ``/foo`` the same way.
+    effective_project_root: str
+    # In multi-file copy_figures mode each chunk runs the bundle filter
+    # independently; the manifest must accumulate across chunks instead of
+    # each finalize treating its own slice as authoritative.
+    manifest_accumulate: bool
+    includeonly: str
+    extra_chapter_stems: list
+    root_template: str
+
+
+def _build_parser():
     parser = argparse.ArgumentParser(description='Two-step build: Markdown → LaTeX → PDF')
     parser.add_argument('--version', action='version', version=f'%(prog)s {texmark.__version__}')
     parser.add_argument('inputs', nargs='+', help='Input markdown file(s). The first is the root document.')
@@ -603,56 +677,33 @@ def main():
     # (with --copy-figures) always bundled into <build>/images/. The flag
     # is accepted-and-ignored so existing invocations keep working.
     parser.add_argument('--images', help=argparse.SUPPRESS)
-    args = parser.parse_args()
+    return parser
 
-    if args.images is not None:
-        print("warning: --images is deprecated and ignored; figures are now "
-              "auto-detected from the markdown and (with --copy-figures) bundled "
-              "into <build>/images/.", file=sys.stderr)
 
+def plan_project(args) -> ProjectPlan:
+    """Resolve the input files and CLI flags into a ProjectPlan."""
     # Derive filenames (from the root / first input)
     build_dir = Path(args.build)
     primary_input = args.inputs[0]
     tex_file = args.tex or build_dir / Path(primary_input).with_suffix(".tex").name
     pdf_file = args.output or build_dir / Path(primary_input).with_suffix(".pdf").name
 
-    want_pdf = args.pdf or args.watch
-
     # Resolve the project once up-front: discovers embedded files (via
     # ![](file.md) body syntax) and companions (via `companions:` yaml).
     # When the resolved project has no embeds, no companions, and a
     # single input, downstream behaviour is identical to the historical
     # single-file pipeline.
-    from texmark.project import resolve_project
     project = resolve_project([Path(p) for p in args.inputs])
 
     # Pre-compute the stem lists used by the crossref filter so they don't
-    # need to be re-derived on every body-only/master build call below.
+    # need to be re-derived on every body-only/master build call.
     companion_stems = [p.stem for p in project.companion_files]
     embed_stems = [p.stem for p in project.embedded_files]
-    root_stem = Path(primary_input).stem
-
-    # Effective project_root used for leading-slash figure URL resolution:
-    # CLI override wins; otherwise the value resolved by ``resolve_project``
-    # (yaml > git toplevel > cwd) is threaded into every build_tex call —
-    # embeds, master and companions — so all documents interpret ``/foo``
-    # against the same base. The resolve_image_paths filter itself never
-    # detects a root; this is the single place the value comes from.
-    effective_project_root = args.project_root or str(project.project_root)
-
-    # In multi-file copy_figures mode, each body-only chunk runs the bundle
-    # filter independently in its own subprocess. The filter's finalize
-    # cleanup (which deletes files no longer in self.copied) would otherwise
-    # wipe figures the previous chunk just copied. Tell the filter to
-    # accumulate the on-disk manifest across chunks rather than treat its
-    # local self.copied as authoritative.
-    manifest_accumulate = bool(project.embedded_files)
 
     # --only / chapters: wiring (Item 13). The `chapters:` YAML key unions
     # extra chapter files into project.embedded_files; those not also present
     # as body `![](file.md)` nodes have no embed node, so the master build
     # must emit their \include directives explicitly (extra_chapter_stems).
-    from texmark.project import _scan_ast_for_embeds
     body_stems = set()
     for inp in args.inputs:
         for p in _scan_ast_for_embeds(Path(inp)):
@@ -678,167 +729,217 @@ def main():
                     "texmark: --only is meaningful only for book-family templates; ignoring."
                 )
 
-    def do_build():
-        # Resolve engine/backend per-build so editing YAML in --watch mode takes effect.
-        # Precedence: CLI > YAML > built-in default.
-        yaml_meta = frontmatter.loads(open(primary_input).read()).metadata
-        engine = str(args.engine or yaml_meta.get('engine') or 'pdflatex')
-        backend = str(args.backend or yaml_meta.get('backend') or 'latexmk')
-        # rewrite_unicode flows through to build_tex (body .tex) and compile_pdf
-        # (staged .bib). Kept as the raw auto/on/off value here; the inner
-        # functions resolve it against their effective engine so companions
-        # (which use their own engine from their own YAML) get the right
-        # auto behaviour without leaking the root's engine into their build.
-        rewrite_unicode = args.rewrite_unicode or yaml_meta.get('rewrite_unicode')
+    return ProjectPlan(
+        args=args,
+        project=project,
+        primary_input=primary_input,
+        build_dir=build_dir,
+        tex_file=tex_file,
+        pdf_file=pdf_file,
+        want_pdf=args.pdf or args.watch,
+        companion_stems=companion_stems,
+        embed_stems=embed_stems,
+        root_stem=Path(primary_input).stem,
+        effective_project_root=args.project_root or str(project.project_root),
+        manifest_accumulate=bool(project.embedded_files),
+        includeonly=includeonly,
+        extra_chapter_stems=extra_chapter_stems,
+        root_template=root_template,
+    )
 
-        # Body-only builds for each embedded chapter, written as
-        # `<build>/<stem>.tex` so the master's `\input{<stem>}` resolves at
-        # LaTeX time. Embeds are not separately compiled.
-        for embed_path in project.embedded_files:
-            embed_tex = Path(args.build) / f"{embed_path.stem}.tex"
-            build_tex(str(embed_path), str(embed_tex),
-                      template=args.template, bib_file=args.bib,
-                      build_dir=args.build,
-                      filters=args.filters, journal_template=args.journal_template,
-                      filters_module=args.filters_module, packages=args.packages,
-                      copy_figures=args.copy_figures,
-                      figure_folders=args.figure_folders,
-                      project_root=effective_project_root,
-                      body_only=True,
-                      companion_stems=companion_stems,
-                      embed_stems=embed_stems,
-                      own_stem=embed_path.stem,
-                      figure_manifest_accumulate=manifest_accumulate,
-                      embed_depth=1,
-                      engine=engine, rewrite_unicode=rewrite_unicode)
 
-        # Build the master .tex for the root.
-        root_metadata = build_tex(
-            primary_input, tex_file, template=args.template, bib_file=args.bib,
+def _resolve_build_options(plan):
+    """Per-build option resolution (CLI > YAML > built-in default).
+
+    Re-read on every build so editing YAML in --watch mode takes effect.
+    rewrite_unicode stays the raw auto/on/off value: build_tex (body .tex)
+    and compile_pdf (staged .bib) resolve it against their own effective
+    engine, so companions — which use the engine from their own YAML —
+    get the right auto behaviour without the root's engine leaking in.
+    """
+    yaml_meta = frontmatter.loads(open(plan.primary_input).read()).metadata
+    engine = str(plan.args.engine or yaml_meta.get('engine') or 'pdflatex')
+    backend = str(plan.args.backend or yaml_meta.get('backend') or 'latexmk')
+    rewrite_unicode = plan.args.rewrite_unicode or yaml_meta.get('rewrite_unicode')
+    return engine, backend, rewrite_unicode
+
+
+def _compile_documents(plan, targets, engine, backend, rewrite_unicode):
+    """Compile every (tex, pdf, bib, resource_path, biblatex) target.
+
+    Companions need multi-pass coordination: xr-hyper resolves cross-doc
+    refs by reading peer .aux files, so each pass may change another doc's
+    aux until they all stabilise. With no companions there is nothing to
+    coordinate — single pass.
+    """
+    if plan.project.companion_files:
+        prev_snapshot = None
+        for _pass_idx in range(1, MAX_PASSES + 1):
+            for in_tex, out_pdf, bib, rp, bl in targets:
+                compile_pdf(in_tex, out_pdf, engine=engine, build_dir=plan.args.build,
+                            bib_file=bib, resource_path=rp, backend=backend,
+                            biblatex=bl, rewrite_unicode=rewrite_unicode)
+            cur_snapshot = _aux_files_snapshot(plan.project, plan.build_dir)
+            if prev_snapshot is not None and cur_snapshot == prev_snapshot:
+                break
+            prev_snapshot = cur_snapshot
+        else:
+            logger.warning(
+                "texmark: companion build did not converge after "
+                f"{MAX_PASSES} passes; cross-refs may be stale"
+            )
+    else:
+        in_tex, out_pdf, bib, rp, bl = targets[0]
+        compile_pdf(in_tex, out_pdf, engine=engine, build_dir=plan.args.build,
+                    bib_file=bib, resource_path=rp, backend=backend,
+                    biblatex=bl, rewrite_unicode=rewrite_unicode)
+
+
+def build_project(plan):
+    """One full build of the plan: embeds, master, companions, PDFs."""
+    args = plan.args
+    engine, backend, rewrite_unicode = _resolve_build_options(plan)
+
+    # Body-only builds for each embedded chapter, written as
+    # `<build>/<stem>.tex` so the master's `\input{<stem>}` resolves at
+    # LaTeX time. Embeds are not separately compiled.
+    for embed_path in plan.project.embedded_files:
+        embed_tex = plan.build_dir / f"{embed_path.stem}.tex"
+        build_tex(str(embed_path), str(embed_tex),
+                  template=args.template, bib_file=args.bib,
+                  build_dir=args.build,
+                  filters=args.filters, journal_template=args.journal_template,
+                  filters_module=args.filters_module, packages=args.packages,
+                  copy_figures=args.copy_figures,
+                  figure_folders=args.figure_folders,
+                  project_root=plan.effective_project_root,
+                  body_only=True,
+                  companion_stems=plan.companion_stems,
+                  embed_stems=plan.embed_stems,
+                  own_stem=embed_path.stem,
+                  figure_manifest_accumulate=plan.manifest_accumulate,
+                  embed_depth=1,
+                  engine=engine, rewrite_unicode=rewrite_unicode)
+
+    # Build the master .tex for the root.
+    root_metadata = build_tex(
+        plan.primary_input, plan.tex_file, template=args.template, bib_file=args.bib,
+        build_dir=args.build,
+        filters=args.filters, journal_template=args.journal_template,
+        filters_module=args.filters_module, packages=args.packages,
+        copy_figures=args.copy_figures,
+        figure_folders=args.figure_folders,
+        project_root=plan.effective_project_root,
+        companion_stems=plan.companion_stems,
+        embed_stems=plan.embed_stems,
+        own_stem=plan.root_stem,
+        figure_manifest_accumulate=plan.manifest_accumulate,
+        includeonly=plan.includeonly,
+        extra_includes=plan.extra_chapter_stems,
+        engine=engine, rewrite_unicode=rewrite_unicode,
+    )
+
+    # Build each companion's standalone .tex. Each companion gets the
+    # universe of peers (root + sibling companions) minus itself so its
+    # crossref filter can wire xr-hyper in both directions. Companions
+    # are first-class documents: bibliography, template, and engine come
+    # from the companion's own YAML, not the root's CLI overrides.
+    companion_builds = []  # (companion_path, tex_path, pdf_path, metadata)
+    for comp_path in plan.project.companion_files:
+        peers = [plan.root_stem] + [s for s in plan.companion_stems if s != comp_path.stem]
+        comp_tex = plan.build_dir / f"{comp_path.stem}.tex"
+        comp_pdf = plan.build_dir / f"{comp_path.stem}.pdf"
+        comp_meta = build_tex(
+            str(comp_path), str(comp_tex),
             build_dir=args.build,
-            filters=args.filters, journal_template=args.journal_template,
+            filters=args.filters,
             filters_module=args.filters_module, packages=args.packages,
             copy_figures=args.copy_figures,
             figure_folders=args.figure_folders,
-            project_root=effective_project_root,
-            companion_stems=companion_stems,
-            embed_stems=embed_stems,
-            own_stem=root_stem,
-            figure_manifest_accumulate=manifest_accumulate,
-            includeonly=includeonly,
-            extra_includes=extra_chapter_stems,
-            engine=engine, rewrite_unicode=rewrite_unicode,
+            project_root=plan.effective_project_root,
+            companion_stems=peers,
+            own_stem=comp_path.stem,
         )
+        companion_builds.append((comp_path, comp_tex, comp_pdf, comp_meta))
 
-        # Build each companion's standalone .tex. Each companion gets the
-        # universe of peers (root + sibling companions) minus itself so its
-        # crossref filter can wire xr-hyper in both directions. Companions
-        # are first-class documents: bibliography, template, and engine come
-        # from the companion's own YAML, not the root's CLI overrides.
-        companion_builds = []  # (companion_path, tex_path, pdf_path, metadata)
-        for comp_path in project.companion_files:
-            peers = [root_stem] + [s for s in companion_stems if s != comp_path.stem]
-            comp_tex = build_dir / f"{comp_path.stem}.tex"
-            comp_pdf = build_dir / f"{comp_path.stem}.pdf"
-            comp_meta = build_tex(
-                str(comp_path), str(comp_tex),
-                build_dir=args.build,
-                filters=args.filters,
-                filters_module=args.filters_module, packages=args.packages,
-                copy_figures=args.copy_figures,
-                figure_folders=args.figure_folders,
-                project_root=effective_project_root,
-                companion_stems=peers,
-                own_stem=comp_path.stem,
-            )
-            companion_builds.append((comp_path, comp_tex, comp_pdf, comp_meta))
-
+    if plan.want_pdf:
         # bibliography_per_chapter (Item 18) swaps the root to a biblatex+biber
         # pipeline. Only the root honours this flag, and only for book-family
         # templates; companions are decoupled and always use their own (bibtex)
         # pipeline regardless of the root's flag.
         root_biblatex = (bool(root_metadata.get('bibliography_per_chapter'))
-                         and root_template in BOOK_FAMILY_TEMPLATES)
+                         and plan.root_template in BOOK_FAMILY_TEMPLATES)
 
-        if want_pdf:
-            # Build target list: (input_tex, output_pdf, bib_file, resource_path, biblatex).
-            # Body-only embeds are inputs to the master, never compile targets.
-            targets = [(
-                tex_file, pdf_file,
-                str(root_metadata.get('bibliography') or ''),
-                str(root_metadata.get('resource_path') or ''),
-                root_biblatex,
-            )]
-            for _cp, c_tex, c_pdf, c_meta in companion_builds:
-                targets.append((
-                    c_tex, c_pdf,
-                    str(c_meta.get('bibliography') or ''),
-                    str(c_meta.get('resource_path') or ''),
-                    False,
-                ))
+        # Compile target list: (input_tex, output_pdf, bib_file,
+        # resource_path, biblatex). Body-only embeds are inputs to the
+        # master, never compile targets.
+        targets = [(
+            plan.tex_file, plan.pdf_file,
+            str(root_metadata.get('bibliography') or ''),
+            str(root_metadata.get('resource_path') or ''),
+            root_biblatex,
+        )]
+        for _cp, c_tex, c_pdf, c_meta in companion_builds:
+            targets.append((
+                c_tex, c_pdf,
+                str(c_meta.get('bibliography') or ''),
+                str(c_meta.get('resource_path') or ''),
+                False,
+            ))
+        _compile_documents(plan, targets, engine, backend, rewrite_unicode)
 
-            # Companions need multi-pass coordination: xr-hyper resolves
-            # cross-doc refs by reading peer .aux files, so each pass may
-            # change another doc's aux until they all stabilise. With no
-            # companions there is nothing to coordinate — single pass.
-            if project.companion_files:
-                prev_snapshot = None
-                for pass_idx in range(1, MAX_PASSES + 1):
-                    for in_tex, out_pdf, bib, rp, bl in targets:
-                        compile_pdf(in_tex, out_pdf, engine=engine, build_dir=args.build,
-                                    bib_file=bib, resource_path=rp, backend=backend,
-                                    biblatex=bl, rewrite_unicode=rewrite_unicode)
-                    cur_snapshot = _aux_files_snapshot(project, build_dir)
-                    if prev_snapshot is not None and cur_snapshot == prev_snapshot:
-                        break
-                    prev_snapshot = cur_snapshot
-                else:
-                    logger.warning(
-                        "texmark: companion build did not converge after "
-                        f"{MAX_PASSES} passes; cross-refs may be stale"
-                    )
-            else:
-                in_tex, out_pdf, bib, rp, bl = targets[0]
-                compile_pdf(in_tex, out_pdf, engine=engine, build_dir=args.build,
-                            bib_file=bib, resource_path=rp, backend=backend,
-                            biblatex=bl, rewrite_unicode=rewrite_unicode)
+    return root_metadata
 
-        return root_metadata
+
+def _collect_watch_paths(plan, metadata):
+    """Paths whose mtime change triggers a rebuild in --watch mode."""
+    bib = metadata.get('bibliography')
+    # The journal template lives under texmark's install dir; watching it
+    # is convenient when iterating on a new template.
+    rp = metadata.get('resource_path')
+    tmpl_path = Path(str(rp)) / 'template.tex' if rp else None
+
+    watch_paths: list = [plan.primary_input, bib, tmpl_path]
+    watch_paths.extend(plan.project.embedded_files)
+    watch_paths.extend(plan.project.companion_files)
+
+    for comp_path in plan.project.companion_files:
+        comp_meta = frontmatter.loads(comp_path.read_text()).metadata
+        comp_bib = comp_meta.get('bibliography')
+        if comp_bib:
+            watch_paths.append(Path(comp_path).parent / comp_bib)
+        comp_jt = comp_meta.get('journal', {}).get('template') or 'default'
+        watch_paths.append(rootpath / f'templates/{comp_jt}/template.tex')
+
+    # Deduplicate preserving first-occurrence order, dropping None/empty.
+    seen_resolved: set = set()
+    deduped: list = []
+    for p in watch_paths:
+        if not p:
+            continue
+        key = str(Path(p).resolve())
+        if key not in seen_resolved:
+            seen_resolved.add(key)
+            deduped.append(p)
+    return deduped
+
+
+def main():
+    args = _build_parser().parse_args()
+
+    if args.images is not None:
+        logger.warning(
+            "warning: --images is deprecated and ignored; figures are now "
+            "auto-detected from the markdown and (with --copy-figures) bundled "
+            "into <build>/images/.")
+
+    plan = plan_project(args)
 
     if args.watch:
-        metadata = do_build()
-        bib = metadata.get('bibliography')
-        # The journal template lives under texmark's install dir; watching it
-        # is convenient when iterating on a new template.
-        rp = metadata.get('resource_path')
-        tmpl_path = Path(str(rp)) / 'template.tex' if rp else None
-
-        watch_paths: list = [primary_input, bib, tmpl_path]
-        watch_paths.extend(project.embedded_files)
-        watch_paths.extend(project.companion_files)
-
-        for comp_path in project.companion_files:
-            comp_meta = frontmatter.loads(comp_path.read_text()).metadata
-            comp_bib = comp_meta.get('bibliography')
-            if comp_bib:
-                watch_paths.append(Path(comp_path).parent / comp_bib)
-            comp_jt = comp_meta.get('journal', {}).get('template') or 'default'
-            watch_paths.append(rootpath / f'templates/{comp_jt}/template.tex')
-
-        # Deduplicate preserving first-occurrence order, dropping None/empty.
-        seen_resolved: set[str] = set()
-        deduped: list = []
-        for p in watch_paths:
-            if not p:
-                continue
-            key = str(Path(p).resolve())
-            if key not in seen_resolved:
-                seen_resolved.add(key)
-                deduped.append(p)
-
-        watch_loop(do_build, deduped)
+        metadata = build_project(plan)
+        watch_loop(lambda: build_project(plan), _collect_watch_paths(plan, metadata))
     else:
-        do_build()
+        build_project(plan)
 
 
 if __name__ == '__main__':

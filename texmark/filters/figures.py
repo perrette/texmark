@@ -27,7 +27,7 @@ def tag_figures(elem, doc):
             if not images:
                 return elem
             tag = f'fig:{Path(images[0].url).stem}'
-            logger.info(fr"Tagging figure: {tag}")
+            logger.debug(fr"Tagging figure: {tag}")
             elem.identifier = tag
     return elem
 

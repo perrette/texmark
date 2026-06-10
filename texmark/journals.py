@@ -447,7 +447,7 @@ def run_filters(doc):
         importlib.import_module(filters_module)
 
     for filter in get_filter_chain(journal.get("template")):
-        logger.info(f'Running filter: {filter} on {doc}')
+        logger.debug(f'Running filter: {filter} on {doc}')
         doc = pf.run_filter(action=filter.action if hasattr(filter, 'action') else filter,
                    prepare=filter.prepare if hasattr(filter, 'prepare') else None,
                    finalize=filter.finalize if hasattr(filter, 'finalize') else None,
