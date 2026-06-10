@@ -37,7 +37,7 @@ def test_embed_filter_emits_include_for_book_top_level():
     """Top-level embed in a book template -> \\include{stem}."""
     doc = pf.Doc(
         pf.Para(pf.Image(url='chapter1.md')),
-        metadata={'journal': {'template': 'book'}, 'embed_depth': 0},
+        metadata={'journal': {'template': 'book'}, 'texmark': {'embed_depth': 0}},
     )
     doc = _run_filter_with_meta(doc)
     assert isinstance(doc.content[0], pf.RawBlock)
@@ -48,7 +48,7 @@ def test_embed_filter_nested_uses_input_even_in_book():
     """Nested embeds (embed_depth=1) always emit \\input even in book templates."""
     doc = pf.Doc(
         pf.Para(pf.Image(url='chapter1.md')),
-        metadata={'journal': {'template': 'book'}, 'embed_depth': 1},
+        metadata={'journal': {'template': 'book'}, 'texmark': {'embed_depth': 1}},
     )
     doc = _run_filter_with_meta(doc)
     assert isinstance(doc.content[0], pf.RawBlock)
@@ -59,7 +59,7 @@ def test_embed_filter_article_class_stays_input():
     """Article-class templates always emit \\input regardless of depth."""
     doc = pf.Doc(
         pf.Para(pf.Image(url='chapter1.md')),
-        metadata={'journal': {'template': 'arxiv'}, 'embed_depth': 0},
+        metadata={'journal': {'template': 'arxiv'}, 'texmark': {'embed_depth': 0}},
     )
     doc = _run_filter_with_meta(doc)
     assert doc.content[0].text == '\\input{chapter1}\n'
@@ -77,7 +77,7 @@ def test_include_link_emits_include_in_book():
     link = pf.Link(pf.Str('X'), url='chapter1.md', classes=['include'])
     doc = pf.Doc(
         pf.Para(link),
-        metadata={'journal': {'template': 'book'}, 'embed_depth': 0},
+        metadata={'journal': {'template': 'book'}, 'texmark': {'embed_depth': 0}},
     )
     doc = _run_filter_with_meta(doc)
     assert doc.content[0].text == '\\include{chapter1}\n'

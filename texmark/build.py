@@ -17,6 +17,7 @@ import panflute as pf
 import io
 from texmark.logs import logger
 from texmark.shared import BOOK_FAMILY_TEMPLATES, body_formats
+from texmark.context import BuildContext, METADATA_KEY as CONTEXT_METADATA_KEY
 from texmark.filters import download_images as _filters_download_images
 from texmark.filters import embed as _filters_embed
 from texmark.filters import crossref as _filters_crossref
@@ -170,66 +171,44 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
             "texmark: bibliography_per_chapter requires a book-family template; ignoring."
         )
 
-    # Make build_dir, source_dir and cwd visible to pandoc filters so they
-    # can rewrite figure paths relative to where pdflatex will run.
-    # cwd is the texmark invocation directory; figure URLs that don't
-    # resolve from source_dir (the markdown's parent) fall back to it, so
-    # GitHub-style "/images/foo.png" — which means "<repo>/images/foo.png"
-    # — keeps working when the .md lives in a subdirectory like sources/.
-    metadata['build_dir'] = str(Path(build_dir).resolve())
-    metadata['source_dir'] = str(Path(input_md).resolve().parent)
-    metadata['cwd'] = str(Path.cwd().resolve())
+    # Internal build context for the pandoc filters: directory layout,
+    # effective figure settings, cross-document reference peers. Stored
+    # under the single reserved ``texmark`` metadata key (the only channel
+    # that reaches subprocess filters) — see texmark/context.py for the
+    # field meanings. Effective values resolve CLI > yaml; CWD-relative
+    # paths are made absolute here so the filters don't have to.
     if copy_figures is None:
         copy_figures = metadata.get('copy_figures', False)
-    metadata['copy_figures'] = bool(copy_figures)
-
-    # figure-folders feed LaTeX's \graphicspath in non-copy mode. CLI wins
-    # over yaml; both are interpreted as CWD-relative and stored as
-    # absolute paths so the filter doesn't have to repeat that work.
     if figure_folders is None:
         figure_folders = metadata.get('figure_folders', []) or []
-    metadata['figure_folders'] = [str(Path(p).resolve()) for p in figure_folders]
-
-    # project_root is what GitHub-style leading-slash URLs resolve
-    # against. Root detection (yaml key > git toplevel > cwd) is
-    # texmark.project's job; main() threads the resolved value into every
-    # build_tex call, so the resolve_image_paths filter never detects
-    # anything itself (when the key is unset, it falls back to cwd). We
-    # resolve CWD-relative paths here so the filter doesn't have to.
+    # project_root is what GitHub-style leading-slash URLs resolve against.
+    # Root *detection* (yaml key > git toplevel > cwd) is texmark.project's
+    # job; main() threads the resolved value into every build_tex call, so
+    # the resolve_image_paths filter never detects anything itself (when
+    # the key is unset, it falls back to cwd).
     if project_root is None:
         project_root = metadata.get('project_root', None) or None
-    metadata['project_root'] = str(Path(project_root).resolve()) if project_root else None
-
-    # Cross-document references (Item 4): texmark-crossref reads these to
-    # rewrite ``[](other.md#label)`` links to ``\ref{<other-stem>:label}``
-    # and to emit a ``\usepackage{xr-hyper}`` + ``\externaldocument`` block
-    # as the ``xr_preamble`` template variable. Each list is the set of
-    # stems the active document can cross-reference; ``own_stem`` is the
-    # active document's own stem, excluded from xr_targets.
-    metadata['crossref_companion_stems'] = list(companion_stems or [])
-    metadata['crossref_embed_stems'] = list(embed_stems or [])
-    metadata['crossref_own_stem'] = own_stem or Path(input_md).stem
-
-    # In multi-file builds, each body-only chunk and the master run
-    # resolve_image_paths in their own subprocess. The chunk's local
-    # ``self.copied`` is just its own slice of the figure set; treating it
-    # as authoritative would let each chunk's finalize delete the previous
-    # chunk's bundled figures. With this flag, finalize unions the new
-    # copies into the on-disk manifest instead of replacing it.
-    metadata['figure_manifest_accumulate'] = bool(figure_manifest_accumulate)
-
-    # embed_depth: the texmark-embed filter uses this to pick \input vs
-    # \include. Top-level (depth 0) embeds in book-family templates emit
-    # \include so \includeonly can scope them; nested embeds (body-only
-    # chunks pass embed_depth=1) always emit \input — LaTeX forbids nested
-    # \include.
-    metadata['embed_depth'] = int(embed_depth)
+    context = BuildContext(
+        build_dir=str(Path(build_dir).resolve()),
+        source_dir=str(Path(input_md).resolve().parent),
+        cwd=str(Path.cwd().resolve()),
+        project_root=str(Path(project_root).resolve()) if project_root else None,
+        copy_figures=bool(copy_figures),
+        figure_folders=[str(Path(p).resolve()) for p in figure_folders],
+        crossref_companion_stems=list(companion_stems or []),
+        crossref_embed_stems=list(embed_stems or []),
+        crossref_own_stem=own_stem or Path(input_md).stem,
+        figure_manifest_accumulate=bool(figure_manifest_accumulate),
+        embed_depth=int(embed_depth),
+        filters_module=filters_module or None,
+    )
+    metadata[CONTEXT_METADATA_KEY] = context.to_metadata()
 
     # includeonly: book-family templates emit ``{{ includeonly }}`` in the
     # preamble. Populated from the ``--only`` CLI flag (Item 13) with a full
     # ``\includeonly{stem1,stem2}`` string, or empty for a full build /
-    # article-class templates. Set after embed_depth so it travels with the
-    # other texmark-injected metadata keys.
+    # article-class templates. Template-facing (Jinja), hence top-level
+    # rather than part of the filter context.
     metadata['includeonly'] = includeonly or ''
 
     # preamble: YAML field — custom LaTeX injected just before \begin{document}.
@@ -253,10 +232,7 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     else:
         metadata['user_preamble'] = ''
 
-     # 2. Apply filters and convert to AST
-
-    if filters_module:
-        metadata['filters_module'] = filters_module
+    # 2. Apply filters and convert to AST
 
     if not template:
         template = metadata.get('template')

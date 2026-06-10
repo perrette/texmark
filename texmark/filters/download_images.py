@@ -4,6 +4,8 @@ import requests
 from urllib.parse import urlparse
 import panflute as pf
 
+from texmark.context import BuildContext
+
 def is_remote_url(url):
     return url.startswith("http://") or url.startswith("https://")
 
@@ -29,7 +31,7 @@ def download_image(url, output_path):
         return False
 
 def action(elem, doc):
-    BUILD_DIR = doc.get_metadata('build_dir', 'build')
+    BUILD_DIR = BuildContext.from_doc(doc).build_dir
     IMAGE_DIR = os.path.join(BUILD_DIR, 'figures')
 
     if isinstance(elem, pf.Image) and is_remote_url(elem.url):

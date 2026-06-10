@@ -19,17 +19,13 @@ REPO_ROOT = Path(__file__).parent.parent
 # Unit tests: don't need pandoc.
 
 def _stems_doc(own: str, comp: list[str], emb: list[str] | None = None) -> pf.Doc:
-    meta = {
-        "crossref_own_stem": pf.MetaString(own),
-        "crossref_companion_stems": pf.MetaList(
-            *[pf.MetaString(s) for s in comp]
-        ),
+    ctx = {
+        "crossref_own_stem": own,
+        "crossref_companion_stems": comp,
     }
     if emb is not None:
-        meta["crossref_embed_stems"] = pf.MetaList(
-            *[pf.MetaString(s) for s in emb]
-        )
-    return pf.Doc(metadata=meta)
+        ctx["crossref_embed_stems"] = emb
+    return pf.Doc(metadata={"texmark": ctx})
 
 
 def test_link_with_known_stem_rewritten_to_ref():

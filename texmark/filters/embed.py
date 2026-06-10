@@ -1,6 +1,7 @@
 import panflute as pf
 from pathlib import Path
 
+from texmark.context import BuildContext
 from texmark.shared import BOOK_FAMILY_TEMPLATES
 
 
@@ -31,12 +32,7 @@ def _embed_command(doc):
     """
     if doc is None:
         return '\\input'
-    depth_meta = doc.get_metadata('embed_depth', 0)
-    try:
-        depth = int(depth_meta) if depth_meta is not None else 0
-    except (TypeError, ValueError):
-        depth = 0
-    if depth >= 1:
+    if BuildContext.from_doc(doc).embed_depth >= 1:
         return '\\input'
     journal = doc.get_metadata('journal', {}) or {}
     template = journal.get('template') if isinstance(journal, dict) else None

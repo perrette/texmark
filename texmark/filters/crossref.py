@@ -13,7 +13,7 @@ This filter:
     of the form ``\\usepackage{xr-hyper}\\n\\externaldocument[<stem>:]{<stem>}``.
     Templates render this just before ``\\begin{document}``.
 
-Peers are advertised through metadata set by build.py:
+Peers are advertised through the ``BuildContext`` set by build.py:
 ``crossref_companion_stems``, ``crossref_embed_stems``, ``crossref_own_stem``.
 """
 
@@ -23,6 +23,8 @@ import re
 from pathlib import Path
 
 import panflute as pf
+
+from texmark.context import BuildContext
 
 
 _LINK_RE = re.compile(r"^(?P<path>[^#?]*\.md)#(?P<label>.+)$", re.IGNORECASE)
@@ -38,19 +40,12 @@ class CrossrefFilter:
         # Ordered list of stems to emit \externaldocument for.
         self.xr_targets: list[str] = []
 
-    @staticmethod
-    def _as_list(value):
-        if value is None:
-            return []
-        if isinstance(value, str):
-            return [value]
-        return list(value)
-
     def prepare(self, doc):
         self._reset()
-        self.own_stem = doc.get_metadata("crossref_own_stem", "") or ""
-        comp = self._as_list(doc.get_metadata("crossref_companion_stems", []))
-        emb = self._as_list(doc.get_metadata("crossref_embed_stems", []))
+        ctx = BuildContext.from_doc(doc)
+        self.own_stem = ctx.crossref_own_stem
+        comp = ctx.crossref_companion_stems
+        emb = ctx.crossref_embed_stems
 
         seen: set[str] = set()
         for stem in comp + emb:

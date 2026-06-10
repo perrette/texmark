@@ -32,6 +32,7 @@ import importlib
 
 import panflute as pf
 
+from texmark.context import BuildContext
 from texmark.logs import logger
 from texmark.shared import filters, Filter, BOOK_FAMILY_TEMPLATES
 from texmark.sectiontracker import SectionFilter, panflute2latex
@@ -440,8 +441,8 @@ def run_filters(doc):
         logger.warning('doc is None')
         journal = {'template': 'default'}
 
-    if doc.get_metadata('filters_module'):
-        filters_module = doc.get_metadata('filters_module')
+    filters_module = BuildContext.from_doc(doc).filters_module if doc is not None else None
+    if filters_module:
         logger.info(f"Loading filters module: {filters_module}")
         importlib.import_module(filters_module)
 

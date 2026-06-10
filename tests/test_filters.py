@@ -66,17 +66,17 @@ def _make_doc_with_images(source_dir, build_dir, image_urls, copy_figures=False,
     uses verbatim for leading-slash URLs (no git auto-detect).
     """
     blocks = [pf.Para(pf.Image(pf.Str("c"), url=u)) for u in image_urls]
-    meta = {
+    ctx = {
         'source_dir': str(source_dir),
         'build_dir': str(build_dir),
         'copy_figures': copy_figures,
         'cwd': str(cwd if cwd is not None else source_dir),
     }
     if figure_folders is not None:
-        meta['figure_folders'] = [str(p) for p in figure_folders]
+        ctx['figure_folders'] = [str(p) for p in figure_folders]
     if project_root is not None:
-        meta['project_root'] = str(project_root)
-    return pf.Doc(*blocks, metadata=meta)
+        ctx['project_root'] = str(project_root)
+    return pf.Doc(*blocks, metadata={'texmark': ctx})
 
 
 def _graphicspath_block(doc):

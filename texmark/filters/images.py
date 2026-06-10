@@ -13,6 +13,7 @@ from pathlib import Path
 
 import panflute as pf
 
+from texmark.context import BuildContext
 from texmark.logs import logger
 
 
@@ -53,13 +54,9 @@ class ResolveImagePathsFilter:
     document no longer references is removed. ``figure_folders`` is
     ignored in this mode.
 
-    Inputs from metadata:
-      - ``build_dir`` — directory in which pdflatex will run.
-      - ``source_dir`` — directory of the input markdown; URLs resolve
-        relative to it (matching GitHub's preview behaviour).
-      - ``copy_figures`` — selects the mode above.
-      - ``figure_folders`` — list of absolute paths (resolved upstream by
-        ``build_tex``) to feed LaTeX's ``\\graphicspath``.
+    Inputs come from the ``BuildContext`` (the ``texmark`` metadata key,
+    populated by ``build_tex``): ``build_dir``, ``source_dir``,
+    ``copy_figures``, ``figure_folders``, ``project_root``.
 
     Remote URLs (handled upstream by ``texmark-download-images``, which
     drops files under ``<build_dir>/figures/<hash>/<basename>``) are left
@@ -230,20 +227,19 @@ class ResolveImagePathsFilter:
 
     def prepare(self, doc):
         self._reset()
-        self.copy_mode = bool(doc.get_metadata('copy_figures', False))
-        self.build_dir = Path(doc.get_metadata('build_dir', 'build')).resolve()
-        self.source_dir = Path(doc.get_metadata('source_dir', '.')).resolve()
-        self.cwd = Path(doc.get_metadata('cwd', '.')).resolve()
-        explicit_root = doc.get_metadata('project_root', None) or None
-        self.project_root = Path(explicit_root).resolve() if explicit_root else self.cwd
-        self._manifest_accumulate = bool(doc.get_metadata('figure_manifest_accumulate', False))
+        ctx = BuildContext.from_doc(doc)
+        self.copy_mode = ctx.copy_figures
+        self.build_dir = Path(ctx.build_dir).resolve()
+        self.source_dir = Path(ctx.source_dir).resolve()
+        self.cwd = Path(ctx.cwd).resolve()
+        self.project_root = (Path(ctx.project_root).resolve()
+                             if ctx.project_root else self.cwd)
+        self._manifest_accumulate = ctx.figure_manifest_accumulate
         # figure_folders only have meaning in non-copy mode; ignored
         # silently otherwise so users can keep them set in yaml without
         # toggling.
         if not self.copy_mode:
-            self.figure_folders = [
-                Path(p) for p in (doc.get_metadata('figure_folders', []) or [])
-            ]
+            self.figure_folders = [Path(p) for p in ctx.figure_folders]
             if self.figure_folders:
                 doc.content.insert(0, self._emit_graphicspath_block())
             return

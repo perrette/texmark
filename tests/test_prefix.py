@@ -17,8 +17,10 @@ REPO_ROOT = Path(__file__).parent.parent
 def _prefix_doc(prefix: str | None = None, **counter_overrides) -> pf.Doc:
     """Build a minimal panflute Doc with optional prefix metadata."""
     meta: dict = {
-        "crossref_own_stem": pf.MetaString("si"),
-        "crossref_companion_stems": pf.MetaList(),
+        "texmark": {
+            "crossref_own_stem": "si",
+            "crossref_companion_stems": [],
+        },
     }
     if prefix is not None:
         meta["prefix"] = pf.MetaString(prefix)
@@ -81,8 +83,10 @@ def test_override_only_no_umbrella_prefix():
 def test_prefix_and_xr_preamble_combined():
     """Companions + prefix → both externaldocument and renewcommand in output."""
     meta = {
-        "crossref_own_stem": pf.MetaString("si"),
-        "crossref_companion_stems": pf.MetaList(pf.MetaString("main")),
+        "texmark": {
+            "crossref_own_stem": "si",
+            "crossref_companion_stems": ["main"],
+        },
         "prefix": pf.MetaString("S"),
     }
     f = CrossrefFilter()
