@@ -139,6 +139,32 @@ def test_unknown_prefix_left_alone():
     assert isinstance(_run(pf.Link(pf.Str("x"), url="#lst:code"))[0], pf.Link)
 
 
+def test_hash_link_to_heading_slug_to_ref():
+    # ``[#](#my-heading)`` -- a bare heading slug (no prefix) -- becomes \ref.
+    inlines = _run(pf.Link(pf.Str("#"), url="#my-heading"))
+    assert isinstance(inlines[0], pf.RawInline)
+    assert inlines[0].text == "\\ref{my-heading}"
+
+
+def test_empty_link_to_heading_slug_to_ref():
+    inlines = _run(pf.Link(url="#my-heading"))
+    assert isinstance(inlines[0], pf.RawInline)
+    assert inlines[0].text == "\\ref{my-heading}"
+
+
+def test_hash_link_to_equation_uses_eqref():
+    inlines = _run(pf.Link(pf.Str("#"), url="#eq:foo"))
+    assert inlines[0].text == "\\eqref{eq:foo}"
+
+
+def test_text_link_kept_verbatim():
+    # Non-empty text that is not a lone ``#`` is left for pandoc to render as
+    # ``\hyperref[label]{text}`` -- the words are kept, including an embedded #.
+    link = pf.Link(pf.Str("some"), pf.Space(), pf.Str("#"), pf.Space(),
+                   pf.Str("words"), url="#my-heading")
+    assert isinstance(_run(link)[0], pf.Link)
+
+
 def test_unknown_env_passes_through_with_warning(caplog):
     inlines = _run(_display("x = y"), pf.Str("{.equaton}"))
     assert inlines[0].text == "\\begin{equaton}x = y\\end{equaton}"
@@ -299,3 +325,25 @@ def test_build_tex_equations_end_to_end(tmp_path):
     assert text.count("\\eqref{eq:p}") == 1
     assert "\\eqref{eq:q}" in text
     assert "\\eqref{eq:r}" in text
+
+
+@pytestmark_pandoc
+def test_build_tex_heading_crossref_end_to_end(tmp_path):
+    md = tmp_path / "ref.md"
+    md.write_text(
+        "---\ntitle: Ref\njournal:\n  template: arxiv\n---\n\n"
+        "# My Heading\n\n"
+        "Jump with [#](#my-heading), or empty [](#my-heading).\n\n"
+        "Read [some # words](#my-heading) verbatim.\n"
+    )
+    out = tmp_path / "build" / "ref.tex"
+    build_tex(str(md), str(out), build_dir=str(tmp_path / "build"),
+              journal_template="arxiv")
+    text = out.read_text()
+    # pandoc labels the heading from its slug; no {#...} needed in the source
+    assert "\\label{my-heading}" in text
+    # ``#`` and empty link text both become a numeric reference
+    assert text.count("\\ref{my-heading}") == 2
+    # descriptive text is kept verbatim (pandoc's \hyperref), embedded # escaped
+    assert "some \\# words" in text
+    assert "\\hyperref[my-heading]{some \\# words}" in text

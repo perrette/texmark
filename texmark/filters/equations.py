@@ -324,9 +324,14 @@ class EquationsFilter:
         if isinstance(elem, pf.Link):
             url = elem.url or ""
             if url.startswith("#"):
-                cmd = _ref_command(url[1:])
-                if cmd:
-                    return pf.RawInline(f"\\{cmd}{{{url[1:]}}}", format="latex")
+                # A same-document link becomes a numeric reference only when its
+                # text is empty or a lone ``#`` (the marker that stays clickable
+                # on GitHub); otherwise the link is left for pandoc to render as
+                # ``\hyperref[label]{text}`` with its text kept verbatim.
+                if pf.stringify(elem).strip() in ("", "#"):
+                    label = url[1:]
+                    cmd = _ref_command(label) or "ref"
+                    return pf.RawInline(f"\\{cmd}{{{label}}}", format="latex")
             return None
         if isinstance(elem, (pf.Para, pf.Plain)):
             new, changed = _rewrite_inlines(list(elem.content))

@@ -23,7 +23,10 @@ with no class uses the `equation` environment.
 
 ## Cross-references
 
-Reference a labelled equation with a plain Markdown link or a pandoc-style `@`:
+A same-document link `[text](#label)` becomes a numeric reference — `\ref` or
+`\eqref` — **only when its text is empty or a single `#`**. The recommended form
+is `#`, because on GitHub it stays a clickable jump to the target, whereas an
+empty link renders as nothing:
 
 ```markdown
 $$
@@ -34,24 +37,31 @@ $$
 
 {#eq:prior}
 
-The prior is given in [](#eq:prior) — equivalently, @eq:prior.
+The prior is given in [#](#eq:prior) — equivalently, @eq:prior.
 ```
 
-Both `[](#eq:prior)` and `@eq:prior` become `\eqref{eq:prior}` in the PDF, which
-LaTeX renders as a parenthesised, hyperlinked number — "(3)". (`\eqref` adds the
-parentheses; `\ref` does not.)
+`[#](#eq:prior)`, `[](#eq:prior)` and `@eq:prior` all become `\eqref{eq:prior}`
+in the PDF, which LaTeX renders as a parenthesised, hyperlinked number — "(3)".
+(`\eqref` adds the parentheses; `\ref` does not.)
 
-The same `@id` / `[](#id)` syntax cross-references figures, tables and sections:
-`fig:`, `tbl:` and `sec:` resolve to `\ref`, `eq:` to `\eqref`. Figure and table
-labels are emitted automatically (from the image / caption `{#fig:…}` / `{#tbl:…}`
-attribute); a section label needs an explicit `{#sec:…}` on the heading. There is
-no range syntax — write the two references (`\eqref{eq:a}–\eqref{eq:b}`).
+The prefix selects the command: `eq:` resolves to `\eqref`; everything else —
+`fig:`, `tbl:`, `sec:` and a bare heading slug — resolves to `\ref`. Figure and
+table labels are emitted automatically (from the image / caption `{#fig:…}` /
+`{#tbl:…}` attribute). Headings are labelled automatically too, from their slug:
+`# My Heading` can be referenced as `[#](#my-heading)` with no `{#…}` attribute
+(an explicit `{#sec:…}` still works if you prefer a stable, prefixed label).
+There is no range syntax — write the two references (`\eqref{eq:a}–\eqref{eq:b}`).
+
+If the link text is anything other than empty or `#`, it is left untouched and
+kept verbatim — `[the prior](#eq:prior)` renders as `\hyperref[eq:prior]{the
+prior}`, a clickable link carrying those words rather than a number. Use that
+when you want words instead of a number; use `#` (or `@id`) when you want the
+number.
 
 The reference number is computed by LaTeX, so it appears only in the PDF. In the
-Markdown preview and on GitHub neither form shows a number: `[](#fig:1)` renders
-as an empty link (nothing visible), and a raw `\ref{fig:1}` shows as literal
-text. Raw `\ref`/`\eqref` are often preferable in the source — they stay visible
-in the preview.
+Markdown preview and on GitHub: `[#](#label)` shows a clickable `#`, `[](#label)`
+shows nothing, and `@id` or a raw `\ref{…}` shows as literal text. Raw
+`\ref`/`\eqref` are also fine in the source — they stay visible in the preview.
 
 ## Multi-line math and the preview
 
