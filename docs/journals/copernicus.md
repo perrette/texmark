@@ -31,13 +31,24 @@ class via `journal.short`:
 ```yaml
 journal:
     template: copernicus
-    short: cp        # journal abbreviation: cp, acp, hess, tc, esd, bg, ...
+    short: cp            # journal abbreviation: cp, acp, hess, tc, esd, bg, ...
+    # draft: false       # publication-ready two-column production layout
 ```
 
-`journal.short` becomes the documentclass option, e.g.
-`\documentclass[cp, manuscript]{copernicus}`. `manuscript` is the
-discussion preprint style; Copernicus typesets the production layout
-themselves.
+`journal.short` is always passed as the first documentclass option. The
+layout follows the unified [`journal.draft`](../yaml-reference.md#journaldraft)
+flag:
+
+- `draft: true` (default) → `\documentclass[cp, manuscript]{copernicus}` —
+  the one-column, line-spaced discussion/preprint layout authors submit.
+- `draft: false` → `\documentclass[cp]{copernicus}` — the two-column typeset
+  production layout (the class sets `\@twocolumntrue` when the journal stage
+  is final and `manuscript` is absent).
+
+The journal logo, coloured section bars and a few other decorative production
+elements only appear when `copernicuslogo.pdf` is present in the build
+directory, so `draft: false` is a close preview rather than the exact
+published page. Set `journal.options` explicitly to override the flag.
 
 ## Recognised section headings
 
@@ -50,3 +61,16 @@ them out of the body and inject them into the right LaTeX command:
 - `# Competing Interests`
 - `# Appendix`
 - `# Supplementary Material` / `# Supplementary Information`
+
+## Bundled fonts
+
+`copernicus.cls` does `\RequirePackage[T5,T3,T1]{fontenc}`, so it needs the
+T5 (Vietnamese) encoding from the `vntex` package. That package is absent on
+minimal TeX installs, where the build otherwise fails with
+`Encoding file 't5enc.def' not found` followed by an NFSS error. To keep the
+template self-contained, the two files needed to satisfy the encoding setup —
+`t5enc.def` and `t5cmr.fd` (LPPL, from vntex) — are bundled in the template
+directory and copied into the build directory at build time. They are the
+standard, long-frozen vntex files, only ever parsed to register the T5
+encoding (no Vietnamese glyph is typeset), so they do not affect the output on
+systems that already ship vntex.

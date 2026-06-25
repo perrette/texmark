@@ -26,8 +26,9 @@ Elsevier journal. A non-exhaustive list:
 ```yaml
 journal:
     template: elsarticle
-    options: [final, 5p, times]              # default — full journal-typeset 2-col
-    # options: [preprint, 12pt]              # double-blind submission style
+    # draft: false                           # publication-ready: final, 5p, times (2-col)
+    # options: [preprint, 12pt]              # default — 1.5-spaced double-blind submission style
+    # options: [final, 5p, times]            # full journal-typeset 2-col (same as draft: false)
     # options: [final, 3p, twocolumn, times] # alternative production layout
     # options: [review, preprint, 12pt]      # double-spaced for peer review
     name: "Quaternary Science Reviews"        # optional, sets \journal{...}

@@ -6,7 +6,8 @@ header of your markdown:
 ```yaml
 journal:
     template: ametsoc          # template name, see table below
-    options: twocol            # optional, per-template — see the docs page
+    draft: false               # optional — switch to the publication-ready layout
+    # options: twocol          # optional, per-template raw class options — see the docs page
 ```
 
 **Article-class templates** (single PDF, any journal):
@@ -42,12 +43,28 @@ Book-family templates support `\include{...}` for chapters (enabling
 (`dedication:`, `list_of_figures:`, etc.), and
 `bibliography_per_chapter: true` for per-chapter biblatex bibliographies.
 
-Each template ships a default `journal.options` value chosen to produce a
-**publication-style** PDF (typeset 2-column journal look, no draft watermarks).
-For peer-review submission you usually want to switch to the publisher's
-submission options (e.g. `preprint,12pt` for Elsevier, `draft` for AGU, the
-empty default for AMS 1.5-spacing). The per-journal docs page lists the
-alternatives.
+## Submission vs publication-ready layout
+
+Every article-class template defaults to the publisher's **submission**
+layout (the 1.5-/double-spaced, usually single-column style journals want for
+peer review). Set `journal.draft: false` to switch that one template to its
+**publication-ready** typeset layout (2-column journal look) for a preview of
+how the article will appear in print:
+
+| template | `draft: true` (default, submission) | `draft: false` (publication-ready) |
+| --- | --- | --- |
+| `copernicus` | `[short, manuscript]` one-column | `[short]` two-column production |
+| `ametsoc` | no options — 1.5-spaced one-column | `twocol` two-column journal style |
+| `elsarticle` | `preprint, 12pt` 1.5-spaced | `final, 5p, times` typeset 2-column |
+| `agujournal` | `draft` double-spaced, line numbers | `final` single-spaced production |
+| `springernature` | `…, referee` double-spaced one-column | `…, iicol` two-column production |
+| `pnas` | always 2-column + DRAFT watermark | always 2-column, watermark removed |
+| `science`, `arxiv` | single-column preprint (no production variant — flag is a no-op) | — |
+
+`journal.draft` is the unified, template-independent switch. For finer control,
+set [`journal.options`](../yaml-reference.md#journaloptions) to raw class
+options — that overrides the flag and is passed to the document class verbatim.
+The per-journal docs pages list each class's full option set.
 
 !!! warning "Partial support only"
     Before submitting, you will likely need to hand-edit the final LaTeX —

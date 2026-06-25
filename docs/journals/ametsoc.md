@@ -30,13 +30,13 @@ output is identical to `template: ametsoc`.
 ```yaml
 journal:
     template: ametsoc
-    options: twocol      # default — 2-column journal-style preview
-    # options: ""        # 1.5-spaced AMS submission style (REQUIRED for actual submission)
+    # draft: false       # publication-ready 2-column journal layout
+    # options: twocol    # equivalent raw class option (overrides draft)
 ```
 
-> The default `twocol` produces the journal-style preview look. **For real
-> submission to AMS, you must remove the `twocol` option**: AMS requires the
-> 1.5-spaced single-column submission layout.
+> The default is the 1.5-spaced single-column submission layout AMS requires
+> for actual submission (`draft: true`). Set [`draft: false`](../yaml-reference.md#journaldraft)
+> for the 2-column journal-style preview (equivalent to `options: twocol`).
 
 ## Recognised section headings
 

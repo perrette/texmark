@@ -25,13 +25,14 @@ to the same template — the journal is selected at submission, not in LaTeX.
 ```yaml
 journal:
     template: nature           # or springer, naturecomms, natclimchange, scirep, ...
-    options: [sn-nature, pdflatex, iicol]      # default — Nature, 2-column
+    # draft: false                             # publication-ready: Nature, 2-column (iicol)
+    options: [sn-nature, pdflatex, referee]    # default — Nature, double-spaced submission
+    # options: [sn-nature, pdflatex, iicol]    # Nature, 2-column production (same as draft: false)
     # options: [sn-nature, pdflatex]           # Nature, single-column
     # options: [sn-basic, pdflatex]            # generic Springer numbered style
     # options: [sn-vancouver, Numbered, pdflatex]
     # options: [sn-apa, pdflatex]              # APA author-year (then disable force_cite — see below)
     # options: [sn-chicago, pdflatex]
-    # options: [referee, sn-nature, pdflatex]  # double-spaced for review
 ```
 
 ### Reference style options (the first option group)
@@ -52,9 +53,9 @@ to switch a namedate-style to its numbered variant.
 ### Other options
 
 - `pdflatex` — use pdflatex (default; otherwise xelatex)
-- `referee` — double-spaced submission style
+- `referee` — double-spaced submission style (default in the template)
 - `lineno` — print line numbers in the margin
-- `iicol` — two-column layout (default in the template)
+- `iicol` — two-column production layout
 
 ## Recognised section headings
 

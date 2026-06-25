@@ -3,12 +3,13 @@
 %% (Journal of Climate, JAS, MWR, JAMC, JHM, JPO, JTECH, WAF, BAMS, etc.)
 %% See README_ametsoc.txt and amsdocsV6.1.pdf for details.
 
-%% Set ``twocol`` in the yaml metadata under journal -> options to switch to
-%% the (author-only) two-column journal layout. Default is the 1.5-spaced
-%% submission layout. ``options`` may be a single string (e.g. ``twocol``)
-%% or a list (e.g. ``[twocol, other]``).
-{% set _opts_raw = (journal.options if journal and journal.options else "twocol") -%}
-{% set _opts = ([_opts_raw] if _opts_raw is string else _opts_raw) -%}
+%% Layout follows the unified ``journal.draft`` flag (default true -> 1.5-spaced
+%% single-column submission layout; ``draft: false`` -> the two-column journal
+%% layout via ``twocol``). Explicit ``journal.options`` overrides the flag and
+%% is used verbatim; it may be a single string (e.g. ``twocol``) or a list.
+{% set _draft = (journal.draft if journal and journal.draft is defined else true) -%}
+{% set _opts_raw = (journal.options if journal and journal.options else ("" if _draft else "twocol")) -%}
+{% set _opts = ([_opts_raw] if _opts_raw is string else _opts_raw) | select | list -%}
 {% if _opts -%}
 \documentclass[{{ _opts | join(',') }}]{ametsocV6.1}
 {% else -%}

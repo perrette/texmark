@@ -9,7 +9,13 @@
 %%   \citep{key}  -> \cite{key}    (parens:    (Author, year))
 %% so existing markdown @key / [@key] references render correctly.
 
-{% set _opts_raw = (journal.options if journal and journal.options else "final") -%}
+%% Layout follows the unified ``journal.draft`` flag (default true -> ``draft``,
+%% the double-spaced, line-numbered submission/review layout; ``draft: false``
+%% -> ``final``, the cleaner single-spaced production layout). Explicit
+%% ``journal.options`` overrides the flag and is used verbatim (a single
+%% string or a list).
+{% set _draft = (journal.draft if journal and journal.draft is defined else true) -%}
+{% set _opts_raw = (journal.options if journal and journal.options else ("draft" if _draft else "final")) -%}
 {% set _opts = ([_opts_raw] if _opts_raw is string else _opts_raw) -%}
 \documentclass[{{ _opts | join(',') }}]{agujournal2019}
 

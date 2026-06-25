@@ -4,18 +4,21 @@
 %%
 %% See README_elsarticle.txt and elsdoc.pdf for full class documentation.
 
-%% Default: preprint, 12pt (double-blind submission style).
-%% Override via journal.options in the yaml metadata, e.g.
+%% Layout follows the unified ``journal.draft`` flag (default true -> preprint,
+%% 12pt double-blind submission style; ``draft: false`` -> the typeset
+%% ``final,5p,times`` journal layout). Explicit ``journal.options`` overrides
+%% the flag and is used verbatim, e.g.
 %%   journal:
 %%       template: elsarticle
 %%       options: [final, 3p, times, twocolumn]
 %% Common option groups (see elsdoc.pdf):
-%%   preprint        -- 1.5-spaced preprint (default)
+%%   preprint        -- 1.5-spaced preprint (submission default)
 %%   review          -- double-spaced review style
 %%   1p / 3p / 5p    -- journal single / double / triple-column layouts
 %%   twocolumn       -- two-column variants
 %%   authoryear      -- author-year citations (pair with elsarticle-harv.bst)
-{% set _opts_raw = (journal.options if journal and journal.options else "final,5p,times") -%}
+{% set _draft = (journal.draft if journal and journal.draft is defined else true) -%}
+{% set _opts_raw = (journal.options if journal and journal.options else ("preprint,12pt" if _draft else "final,5p,times")) -%}
 {% set _opts = ([_opts_raw] if _opts_raw is string else _opts_raw) -%}
 \documentclass[{{ _opts | join(',') }}]{elsarticle}
 

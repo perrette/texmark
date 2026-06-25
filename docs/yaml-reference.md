@@ -19,7 +19,9 @@ date: "2026-05-26"
 bibliography: references.bib
 journal:
     template: <name>            # required: picks the journal template + filters
-    options: <str or list>      # optional: class options (per-template default)
+    draft: true                 # optional: true (default) = submission layout,
+                                #   false = publication-ready typeset layout
+    options: <str or list>      # optional: raw class options (overrides `draft`)
 collect_figures_and_tables: true       # optional: see Figure paths page
 figure-width: 80%                      # optional: pandoc figure default
 figure-span: full                      # optional: wraps in figure* (full text width)
@@ -44,6 +46,26 @@ preamble: macros.tex                  # optional: file path or inline block scal
 
 See the [Figure paths](figures.md), [Multi-file projects](multi-file.md), and
 [Custom preamble](preamble.md) pages for the fields grouped above.
+
+### journal.draft
+
+Unified, template-independent layout switch for the article-class journal
+templates. `true` (the default) produces the publisher's **submission**
+layout — the 1.5-/double-spaced, usually single-column style wanted for peer
+review. `false` switches to the **publication-ready** typeset layout (the
+2-column journal look) as a preview of the printed article. Each template maps
+the flag to the right class options for its document class; see the
+[submission vs publication-ready table](journals/index.md#submission-vs-publication-ready-layout)
+for what each journal does. `science` and `arxiv` have no production variant,
+so the flag is a no-op there.
+
+### journal.options
+
+Raw document-class options, given as a string (`twocol`) or a list
+(`[final, 5p, times]`). When set, these are passed to `\documentclass` verbatim
+and **override** `journal.draft`. Use this when you need a specific class
+variant the `draft` flag does not cover; the per-journal docs pages under
+[Journal templates](journals/index.md) list each class's full option set.
 
 ## Section-style metadata
 

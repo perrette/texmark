@@ -8,8 +8,22 @@
 
 %% Please use the following documentclass and journal abbreviations for preprints and final revised papers.
 
-%% 2-column papers and preprints
-\documentclass[{{journal.short}}, manuscript]{copernicus}
+%% The journal abbreviation (journal.short) is always passed as the first
+%% documentclass option. The layout follows the unified ``journal.draft`` flag:
+%% default true -> ``manuscript`` (the one-column, line-spaced discussion/
+%% preprint layout authors submit); ``draft: false`` -> no ``manuscript``
+%% option, which yields the two-column typeset production layout (the
+%% copernicus class enables \@twocolumntrue when @stage@final is set and
+%% manuscript is not). Note: the journal logo, coloured bars and a few other
+%% decorative production elements only appear when copernicuslogo.pdf is
+%% present in the build directory, so ``draft: false`` is a close preview
+%% rather than the exact published page. Explicit ``journal.options`` overrides
+%% the flag and is used verbatim (a single string or a list).
+{% set _draft = (journal.draft if journal and journal.draft is defined else true) -%}
+{% set _opts_raw = (journal.options if journal and journal.options else ("manuscript" if _draft else "")) -%}
+{% set _opts = ([_opts_raw] if _opts_raw is string else _opts_raw) | select | list -%}
+{% set _classopts = (([journal.short] if journal and journal.short else []) + _opts) -%}
+\documentclass[{{ _classopts | join(', ') }}]{copernicus}
 
 
 

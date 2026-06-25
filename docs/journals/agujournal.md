@@ -28,8 +28,9 @@ submission; AGU production handles typesetting separately.
 ```yaml
 journal:
     template: agujournal
-    options: final         # default — production look
-    # options: draft       # 1.5× line-spaced submission style
+    # draft: false         # publication-ready: cleaner single-spaced production look (final)
+    # options: draft       # default submission style (double-spaced, line-numbered)
+    # options: final       # production look (same as draft: false)
     name: "Geophysical Research Letters"    # optional, sets \journalname{...}
 ```
 

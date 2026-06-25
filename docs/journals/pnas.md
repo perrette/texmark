@@ -15,11 +15,12 @@
 ```yaml
 journal:
     template: pnas
-    options: [9pt, twocolumn, twoside]    # default — PNAS journal style
+    options: [9pt, twocolumn, twoside]    # default — PNAS journal style (always 2-column)
     classification: "Research Article"     # optional, top-of-page tag (\articletype)
     templatetype: pnasresearcharticle      # research / brief / mathematics / invited
     doi: "10.1073/pnas.XXXXXXXXXX"         # optional, fills the \doi{} line
-    displaywatermark: false                # default — set true to print the DRAFT watermark
+    # draft: false                         # publication-ready: removes the DRAFT watermark
+    # displaywatermark: false              # same effect; overrides draft for the watermark only
 ```
 
 ### Article type variants (`templatetype`)
@@ -74,6 +75,7 @@ shared `force_cite` filter rewrites pandoc's `\citet`/`\citep` to plain
   which are **not** in a default TeXLive install. The template directory
   bundles `algorithm.sty`, `algorithmic.sty`, `algorithmicx.sty`,
   `algpseudocode.sty` from CTAN to fill the gap.
-- The DRAFT watermark is disabled by default (the PNAS class enables it
-  at submission). Set `journal.displaywatermark: true` if you actually
-  want the watermark on submissions.
+- PNAS is always two-column — the class has no single-column submission
+  layout. The submission marker is the DRAFT watermark, which is shown by
+  default (the PNAS class enables it at submission). Set
+  `journal.displaywatermark: false` for the clean version without it.

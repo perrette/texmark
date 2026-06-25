@@ -11,14 +11,19 @@
 %%   sn-vancouver   Vancouver style
 %%   sn-apa         APA author-year style
 %%   sn-chicago     Chicago / Humanities
-%% Default here is sn-nature. Override via journal.options in the yaml.
+%% Default reference style is sn-nature. Layout follows the unified
+%% ``journal.draft`` flag (default true -> ``referee``, the double-spaced
+%% single-column submission/review style; ``draft: false`` -> ``iicol``, the
+%% two-column production layout). Explicit ``journal.options`` overrides the
+%% flag and is used verbatim.
 %%
 %% Numbered styles use \cite{key}; the texmark force_cite filter (shared
 %% with the science template) rewrites pandoc's \citet/\citep output to
 %% \cite. For sn-apa or sn-chicago (author-year) you'll want to disable
 %% that filter (set filters: [] in yaml or pass --filters explicitly).
 
-{% set _opts_raw = (journal.options if journal and journal.options else "sn-nature,pdflatex,iicol") -%}
+{% set _draft = (journal.draft if journal and journal.draft is defined else true) -%}
+{% set _opts_raw = (journal.options if journal and journal.options else ("sn-nature,pdflatex,referee" if _draft else "sn-nature,pdflatex,iicol")) -%}
 {% set _opts = ([_opts_raw] if _opts_raw is string else _opts_raw) -%}
 \documentclass[{{ _opts | join(',') }}]{sn-jnl}
 

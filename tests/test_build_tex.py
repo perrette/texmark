@@ -90,10 +90,10 @@ SAMPLE_BEAMER_MD = textwrap.dedent(
 TEMPLATES = [
     ("copernicus", r"\documentclass[cp"),
     ("science", r"\scititle"),
-    ("ametsoc", r"\documentclass[twocol]{ametsocV6.1}"),
+    ("ametsoc", r"\documentclass{ametsocV6.1}"),
     ("arxiv", r"\documentclass[11pt]{article}"),
     ("elsarticle", r"{elsarticle}"),
-    ("agujournal", r"\documentclass[final]{agujournal2019}"),
+    ("agujournal", r"\documentclass[draft]{agujournal2019}"),
     ("springernature", r"{sn-jnl}"),
     ("pnas", r"\documentclass[9pt,twocolumn,twoside]{pnas-new}"),
 ]

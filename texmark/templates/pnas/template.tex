@@ -20,12 +20,15 @@
 {% set _opts = ([_opts_raw] if _opts_raw is string else _opts_raw) -%}
 \documentclass[{{ _opts | join(',') }}]{pnas-new}
 
-%% Turn off the DRAFT watermark by default (the class enables it for
-%% submission). Set ``displaywatermark: true`` in the yaml to keep it.
+%% PNAS is always two-column; there is no single-column submission layout.
+%% The class's submission marker is the DRAFT watermark, which follows the
+%% unified ``journal.draft`` flag (default true -> watermark shown). Explicit
+%% ``journal.displaywatermark`` overrides the flag.
 %% NOTE: ifthen is strict about whitespace inside \setboolean, hence the
 %% Jinja whitespace-trimming markers around the variable.
-{% set _watermark = "true" if (journal and journal.displaywatermark) else "false" -%}
-\setboolean{displaywatermark}{ {{- _watermark -}} }
+{% set _draft = (journal.draft if journal and journal.draft is defined else true) -%}
+{% set _watermark = (journal.displaywatermark if journal and journal.displaywatermark is defined else _draft) -%}
+\setboolean{displaywatermark}{ {{- "true" if _watermark else "false" -}} }
 
 %% pnas-new loads: microtype, inputenc, babel, amsmath/fonts/symb, lmodern,
 %% helvet, xcolor, tikz, mdframed, hyperref, authblk, graphicx, colortbl,
