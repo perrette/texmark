@@ -1505,13 +1505,14 @@ to the same template — the journal is selected at submission, not in LaTeX.</p
 <h2 id="yaml-setup">YAML setup<a class="headerlink" href="#yaml-setup" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">journal</span><span class="p">:</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="nt">template</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">nature</span><span class="w">           </span><span class="c1"># or springer, naturecomms, natclimchange, scirep, ...</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">options</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">sn-nature</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">pdflatex</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">iicol</span><span class="p p-Indicator">]</span><span class="w">      </span><span class="c1"># default — Nature, 2-column</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="c1"># options: [sn-nature, pdflatex]           # Nature, single-column</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="c1"># options: [sn-basic, pdflatex]            # generic Springer numbered style</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="c1"># options: [sn-vancouver, Numbered, pdflatex]</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="c1"># options: [sn-apa, pdflatex]              # APA author-year (then disable force_cite — see below)</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="c1"># options: [sn-chicago, pdflatex]</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="c1"># options: [referee, sn-nature, pdflatex]  # double-spaced for review</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="c1"># draft: false                             # publication-ready: Nature, 2-column (iicol)</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">options</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">sn-nature</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">pdflatex</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">referee</span><span class="p p-Indicator">]</span><span class="w">    </span><span class="c1"># default — Nature, double-spaced submission</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="c1"># options: [sn-nature, pdflatex, iicol]    # Nature, 2-column production (same as draft: false)</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="c1"># options: [sn-nature, pdflatex]           # Nature, single-column</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="c1"># options: [sn-basic, pdflatex]            # generic Springer numbered style</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="c1"># options: [sn-vancouver, Numbered, pdflatex]</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="c1"># options: [sn-apa, pdflatex]              # APA author-year (then disable force_cite — see below)</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">    </span><span class="c1"># options: [sn-chicago, pdflatex]</span>
 </code></pre></div>
 <h3 id="reference-style-options-the-first-option-group">Reference style options (the first option group)<a class="headerlink" href="#reference-style-options-the-first-option-group" title="Permanent link">&para;</a></h3>
 <table>
@@ -1565,9 +1566,9 @@ to switch a namedate-style to its numbered variant.</p>
 <h3 id="other-options">Other options<a class="headerlink" href="#other-options" title="Permanent link">&para;</a></h3>
 <ul>
 <li><code>pdflatex</code> — use pdflatex (default; otherwise xelatex)</li>
-<li><code>referee</code> — double-spaced submission style</li>
+<li><code>referee</code> — double-spaced submission style (default in the template)</li>
 <li><code>lineno</code> — print line numbers in the margin</li>
-<li><code>iicol</code> — two-column layout (default in the template)</li>
+<li><code>iicol</code> — two-column production layout</li>
 </ul>
 <h2 id="recognised-section-headings">Recognised section headings<a class="headerlink" href="#recognised-section-headings" title="Permanent link">&para;</a></h2>
 <ul>

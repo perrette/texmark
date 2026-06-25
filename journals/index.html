@@ -837,6 +837,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -853,6 +871,36 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#submission-vs-publication-ready-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Submission vs publication-ready layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1250,6 +1298,25 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#submission-vs-publication-ready-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Submission vs publication-ready layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1278,7 +1345,8 @@
 header of your markdown:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">journal</span><span class="p">:</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="nt">template</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ametsoc</span><span class="w">          </span><span class="c1"># template name, see table below</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">options</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">twocol</span><span class="w">            </span><span class="c1"># optional, per-template — see the docs page</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">draft</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">               </span><span class="c1"># optional — switch to the publication-ready layout</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="c1"># options: twocol          # optional, per-template raw class options — see the docs page</span>
 </code></pre></div>
 <p><strong>Article-class templates</strong> (single PDF, any journal):</p>
 <table>
@@ -1401,12 +1469,62 @@ header of your markdown:</p>
 <code>--only</code> for selective recompilation), front-matter YAML keys
 (<code>dedication:</code>, <code>list_of_figures:</code>, etc.), and
 <code>bibliography_per_chapter: true</code> for per-chapter biblatex bibliographies.</p>
-<p>Each template ships a default <code>journal.options</code> value chosen to produce a
-<strong>publication-style</strong> PDF (typeset 2-column journal look, no draft watermarks).
-For peer-review submission you usually want to switch to the publisher's
-submission options (e.g. <code>preprint,12pt</code> for Elsevier, <code>draft</code> for AGU, the
-empty default for AMS 1.5-spacing). The per-journal docs page lists the
-alternatives.</p>
+<h2 id="submission-vs-publication-ready-layout">Submission vs publication-ready layout<a class="headerlink" href="#submission-vs-publication-ready-layout" title="Permanent link">&para;</a></h2>
+<p>Every article-class template defaults to the publisher's <strong>submission</strong>
+layout (the 1.5-/double-spaced, usually single-column style journals want for
+peer review). Set <code>journal.draft: false</code> to switch that one template to its
+<strong>publication-ready</strong> typeset layout (2-column journal look) for a preview of
+how the article will appear in print:</p>
+<table>
+<thead>
+<tr>
+<th>template</th>
+<th><code>draft: true</code> (default, submission)</th>
+<th><code>draft: false</code> (publication-ready)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>copernicus</code></td>
+<td><code>[short, manuscript]</code> one-column</td>
+<td><code>[short]</code> two-column production</td>
+</tr>
+<tr>
+<td><code>ametsoc</code></td>
+<td>no options — 1.5-spaced one-column</td>
+<td><code>twocol</code> two-column journal style</td>
+</tr>
+<tr>
+<td><code>elsarticle</code></td>
+<td><code>preprint, 12pt</code> 1.5-spaced</td>
+<td><code>final, 5p, times</code> typeset 2-column</td>
+</tr>
+<tr>
+<td><code>agujournal</code></td>
+<td><code>draft</code> double-spaced, line numbers</td>
+<td><code>final</code> single-spaced production</td>
+</tr>
+<tr>
+<td><code>springernature</code></td>
+<td><code>…, referee</code> double-spaced one-column</td>
+<td><code>…, iicol</code> two-column production</td>
+</tr>
+<tr>
+<td><code>pnas</code></td>
+<td>always 2-column + DRAFT watermark</td>
+<td>always 2-column, watermark removed</td>
+</tr>
+<tr>
+<td><code>science</code>, <code>arxiv</code></td>
+<td>single-column preprint (no production variant — flag is a no-op)</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><code>journal.draft</code> is the unified, template-independent switch. For finer control,
+set <a href="../yaml-reference/#journaloptions"><code>journal.options</code></a> to raw class
+options — that overrides the flag and is passed to the document class verbatim.
+The per-journal docs pages list each class's full option set.</p>
 <div class="admonition warning">
 <p class="admonition-title">Partial support only</p>
 <p>Before submitting, you will likely need to hand-edit the final LaTeX —

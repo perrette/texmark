@@ -1466,13 +1466,13 @@ output is identical to <code>template: ametsoc</code>.</p>
 <h2 id="yaml-setup">YAML setup<a class="headerlink" href="#yaml-setup" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">journal</span><span class="p">:</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="nt">template</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">ametsoc</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">options</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">twocol</span><span class="w">      </span><span class="c1"># default — 2-column journal-style preview</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="c1"># options: &quot;&quot;        # 1.5-spaced AMS submission style (REQUIRED for actual submission)</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="c1"># draft: false       # publication-ready 2-column journal layout</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="c1"># options: twocol    # equivalent raw class option (overrides draft)</span>
 </code></pre></div>
 <blockquote>
-<p>The default <code>twocol</code> produces the journal-style preview look. <strong>For real
-submission to AMS, you must remove the <code>twocol</code> option</strong>: AMS requires the
-1.5-spaced single-column submission layout.</p>
+<p>The default is the 1.5-spaced single-column submission layout AMS requires
+for actual submission (<code>draft: true</code>). Set <a href="../../yaml-reference/#journaldraft"><code>draft: false</code></a>
+for the 2-column journal-style preview (equivalent to <code>options: twocol</code>).</p>
 </blockquote>
 <h2 id="recognised-section-headings">Recognised section headings<a class="headerlink" href="#recognised-section-headings" title="Permanent link">&para;</a></h2>
 <ul>

@@ -1497,11 +1497,12 @@
 <h2 id="yaml-setup">YAML setup<a class="headerlink" href="#yaml-setup" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">journal</span><span class="p">:</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="nt">template</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pnas</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">options</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">9pt</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">twocolumn</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">twoside</span><span class="p p-Indicator">]</span><span class="w">    </span><span class="c1"># default — PNAS journal style</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">options</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">9pt</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">twocolumn</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">twoside</span><span class="p p-Indicator">]</span><span class="w">    </span><span class="c1"># default — PNAS journal style (always 2-column)</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="nt">classification</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Research</span><span class="nv"> </span><span class="s">Article&quot;</span><span class="w">     </span><span class="c1"># optional, top-of-page tag (\articletype)</span>
 <a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">    </span><span class="nt">templatetype</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pnasresearcharticle</span><span class="w">      </span><span class="c1"># research / brief / mathematics / invited</span>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">    </span><span class="nt">doi</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;10.1073/pnas.XXXXXXXXXX&quot;</span><span class="w">         </span><span class="c1"># optional, fills the \doi{} line</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="nt">displaywatermark</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">                </span><span class="c1"># default — set true to print the DRAFT watermark</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">    </span><span class="c1"># draft: false                         # publication-ready: removes the DRAFT watermark</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">    </span><span class="c1"># displaywatermark: false              # same effect; overrides draft for the watermark only</span>
 </code></pre></div>
 <h3 id="article-type-variants-templatetype">Article type variants (<code>templatetype</code>)<a class="headerlink" href="#article-type-variants-templatetype" title="Permanent link">&para;</a></h3>
 <table>
@@ -1572,9 +1573,10 @@ shared <code>force_cite</code> filter rewrites pandoc's <code>\citet</code>/<cod
   which are <strong>not</strong> in a default TeXLive install. The template directory
   bundles <code>algorithm.sty</code>, <code>algorithmic.sty</code>, <code>algorithmicx.sty</code>,
   <code>algpseudocode.sty</code> from CTAN to fill the gap.</li>
-<li>The DRAFT watermark is disabled by default (the PNAS class enables it
-  at submission). Set <code>journal.displaywatermark: true</code> if you actually
-  want the watermark on submissions.</li>
+<li>PNAS is always two-column — the class has no single-column submission
+  layout. The submission marker is the DRAFT watermark, which is shown by
+  default (the PNAS class enables it at submission). Set
+  <code>journal.displaywatermark: false</code> for the clean version without it.</li>
 </ul>
 
 

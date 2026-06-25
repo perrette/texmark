@@ -948,6 +948,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#bundled-fonts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bundled fonts
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1359,6 +1370,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#bundled-fonts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bundled fonts
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1447,12 +1469,23 @@ class via <code>journal.short</code>:</p>
 <h2 id="yaml-setup">YAML setup<a class="headerlink" href="#yaml-setup" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">journal</span><span class="p">:</span>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">    </span><span class="nt">template</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">copernicus</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">short</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cp</span><span class="w">        </span><span class="c1"># journal abbreviation: cp, acp, hess, tc, esd, bg, ...</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">    </span><span class="nt">short</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">cp</span><span class="w">            </span><span class="c1"># journal abbreviation: cp, acp, hess, tc, esd, bg, ...</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">    </span><span class="c1"># draft: false       # publication-ready two-column production layout</span>
 </code></pre></div>
-<p><code>journal.short</code> becomes the documentclass option, e.g.
-<code>\documentclass[cp, manuscript]{copernicus}</code>. <code>manuscript</code> is the
-discussion preprint style; Copernicus typesets the production layout
-themselves.</p>
+<p><code>journal.short</code> is always passed as the first documentclass option. The
+layout follows the unified <a href="../../yaml-reference/#journaldraft"><code>journal.draft</code></a>
+flag:</p>
+<ul>
+<li><code>draft: true</code> (default) → <code>\documentclass[cp, manuscript]{copernicus}</code> —
+  the one-column, line-spaced discussion/preprint layout authors submit.</li>
+<li><code>draft: false</code> → <code>\documentclass[cp]{copernicus}</code> — the two-column typeset
+  production layout (the class sets <code>\@twocolumntrue</code> when the journal stage
+  is final and <code>manuscript</code> is absent).</li>
+</ul>
+<p>The journal logo, coloured section bars and a few other decorative production
+elements only appear when <code>copernicuslogo.pdf</code> is present in the build
+directory, so <code>draft: false</code> is a close preview rather than the exact
+published page. Set <code>journal.options</code> explicitly to override the flag.</p>
 <h2 id="recognised-section-headings">Recognised section headings<a class="headerlink" href="#recognised-section-headings" title="Permanent link">&para;</a></h2>
 <p>These can appear as <code># ...</code> headings in your markdown — texmark will pull
 them out of the body and inject them into the right LaTeX command:</p>
@@ -1464,6 +1497,17 @@ them out of the body and inject them into the right LaTeX command:</p>
 <li><code># Appendix</code></li>
 <li><code># Supplementary Material</code> / <code># Supplementary Information</code></li>
 </ul>
+<h2 id="bundled-fonts">Bundled fonts<a class="headerlink" href="#bundled-fonts" title="Permanent link">&para;</a></h2>
+<p><code>copernicus.cls</code> does <code>\RequirePackage[T5,T3,T1]{fontenc}</code>, so it needs the
+T5 (Vietnamese) encoding from the <code>vntex</code> package. That package is absent on
+minimal TeX installs, where the build otherwise fails with
+<code>Encoding file 't5enc.def' not found</code> followed by an NFSS error. To keep the
+template self-contained, the two files needed to satisfy the encoding setup —
+<code>t5enc.def</code> and <code>t5cmr.fd</code> (LPPL, from vntex) — are bundled in the template
+directory and copied into the build directory at build time. They are the
+standard, long-frozen vntex files, only ever parsed to register the T5
+encoding (no Vietnamese glyph is typeset), so they do not affect the output on
+systems that already ship vntex.</p>
 
 
 

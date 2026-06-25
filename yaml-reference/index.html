@@ -809,6 +809,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Common yaml fields (all templates)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#journaldraft" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        journal.draft
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#journaloptions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        journal.options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1324,6 +1352,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Common yaml fields (all templates)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#journaldraft" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        journal.draft
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#journaloptions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        journal.options
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1380,30 +1436,48 @@
 <a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="nt">bibliography</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">references.bib</span>
 <a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="nt">journal</span><span class="p">:</span>
 <a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="w">    </span><span class="nt">template</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;name&gt;</span><span class="w">            </span><span class="c1"># required: picks the journal template + filters</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">    </span><span class="nt">options</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;str or list&gt;</span><span class="w">      </span><span class="c1"># optional: class options (per-template default)</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="nt">collect_figures_and_tables</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">       </span><span class="c1"># optional: see Figure paths page</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="nt">figure-width</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80%</span><span class="w">                      </span><span class="c1"># optional: pandoc figure default</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="nt">figure-span</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">full</span><span class="w">                      </span><span class="c1"># optional: wraps in figure* (full text width)</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="w">                                       </span><span class="c1">#   per-figure override: ![cap](img){figure-span=full}</span>
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="nt">copy_figures</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">                    </span><span class="c1"># optional: see Figure paths page</span>
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="nt">figure_folders</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">images</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">../shared</span><span class="p p-Indicator">]</span><span class="w">    </span><span class="c1"># optional: see Figure paths page</span>
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="nt">project_root</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span><span class="w">                        </span><span class="c1"># optional: see Figure paths page</span>
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="c1"># Multi-file keys (see Multi-file projects page)</span>
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="nt">chapters</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">chapters/intro.md</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">...</span><span class="p p-Indicator">]</span><span class="w">    </span><span class="c1"># optional: alternative to body embed syntax</span>
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="nt">companions</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">si.md</span><span class="p p-Indicator">]</span><span class="w">                   </span><span class="c1"># optional: companion documents (separate PDFs)</span>
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="nt">prefix</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">S</span><span class="w">                             </span><span class="c1"># optional: counter prefix for companion docs</span>
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="c1"># Book-family template keys</span>
-<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="nt">dedication</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;To</span><span class="nv"> </span><span class="s">my</span><span class="nv"> </span><span class="s">advisor&quot;</span><span class="w">           </span><span class="c1"># optional</span>
-<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="nt">list_of_figures</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">                 </span><span class="c1"># optional</span>
-<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="nt">list_of_tables</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">                  </span><span class="c1"># optional</span>
-<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a><span class="nt">bibliography_per_chapter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">        </span><span class="c1"># optional: biblatex per-chapter refs</span>
-<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a><span class="nt">chapter-style</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">veelo</span><span class="w">                  </span><span class="c1"># optional: memoir only</span>
-<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a><span class="nt">classicthesis-options</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;parts&quot;</span><span class="w">        </span><span class="c1"># optional: classicthesis only</span>
-<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a><span class="c1"># Custom LaTeX preamble (see Custom preamble page)</span>
-<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a><span class="nt">preamble</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">macros.tex</span><span class="w">                  </span><span class="c1"># optional: file path or inline block scalar</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a><span class="w">    </span><span class="nt">draft</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">                 </span><span class="c1"># optional: true (default) = submission layout,</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="w">                                </span><span class="c1">#   false = publication-ready typeset layout</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="w">    </span><span class="nt">options</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">&lt;str or list&gt;</span><span class="w">      </span><span class="c1"># optional: raw class options (overrides `draft`)</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="nt">collect_figures_and_tables</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">       </span><span class="c1"># optional: see Figure paths page</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a><span class="nt">figure-width</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">80%</span><span class="w">                      </span><span class="c1"># optional: pandoc figure default</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a><span class="nt">figure-span</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">full</span><span class="w">                      </span><span class="c1"># optional: wraps in figure* (full text width)</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="w">                                       </span><span class="c1">#   per-figure override: ![cap](img){figure-span=full}</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a><span class="nt">copy_figures</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">                    </span><span class="c1"># optional: see Figure paths page</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a><span class="nt">figure_folders</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">images</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">../shared</span><span class="p p-Indicator">]</span><span class="w">    </span><span class="c1"># optional: see Figure paths page</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a><span class="nt">project_root</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">.</span><span class="w">                        </span><span class="c1"># optional: see Figure paths page</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a><span class="c1"># Multi-file keys (see Multi-file projects page)</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a><span class="nt">chapters</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">chapters/intro.md</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">...</span><span class="p p-Indicator">]</span><span class="w">    </span><span class="c1"># optional: alternative to body embed syntax</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a><span class="nt">companions</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">si.md</span><span class="p p-Indicator">]</span><span class="w">                   </span><span class="c1"># optional: companion documents (separate PDFs)</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a><span class="nt">prefix</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">S</span><span class="w">                             </span><span class="c1"># optional: counter prefix for companion docs</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a><span class="c1"># Book-family template keys</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a><span class="nt">dedication</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;To</span><span class="nv"> </span><span class="s">my</span><span class="nv"> </span><span class="s">advisor&quot;</span><span class="w">           </span><span class="c1"># optional</span>
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a><span class="nt">list_of_figures</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">                 </span><span class="c1"># optional</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a><span class="nt">list_of_tables</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">                  </span><span class="c1"># optional</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a><span class="nt">bibliography_per_chapter</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">        </span><span class="c1"># optional: biblatex per-chapter refs</span>
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a><span class="nt">chapter-style</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">veelo</span><span class="w">                  </span><span class="c1"># optional: memoir only</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a><span class="nt">classicthesis-options</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;parts&quot;</span><span class="w">        </span><span class="c1"># optional: classicthesis only</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a><span class="c1"># Custom LaTeX preamble (see Custom preamble page)</span>
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a><span class="nt">preamble</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">macros.tex</span><span class="w">                  </span><span class="c1"># optional: file path or inline block scalar</span>
 </code></pre></div>
 <p>See the <a href="../figures/">Figure paths</a>, <a href="../multi-file/">Multi-file projects</a>, and
 <a href="../preamble/">Custom preamble</a> pages for the fields grouped above.</p>
+<h3 id="journaldraft">journal.draft<a class="headerlink" href="#journaldraft" title="Permanent link">&para;</a></h3>
+<p>Unified, template-independent layout switch for the article-class journal
+templates. <code>true</code> (the default) produces the publisher's <strong>submission</strong>
+layout — the 1.5-/double-spaced, usually single-column style wanted for peer
+review. <code>false</code> switches to the <strong>publication-ready</strong> typeset layout (the
+2-column journal look) as a preview of the printed article. Each template maps
+the flag to the right class options for its document class; see the
+<a href="../journals/#submission-vs-publication-ready-layout">submission vs publication-ready table</a>
+for what each journal does. <code>science</code> and <code>arxiv</code> have no production variant,
+so the flag is a no-op there.</p>
+<h3 id="journaloptions">journal.options<a class="headerlink" href="#journaloptions" title="Permanent link">&para;</a></h3>
+<p>Raw document-class options, given as a string (<code>twocol</code>) or a list
+(<code>[final, 5p, times]</code>). When set, these are passed to <code>\documentclass</code> verbatim
+and <strong>override</strong> <code>journal.draft</code>. Use this when you need a specific class
+variant the <code>draft</code> flag does not cover; the per-journal docs pages under
+<a href="../journals/">Journal templates</a> list each class's full option set.</p>
 <h2 id="section-style-metadata">Section-style metadata<a class="headerlink" href="#section-style-metadata" title="Permanent link">&para;</a></h2>
 <p>Section-style metadata can also be given as markdown <code># ...</code> headings. Any
 of <code># Abstract</code>, <code># Acknowledgments</code>, <code># Data Availability</code>, <code># Appendix</code>,
