@@ -725,6 +725,26 @@ class TestTableToLatex:
         assert "hi" in latex
         assert "\\" in latex.split("\\begin{tabular}")[1]
 
+    def test_math_in_caption_stays_in_math_mode(self):
+        # A caption rendered via pf.stringify drops the math delimiters
+        # (stringify returns a Math inline's bare .text, so `\beta(5,2)` would
+        # land in text mode). The caption must be rendered through pandoc so the
+        # math stays wrapped in math mode. pandoc's LaTeX writer emits inline
+        # math as \(...\).
+        from texmark.filters.tabular import table_to_latex
+        head = pf.TableHead(pf.TableRow(pf.TableCell(pf.Plain(pf.Str("h")))))
+        body = pf.TableBody(pf.TableRow(pf.TableCell(pf.Plain(pf.Str("v")))))
+        cap = pf.Caption(pf.Plain(
+            pf.Str("A"), pf.Space,
+            pf.Math(r"\beta(5,2)", format="InlineMath"),
+            pf.Space, pf.Str("prior"),
+        ))
+        t = pf.Table(body, head=head, caption=cap, identifier="tab:foo")
+        out = table_to_latex(t, _doc_with_template("ametsoc"))
+        latex = out.text
+        assert r"\(\beta(5,2)\)" in latex
+        assert r"\label{tab:foo}" in latex
+
 
 # ---- stringify_captions --------------------------------------------------
 

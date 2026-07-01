@@ -45,6 +45,26 @@ def stringify_cell(cell):
     )
 
 
+def render_caption(caption):
+    """Render a table caption to LaTeX, preserving inline formatting.
+
+    ``pf.stringify`` would flatten the caption to plain text and drop the
+    ``$...$`` math delimiters (as well as emphasis, citations, code, etc.).
+    Rendering the caption's block content through pandoc keeps them intact.
+    Whitespace (including pandoc's line wrapping) is collapsed so the result
+    fits on a single ``\\caption{...}`` line.
+    """
+    if not caption or not caption.content:
+        return ""
+    latex = pf.convert_text(
+        list(caption.content),
+        input_format='panflute',
+        output_format='latex',
+        extra_args=['--natbib'],
+    )
+    return " ".join(latex.split())
+
+
 def table_to_latex(elem, doc):
 
     if not isinstance(elem, pf.Table):
@@ -53,7 +73,7 @@ def table_to_latex(elem, doc):
     table_type = (doc.get_metadata('table_type')
                   or (doc.get_metadata('journal') or {}).get("template"))
 
-    caption_text = pf.stringify(elem.caption) if elem.caption else ""
+    caption_text = render_caption(elem.caption)
 
     label = elem.identifier or ""
 
