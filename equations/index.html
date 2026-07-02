@@ -16,7 +16,7 @@
         <link rel="prev" href="../quickstart/">
       
       
-        <link rel="next" href="../multi-file/">
+        <link rel="next" href="../figures/">
       
       
         
@@ -78,7 +78,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#numbered-and-cross-referenced-equations" class="md-skip">
+        <a href="#numbered-equations" class="md-skip">
           Skip to content
         </a>
       
@@ -529,10 +529,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#cross-references" class="md-nav__link">
+  <a href="#referencing-a-numbered-equation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Cross-references
+        Referencing a numbered equation
       
     </span>
   </a>
@@ -587,6 +587,90 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../figures/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Figures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cross-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cross-references
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -663,62 +747,6 @@
     
   
     Encoding (Unicode & HTML)
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../figures/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Figure paths
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../tables/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Tables
   
 
     
@@ -1399,10 +1427,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#cross-references" class="md-nav__link">
+  <a href="#referencing-a-numbered-equation" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Cross-references
+        Referencing a numbered equation
       
     </span>
   </a>
@@ -1478,7 +1506,7 @@
   
 
 
-<h1 id="numbered-and-cross-referenced-equations">Numbered and cross-referenced equations<a class="headerlink" href="#numbered-and-cross-referenced-equations" title="Permanent link">&para;</a></h1>
+<h1 id="numbered-equations">Numbered equations<a class="headerlink" href="#numbered-equations" title="Permanent link">&para;</a></h1>
 <p>Display equations are written once. They render in the Markdown preview (VS Code
 and JetBrains use KaTeX, GitHub uses MathJax), and the PDF is numbered and
 cross-referenced by LaTeX.</p>
@@ -1528,11 +1556,9 @@ wraps the math in:</p>
 </table>
 <p>A <code>$$…$$</code> with no class compiles to an unnumbered <code>\[ … \]</code>. A <code>{#eq:foo}</code> label
 with no class uses the <code>equation</code> environment.</p>
-<h2 id="cross-references">Cross-references<a class="headerlink" href="#cross-references" title="Permanent link">&para;</a></h2>
-<p>A same-document link <code>[text](#label)</code> becomes a numeric reference — <code>\ref</code> or
-<code>\eqref</code> — <strong>only when its text is empty or a single <code>#</code></strong>. The recommended form
-is <code>#</code>, because on GitHub it stays a clickable jump to the target, whereas an
-empty link renders as nothing:</p>
+<h2 id="referencing-a-numbered-equation">Referencing a numbered equation<a class="headerlink" href="#referencing-a-numbered-equation" title="Permanent link">&para;</a></h2>
+<p>Label a block with <code>{#eq:foo}</code>, then reference it with <code>@eq:foo</code> or
+<code>[#](#eq:foo)</code>:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>$$
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>\begin{aligned}
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>\boldsymbol{\mathcal{X}} \sim \mathcal{N}(\bar{X}, \Sigma)
@@ -1541,27 +1567,12 @@ empty link renders as nothing:</p>
 <a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
 <a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>{#eq:prior}
 <a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>The prior is given in [<span class="nt">#</span>](<span class="na">#eq:prior</span>) — equivalently, <span class="ni">@eq:prior</span>.
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>The prior is given in <span class="ni">@eq:prior</span> — equivalently, [<span class="nt">#</span>](<span class="na">#eq:prior</span>).
 </code></pre></div>
-<p><code>[#](#eq:prior)</code>, <code>[](#eq:prior)</code> and <code>@eq:prior</code> all become <code>\eqref{eq:prior}</code>
-in the PDF, which LaTeX renders as a parenthesised, hyperlinked number — "(3)".
-(<code>\eqref</code> adds the parentheses; <code>\ref</code> does not.)</p>
-<p>The prefix selects the command: <code>eq:</code> resolves to <code>\eqref</code>; everything else —
-<code>fig:</code>, <code>tbl:</code>, <code>sec:</code> and a bare heading slug — resolves to <code>\ref</code>. Figure and
-table labels are emitted automatically (from the image / caption <code>{#fig:…}</code> /
-<code>{#tbl:…}</code> attribute). Headings are labelled automatically too, from their slug:
-<code># My Heading</code> can be referenced as <code>[#](#my-heading)</code> with no <code>{#…}</code> attribute
-(an explicit <code>{#sec:…}</code> still works if you prefer a stable, prefixed label).
-There is no range syntax — write the two references (<code>\eqref{eq:a}–\eqref{eq:b}</code>).</p>
-<p>If the link text is anything other than empty or <code>#</code>, it is left untouched and
-kept verbatim — <code>[the prior](#eq:prior)</code> renders as <code>\hyperref[eq:prior]{the
-prior}</code>, a clickable link carrying those words rather than a number. Use that
-when you want words instead of a number; use <code>#</code> (or <code>@id</code>) when you want the
-number.</p>
-<p>The reference number is computed by LaTeX, so it appears only in the PDF. In the
-Markdown preview and on GitHub: <code>[#](#label)</code> shows a clickable <code>#</code>, <code>[](#label)</code>
-shows nothing, and <code>@id</code> or a raw <code>\ref{…}</code> shows as literal text. Raw
-<code>\ref</code>/<code>\eqref</code> are also fine in the source — they stay visible in the preview.</p>
+<p>The <code>eq:</code> prefix resolves to <code>\eqref</code>, a parenthesised, hyperlinked number —
+"(3)" — where every other prefix produces a bare <code>\ref</code>. See
+<a href="../cross-reference/">Cross-references</a> for the two reference forms, the full
+prefix table, and text-carrying links.</p>
 <h2 id="multi-line-math-and-the-preview">Multi-line math and the preview<a class="headerlink" href="#multi-line-math-and-the-preview" title="Permanent link">&para;</a></h2>
 <p>KaTeX cannot render a bare <code>&amp;</code>/<code>\\</code> inside <code>$$…$$</code> — multi-line math <strong>must</strong> be
 wrapped in <code>aligned</code> to show up in the preview:</p>
@@ -1639,6 +1650,7 @@ the PDF is unaffected.</p>
 </ul>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
+<li><a href="../cross-reference/">Cross-references</a> — the two reference forms and the prefix table.</li>
 <li><a href="../encoding/">Encoding</a> — Unicode/HTML handling in body and bib text.</li>
 </ul>
 
