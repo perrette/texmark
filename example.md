@@ -54,9 +54,9 @@ b &= 3
 | - | - |
 | Domain | Ocean |
 | Era | Anthropocene |
-:A caption for my table {#tab:gulf}
+:A caption for my table {#tbl:gulf}
 
-Now equation Equation \ref{eq:aligneq}, Figure \ref{fig:eofmean}, and Table \ref{tab:gulf} can be referenced.
+Now equation Equation \ref{eq:aligneq}, Figure \ref{fig:eofmean}, and Table \ref{tbl:gulf} can be referenced.
 Both latex and markdown commands are supported.
 
 # Conclusions

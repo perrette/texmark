@@ -606,9 +606,9 @@ def _table_with_caption_text(text):
 
 class TestExtractTableIdentifier:
     def test_pulls_identifier_from_caption_trailer(self):
-        t = _table_with_caption_text("Caption text {#tab:gulf}")
+        t = _table_with_caption_text("Caption text {#tbl:gulf}")
         extract_table_identifier(t, make_doc())
-        assert t.identifier == "tab:gulf"
+        assert t.identifier == "tbl:gulf"
 
     def test_pulls_single_class_from_caption_trailer(self):
         t = _table_with_caption_text("Caption text {.narrow}")
@@ -621,9 +621,9 @@ class TestExtractTableIdentifier:
         assert t.attributes.get("width") == "50%"
 
     def test_pulls_multi_token_attribute_trailer(self):
-        t = _table_with_caption_text("Caption text {#tab:1 width=50%}")
+        t = _table_with_caption_text("Caption text {#tbl:1 width=50%}")
         extract_table_identifier(t, make_doc())
-        assert t.identifier == "tab:1"
+        assert t.identifier == "tbl:1"
         assert t.attributes.get("width") == "50%"
 
     def test_caption_without_attr_unchanged(self):
@@ -669,7 +669,7 @@ class TestTableToLatex:
     def test_default_template_uses_hline(self):
         from texmark.filters.tabular import table_to_latex
         t = _simple_table(["A", "B"], [["1", "2"], ["3", "4"]],
-                          identifier="tab:foo")
+                          identifier="tbl:foo")
         out = table_to_latex(t, _doc_with_template("ametsoc"))
         assert isinstance(out, pf.RawBlock)
         latex = out.text
@@ -678,7 +678,7 @@ class TestTableToLatex:
         assert "A & B" in latex
         assert "1 & 2" in latex
         assert "3 & 4" in latex
-        assert r"\label{tab:foo}" in latex
+        assert r"\label{tbl:foo}" in latex
         assert r"\begin{tabular}{ll}" in latex
 
     def test_copernicus_uses_tophline_middlehline_bottomhline(self):
@@ -739,11 +739,11 @@ class TestTableToLatex:
             pf.Math(r"\beta(5,2)", format="InlineMath"),
             pf.Space, pf.Str("prior"),
         ))
-        t = pf.Table(body, head=head, caption=cap, identifier="tab:foo")
+        t = pf.Table(body, head=head, caption=cap, identifier="tbl:foo")
         out = table_to_latex(t, _doc_with_template("ametsoc"))
         latex = out.text
         assert r"\(\beta(5,2)\)" in latex
-        assert r"\label{tab:foo}" in latex
+        assert r"\label{tbl:foo}" in latex
 
 
 # ---- stringify_captions --------------------------------------------------
@@ -816,16 +816,16 @@ class TestStringifyCaptions:
 
         tbl = _table_with_caption(pf.Str("c"))
         # Tables carry their identifier on the first paragraph of their
-        # caption via a ``{#tab:foo}`` attr in markdown; here we drop one in.
+        # caption via a ``{#tbl:foo}`` attr in markdown; here we drop one in.
         tbl.caption.content[0].content = (
             *tbl.caption.content[0].content,
             pf.Space(),
-            pf.Str("{#tab:foo}"),
+            pf.Str("{#tbl:foo}"),
         )
         doc = pf.Doc(metadata={"journal": {"template": "ametsoc"}})
         extract_table_identifier(tbl, doc)
         stringify_captions(tbl, doc)
-        assert tbl.identifier == "tab:foo"
+        assert tbl.identifier == "tbl:foo"
 
 
 # ---- apply_figure_defaults ------------------------------------------------

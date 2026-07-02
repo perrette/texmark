@@ -48,8 +48,8 @@ class TestSafeFilenameFromUrl:
 
 class TestParseAttrString:
     def test_identifier(self):
-        ident, classes, attrs = parse_attr_string("#tab:gulf")
-        assert ident == "tab:gulf"
+        ident, classes, attrs = parse_attr_string("#tbl:gulf")
+        assert ident == "tbl:gulf"
         assert classes == []
         assert attrs == {}
 
@@ -63,8 +63,8 @@ class TestParseAttrString:
         assert attrs == {"width": "50%"}
 
     def test_combined(self):
-        ident, classes, attrs = parse_attr_string("#tab:1 .narrow width=80%")
-        assert ident == "tab:1"
+        ident, classes, attrs = parse_attr_string("#tbl:1 .narrow width=80%")
+        assert ident == "tbl:1"
         assert classes == ["narrow"]
         assert attrs == {"width": "80%"}
 

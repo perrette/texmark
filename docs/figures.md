@@ -1,62 +1,73 @@
-# Figure paths
+# Figures
 
-texmark interprets `![](path)` URLs by the same rules as GitHub's markdown
-renderer:
+An image written as `![caption](path)` becomes a LaTeX `figure` environment with
+the caption attached and a label assigned.
 
-- **No leading slash** — relative to the markdown file's directory
-  (the standard markdown spec).
-- **Leading slash** — relative to the project root. By default the
-  project root is detected via `git rev-parse --show-toplevel`, run from
-  the markdown's directory so submodules and worktrees resolve to their
-  own root rather than the outer repo's. For non-git projects, the
-  invocation directory (CWD) is used. You can override either by passing
-  `--project-root <path>` on the CLI (or `project_root: <path>` in the
-  yaml front-matter).
+## Labelling and referencing
 
-A figure URL that does not resolve to an existing file is left unchanged
-and logged as a warning naming the URL and the directory it was resolved
-against — check the build output if a figure comes out missing in the PDF.
+Give a figure a label with a `{#fig:…}` attribute on the image:
 
-Once resolved, each URL is rewritten in the generated `.tex` to be
-relative to the build directory. The figure files stay where they are on
-disk; nothing is copied.
+```markdown
+![Global SAT vs SST anomaly](images/sat-vs-sst.png){#fig:sat-vs-sst}
+```
 
-If you would rather have short paths in the `.tex` (e.g. `eof.png`
-instead of `../images/eof.png`), pass `--figure-folders <dir> [<dir> ...]`
-on the CLI (yaml: `figure_folders: [<dir>, ...]`). Each folder is
-interpreted relative to the current working directory and feeds LaTeX's
-`\graphicspath`. Figures that live under any of these folders get short
-URLs in the `.tex`; figures elsewhere keep the relative-to-build-dir form.
-Folder search order is respected (first match wins, matching pdflatex's
-own resolution).
+If you omit the attribute, texmark auto-labels the figure from the image
+filename stem — `images/eof.png` becomes `fig:eof`.
 
-For a self-contained build (e.g. to hand the `.tex` + figures to a
-journal portal), pass `--copy-figures` on the CLI (yaml:
-`copy_figures: true`). In that mode every referenced figure is copied
-flat into `<build>/figures/`:
+Reference it with `@fig:sat-vs-sst` or `[#](#fig:sat-vs-sst)` (texmark emits a
+bare `\ref`, so write the word "Figure" yourself). See
+[Cross-references](cross-reference.md) for the two forms and when to use each.
 
-- Files keep their basename when unique.
-- When two figures share a basename but have different contents, both are
-  renamed to `<stem>-<short-content-hash><ext>` for disambiguation.
-- Same file referenced from multiple paths collapses to a single bundled
-  copy.
-- A `.texmark-figures` manifest in `<build>/figures/` records which files
-  texmark wrote, so the next build can delete only files it owns; files
-  you put there by hand are preserved.
+## Width and spanning
 
-`--figure-folders` is ignored when `--copy-figures` is set (every figure
-ends up in `<build>/figures/` either way).
+| Keyword | Default | Effect |
+|---|---|---|
+| `figure-width` | `100%` | image width; percent is a fraction of `\linewidth` |
+| `figure-span` | `column` | `full` spans both columns (a `figure*` float) |
 
-Remote (`http(s)://`) figure URLs are always downloaded into
-`<build>/figures/<hash>/<basename>` by the `texmark-download-images`
-filter, regardless of these settings.
+Both can be set globally in the YAML front-matter or per-figure in the image
+attributes; the per-figure value wins:
 
-## Collect figures and tables at the end of the document
+```yaml
+figure-width: 80%
+figure-span: full
+```
 
-Just add
+```markdown
+![cap](img.png){width=60%}
+![cap](img.png){figure-span=full}
+```
+
+## Collecting figures at the end
+
+To float every figure and table to the end of the document (as some journals
+require), add to the front-matter:
 
 ```yaml
 collect_figures_and_tables: true
 ```
 
-to your markdown yaml metadata.
+## Figure paths
+
+texmark resolves `![](path)` URLs by GitHub's rules: **no leading slash** is
+relative to the markdown file's directory; a **leading slash** is relative to
+the project root (detected via `git rev-parse --show-toplevel`, or the CWD for
+non-git projects, or an explicit `--project-root <path>` / `project_root:` in the
+front-matter). A URL that resolves to no existing file is left unchanged and
+logged as a warning — check the build output if a figure comes out missing.
+
+Once resolved, each URL is rewritten in the `.tex` relative to the build
+directory; the files stay where they are on disk. Two flags change that:
+
+- `--figure-folders <dir> …` (yaml `figure_folders:`) feeds LaTeX's
+  `\graphicspath` so figures under those folders get short URLs in the `.tex`
+  (first match wins). Ignored when `--copy-figures` is set.
+- `--copy-figures` (yaml `copy_figures: true`) bundles every referenced figure
+  flat into `<build>/figures/` for a self-contained build. Basenames are kept
+  when unique, disambiguated with a content-hash suffix on collision, and
+  deduplicated when the same file is referenced twice. A `.texmark-figures`
+  manifest records what texmark wrote so the next build cleans only its own
+  files.
+
+Remote (`http(s)://`) URLs are always downloaded into
+`<build>/figures/<hash>/<basename>`, regardless of these flags.

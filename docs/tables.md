@@ -30,11 +30,11 @@ table, with no blank line in between**:
 | - | - |
 | Domain | Ocean |
 | Era | Anthropocene |
-:A caption for my table {#tab:gulf}
+:A caption for my table {#tbl:gulf}
 ```
 
-The `{#tab:gulf}` trailer sets the table's label. In the generated LaTeX this
-becomes `\caption{A caption for my table}` and `\label{tab:gulf}`.
+The `{#tbl:gulf}` trailer sets the table's label. In the generated LaTeX this
+becomes `\caption{A caption for my table}` and `\label{tbl:gulf}`.
 
 A blank line between the table and the `:` caption line detaches the caption:
 pandoc no longer treats it as the table's caption, and the label is lost.
@@ -44,15 +44,10 @@ are rendered rather than flattened to plain text.
 
 ## Referencing a table
 
-Both forms work and produce `\ref{tab:gulf}` in the PDF:
-
-```markdown
-Table \ref{tab:gulf}   ← explicit LaTeX
-@tab:gulf              ← markdown reference
-```
-
-Use whichever reads better in the source; `@tab:gulf` stays plain text in the
-Markdown preview and on GitHub, while `\ref{tab:gulf}` shows verbatim.
+Reference a labelled table with `@tbl:gulf` or `[#](#tbl:gulf)` (both produce
+`\ref{tbl:gulf}`, a bare number — write the word "Table" yourself). Note the
+prefix is `tbl:`, not `tab:`. See [Cross-references](cross-reference.md) for the
+two forms and when to use each.
 
 ## Other attributes in the trailer
 
@@ -60,8 +55,8 @@ The same trailer can carry classes and key=value attributes alongside (or
 instead of) the identifier, separated by spaces:
 
 ```markdown
-:A caption for my table {#tab:gulf .narrow width=50%}
+:A caption for my table {#tbl:gulf .narrow width=50%}
 ```
 
-`#tab:gulf` sets the label, `.narrow` adds a class, and `width=50%` sets an
+`#tbl:gulf` sets the label, `.narrow` adds a class, and `width=50%` sets an
 attribute.

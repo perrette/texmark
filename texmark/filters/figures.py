@@ -72,7 +72,7 @@ def extract_table_identifier(elem, doc):
         return
 
     # Pandoc splits an attribute trailer that contains internal whitespace
-    # (e.g. ``{#tab:1 width=50%}``) across multiple Str/Space inlines, so
+    # (e.g. ``{#tbl:1 width=50%}``) across multiple Str/Space inlines, so
     # we can't just look at the last Str. Walk backward from the end,
     # joining inline text until the accumulated suffix matches ATTR_RE
     # (a ``{...}`` group at end-of-string with no nested ``}``). The first

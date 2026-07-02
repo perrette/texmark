@@ -1,4 +1,4 @@
-# Numbered and cross-referenced equations
+# Numbered equations
 
 Display equations are written once. They render in the Markdown preview (VS Code
 and JetBrains use KaTeX, GitHub uses MathJax), and the PDF is numbered and
@@ -21,12 +21,10 @@ wraps the math in:
 A `$$…$$` with no class compiles to an unnumbered `\[ … \]`. A `{#eq:foo}` label
 with no class uses the `equation` environment.
 
-## Cross-references
+## Referencing a numbered equation
 
-A same-document link `[text](#label)` becomes a numeric reference — `\ref` or
-`\eqref` — **only when its text is empty or a single `#`**. The recommended form
-is `#`, because on GitHub it stays a clickable jump to the target, whereas an
-empty link renders as nothing:
+Label a block with `{#eq:foo}`, then reference it with `@eq:foo` or
+`[#](#eq:foo)`:
 
 ```markdown
 $$
@@ -37,31 +35,13 @@ $$
 
 {#eq:prior}
 
-The prior is given in [#](#eq:prior) — equivalently, @eq:prior.
+The prior is given in @eq:prior — equivalently, [#](#eq:prior).
 ```
 
-`[#](#eq:prior)`, `[](#eq:prior)` and `@eq:prior` all become `\eqref{eq:prior}`
-in the PDF, which LaTeX renders as a parenthesised, hyperlinked number — "(3)".
-(`\eqref` adds the parentheses; `\ref` does not.)
-
-The prefix selects the command: `eq:` resolves to `\eqref`; everything else —
-`fig:`, `tbl:`, `sec:` and a bare heading slug — resolves to `\ref`. Figure and
-table labels are emitted automatically (from the image / caption `{#fig:…}` /
-`{#tbl:…}` attribute). Headings are labelled automatically too, from their slug:
-`# My Heading` can be referenced as `[#](#my-heading)` with no `{#…}` attribute
-(an explicit `{#sec:…}` still works if you prefer a stable, prefixed label).
-There is no range syntax — write the two references (`\eqref{eq:a}–\eqref{eq:b}`).
-
-If the link text is anything other than empty or `#`, it is left untouched and
-kept verbatim — `[the prior](#eq:prior)` renders as `\hyperref[eq:prior]{the
-prior}`, a clickable link carrying those words rather than a number. Use that
-when you want words instead of a number; use `#` (or `@id`) when you want the
-number.
-
-The reference number is computed by LaTeX, so it appears only in the PDF. In the
-Markdown preview and on GitHub: `[#](#label)` shows a clickable `#`, `[](#label)`
-shows nothing, and `@id` or a raw `\ref{…}` shows as literal text. Raw
-`\ref`/`\eqref` are also fine in the source — they stay visible in the preview.
+The `eq:` prefix resolves to `\eqref`, a parenthesised, hyperlinked number —
+"(3)" — where every other prefix produces a bare `\ref`. See
+[Cross-references](cross-reference.md) for the two reference forms, the full
+prefix table, and text-carrying links.
 
 ## Multi-line math and the preview
 
@@ -155,4 +135,5 @@ the PDF is unaffected.
 
 ## See also
 
+- [Cross-references](cross-reference.md) — the two reference forms and the prefix table.
 - [Encoding](encoding.md) — Unicode/HTML handling in body and bib text.

@@ -68,11 +68,12 @@ nav:
       - Quickstart: quickstart.md
   - Guides:
       - Numbered equations: equations.md
+      - Figures: figures.md
+      - Tables: tables.md
+      - Cross-references: cross-reference.md
       - Multi-file projects: multi-file.md
       - Custom preamble: preamble.md
       - Encoding (Unicode & HTML): encoding.md
-      - Figure paths: figures.md
-      - Tables: tables.md
       - Build backends and engines: build-backends.md
       - Live preview: live-preview.md
       - Custom LaTeX templates: custom-templates.md
