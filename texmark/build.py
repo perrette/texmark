@@ -359,7 +359,16 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     if not bib_file:
         bib_file = metadata.get('bibliography', None)
     bib_args = ['--bibliography', bib_file] if bib_file else []
-    pandoc_args = bib_args + metadata.get('pandoc_args', []) + [
+    user_pandoc_args = metadata.get('pandoc_args', [])
+    division_args = []
+    if (journal_template in BOOK_FAMILY_TEMPLATES
+            and not any('--top-level-division' in a for a in user_pandoc_args)):
+        # Book-family classes (report/book/memoir/classicthesis) support
+        # \chapter, but pandoc can't detect that from a custom template, so
+        # without this it treats markdown top-level headings as \section
+        # (numbered under an implicit, unstarted chapter 0 -> "0.1", "0.1.1").
+        division_args = ["--top-level-division=chapter"]
+    pandoc_args = bib_args + user_pandoc_args + division_args + [
         "--natbib",
     ]
 
@@ -524,6 +533,12 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
         # copy (not move) so the destination inode is preserved across rebuilds —
         # PDF viewers like evince keep scroll position when content changes in place.
         shutil.copyfile(actual_pdf, output_pdf)
+        # actual_pdf is just the engine's jobname artifact; once copied to the
+        # requested --output path it would otherwise linger in build_dir as a
+        # confusing duplicate (e.g. --tex build/foo.tex -o build/bar.pdf leaving
+        # both build/foo.pdf and build/bar.pdf). latexmk/pdflatex regenerate it
+        # from scratch on every call, so removing it here is safe.
+        actual_pdf.unlink()
 
 
 MAX_PASSES = 4
@@ -815,7 +830,7 @@ def build_project(plan):
         build_tex(str(embed_path), str(embed_tex),
                   template=args.template, bib_file=args.bib,
                   build_dir=args.build,
-                  filters=args.filters, journal_template=args.journal_template,
+                  filters=args.filters, journal_template=plan.root_template,
                   filters_module=args.filters_module, packages=args.packages,
                   copy_figures=args.copy_figures,
                   figure_folders=args.figure_folders,

@@ -124,7 +124,7 @@
 % REFERENCES
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 {% if bibliography and not bibliography_per_chapter -%}
-\bibliographystyle{ {{ biblio_style if biblio_style else "plainnat" }} }
+\bibliographystyle{ {{- biblio_style if biblio_style else "plainnat" -}} }
 \bibliography{ {{bibliography}} }
 {% endif %}
 
