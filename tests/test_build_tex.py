@@ -236,3 +236,19 @@ def test_bad_template_does_not_truncate_existing_output(tmp_path):
                   template='templates/definitely-missing/template.tex',
                   build_dir=str(tmp_path / "build"))
     assert out.read_text() == "previous content"
+
+
+def test_tex_only_build_stages_bibliography(tmp_path, monkeypatch):
+    """Without --pdf the .bib must still be staged into the build directory,
+    so that an external latexmk run on the generated .tex sees current entries."""
+    import sys
+    from texmark import build as B
+    src = tmp_path / "src"; src.mkdir()
+    (src / "refs.bib").write_text("@article{key1,\n author = {A},\n title = {T},\n year = {2000}\n}\n")
+    (src / "doc.md").write_text("---\ntitle: T\njournal:\n  template: arxiv\nbibliography: refs.bib\n---\n\nText [@key1].\n")
+    build_dir = tmp_path / "build"
+    monkeypatch.setattr(sys, "argv", ["texmark", str(src / "doc.md"), "-d", str(build_dir)])
+    monkeypatch.chdir(src)
+    B.main()
+    assert (build_dir / "refs.bib").exists()
+    assert "key1" in (build_dir / "refs.bib").read_text()

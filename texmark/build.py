@@ -432,6 +432,24 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
 # compile_pdf: one .tex file -> one .pdf
 # ---------------------------------------------------------------------------
 
+def stage_bibliography(bib_file, build_dir, engine, rewrite_unicode=None):
+    """Copy the .bib next to the generated .tex, rewriting non-ASCII
+    codepoints and HTML tags for pdflatex (see compile_pdf). Called from
+    compile_pdf and, for tex-only builds, from build_project, so that the
+    staged bibliography never lags behind the source when the PDF is
+    compiled by hand or by an external latexmk call."""
+    if not bib_file:
+        return
+    src = Path(bib_file)
+    build_dir = Path(build_dir)
+    if src.exists() and src.parent.resolve() != build_dir.resolve():
+        if _resolve_rewrite_unicode(rewrite_unicode, engine):
+            from texmark.unicode_bib import stage_bib
+            stage_bib(src, build_dir)
+        else:
+            shutil.copy2(src, build_dir / src.name)
+
+
 def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
                 bib_file='references.bib', resource_path='', backend='latexmk',
                 biblatex=False, rewrite_unicode=None):
@@ -473,14 +491,7 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
     # handle UTF-8 natively, and biber (used with biblatex) reads UTF-8
     # cleanly. The flag accepts on/off to override the auto behaviour.
     # See docs/encoding.md for the full strategy.
-    if bib_file:
-        src = Path(bib_file)
-        if src.exists() and src.parent.resolve() != build_dir.resolve():
-            if _resolve_rewrite_unicode(rewrite_unicode, engine):
-                from texmark.unicode_bib import stage_bib
-                stage_bib(src, build_dir)
-            else:
-                shutil.copy2(src, build_dir / src.name)
+    stage_bibliography(bib_file, build_dir, engine, rewrite_unicode)
     tex_name = Path(input_tex).name
 
     if backend == 'latexmk':
@@ -909,6 +920,13 @@ def build_project(plan):
                 False,
             ))
         _compile_documents(plan, targets, engine, backend, rewrite_unicode)
+    else:
+        # tex-only build: stage the bibliographies anyway, so that a PDF
+        # compiled from the generated .tex by other means sees the current
+        # .bib (compile_pdf does this itself on the --pdf path).
+        for meta in [root_metadata] + [m for _cp, _t, _p, m in companion_builds]:
+            stage_bibliography(str(meta.get('bibliography') or ''), plan.build_dir,
+                               engine, rewrite_unicode)
 
     return root_metadata
 
