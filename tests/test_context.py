@@ -53,3 +53,18 @@ def test_round_trip_through_pandoc_json():
     doc = pf.load(io.StringIO(ast_json))
     ctx_out = BuildContext.from_doc(doc)
     assert ctx_out == ctx_in
+
+
+def test_from_doc_is_memoised_per_metadata_entry():
+    """Repeated reads of one doc return the same object; replacing the
+    texmark metadata entry yields a fresh context."""
+    make = lambda b: BuildContext(build_dir=b, project_root='/tmp/root', filters_module='m').to_metadata()
+    doc = pf.Doc(metadata={METADATA_KEY: make('b1')})
+    first = BuildContext.from_doc(doc)
+    assert BuildContext.from_doc(doc) is first
+    assert first.build_dir == 'b1'
+    doc.metadata[METADATA_KEY] = make('b2')
+    second = BuildContext.from_doc(doc)
+    assert second is not first
+    assert second.build_dir == 'b2'
+

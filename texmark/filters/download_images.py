@@ -31,10 +31,11 @@ def download_image(url, output_path):
         return False
 
 def action(elem, doc):
-    BUILD_DIR = BuildContext.from_doc(doc).build_dir
-    IMAGE_DIR = os.path.join(BUILD_DIR, 'figures')
-
     if isinstance(elem, pf.Image) and is_remote_url(elem.url):
+        # Resolve the build context only for the rare remote image, not for
+        # every element of the document.
+        BUILD_DIR = BuildContext.from_doc(doc).build_dir
+        IMAGE_DIR = os.path.join(BUILD_DIR, 'figures')
         filename = safe_filename_from_url(elem.url)
         local_path = os.path.join(IMAGE_DIR, filename)
 

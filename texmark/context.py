@@ -62,6 +62,16 @@ class BuildContext:
         Missing keys take the dataclass defaults, which keeps standalone
         ``pandoc --filter`` invocations (no build_tex upstream) working.
         """
+        # Memoised per document: filters such as texmark-download-images used
+        # to call this for every element, and get_metadata() stringifies the
+        # whole metadata tree each time (two thirds of the conversion time of
+        # a 50-page chapter). The cache is keyed on the identity of the raw
+        # metadata entry, so replacing ``doc.metadata['texmark']`` yields a
+        # fresh context, while repeated reads within one filter run are free.
+        raw_entry = doc.metadata.content.get(METADATA_KEY) if doc.metadata is not None else None
+        cached = getattr(doc, '_texmark_context_cache', None)
+        if cached is not None and cached[0] is raw_entry:
+            return cached[1]
         raw = doc.get_metadata(METADATA_KEY, {}) or {}
 
         def _as_list(value):
@@ -77,7 +87,7 @@ class BuildContext:
             except (TypeError, ValueError):
                 return default
 
-        return cls(
+        ctx = cls(
             build_dir=str(raw.get('build_dir', 'build')),
             source_dir=str(raw.get('source_dir', '.')),
             cwd=str(raw.get('cwd', '.')),
@@ -91,3 +101,8 @@ class BuildContext:
             embed_depth=_as_int(raw.get('embed_depth', 0)),
             filters_module=str(raw['filters_module']) if raw.get('filters_module') else None,
         )
+        try:
+            doc._texmark_context_cache = (raw_entry, ctx)
+        except AttributeError:
+            pass
+        return ctx
