@@ -31,10 +31,8 @@ A new paragraph starts only where you put a blank line *after* the trailer's
 prose. (An equation with no prose before it -- e.g. the first thing under a
 heading -- has nothing to merge into and stays its own paragraph.)
 
-Same-document cross-references -- written ``@eq:foo`` or ``[](#eq:foo)`` -- are
-rewritten to ``\\eqref{eq:foo}``. The same syntax works for figures (``fig:``),
-tables (``tbl:``) and sections (``sec:``), which resolve to a bare ``\\ref`` (a
-number like "Figure 3", not the parenthesised "(3)" used for equations).
+References to a labelled equation (``@eq:foo``, ``[#](#eq:foo)``) are written by
+``texmark-crossref-labels``.
 
 The body is wrapped verbatim, with one deliberate exception: the **alignment
 family** (``align``/``flalign``/``alignat``) processes ``&``/``\\\\`` itself, so an
@@ -72,11 +70,6 @@ KNOWN_ENVS = {
 # Alignment-family environments that handle ``&`` themselves, so a redundant
 # inner ``aligned`` is unwrapped.
 UNWRAP_ENVS = {"align", "flalign", "alignat"}
-
-# Same-document cross-reference prefixes -> the LaTeX command they resolve to.
-# Equations take ``\eqref`` (parenthesised, "(3)"); everything else takes a bare
-# ``\ref`` ("Figure 3", "Table 2", "Section 4").
-_REF_COMMANDS = {"eq": "eqref", "fig": "ref", "tbl": "ref", "sec": "ref"}
 
 # Block containers whose child block-lists may hold an equation paragraph
 # followed by a trailer paragraph that needs merging.
@@ -190,16 +183,6 @@ def _rewrite_inlines(content):
     return out, changed
 
 
-def _ref_command(identifier):
-    """LaTeX ref command for a labelled-object identifier (``eq:…`` -> ``eqref``;
-    ``fig:``/``tbl:``/``sec:`` -> ``ref``), or ``None`` when the prefix isn't a
-    cross-reference prefix (e.g. a real citation key like ``smith2020``)."""
-    prefix, sep, _rest = identifier.partition(":")
-    if not sep:
-        return None
-    return _REF_COMMANDS.get(prefix)
-
-
 def _ends_with_display_math(blk):
     return (
         isinstance(blk, pf.Para)
@@ -292,8 +275,7 @@ def _merge_leading_equation_blocks(blocks):
 
 
 class EquationsFilter:
-    """Promote display math to numbered/labelled LaTeX environments and rewrite
-    same-document equation references."""
+    """Promote display math to numbered/labelled LaTeX environments."""
 
     def prepare(self, doc):
         # Block pass first: fold blank-line-separated trailers (and the prose
@@ -311,28 +293,6 @@ class EquationsFilter:
             element.content = _merge_leading_equation_blocks(blocks)
 
     def action(self, elem, doc):
-        # Same-document cross-references -- ``@prefix:id`` (a Cite) or
-        # ``[](#prefix:id)`` (a Link) -- become \eqref/\ref. Cross-DOCUMENT
-        # references (``[](other.md#id)``) are handled by the crossref filter.
-        if isinstance(elem, pf.Cite):
-            ids = [c.id for c in elem.citations]
-            if len(ids) == 1:
-                cmd = _ref_command(ids[0])
-                if cmd:
-                    return pf.RawInline(f"\\{cmd}{{{ids[0]}}}", format="latex")
-            return None
-        if isinstance(elem, pf.Link):
-            url = elem.url or ""
-            if url.startswith("#"):
-                # A same-document link becomes a numeric reference only when its
-                # text is empty or a lone ``#`` (the marker that stays clickable
-                # on GitHub); otherwise the link is left for pandoc to render as
-                # ``\hyperref[label]{text}`` with its text kept verbatim.
-                if pf.stringify(elem).strip() in ("", "#"):
-                    label = url[1:]
-                    cmd = _ref_command(label) or "ref"
-                    return pf.RawInline(f"\\{cmd}{{{label}}}", format="latex")
-            return None
         if isinstance(elem, (pf.Para, pf.Plain)):
             new, changed = _rewrite_inlines(list(elem.content))
             if changed:
