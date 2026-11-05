@@ -66,7 +66,7 @@
 {% if bibliography -%}
 \begin{frame}[allowframebreaks]
   \frametitle{References}
-  \bibliographystyle{ {{ biblio_style if biblio_style else "plainnat" }} }
+  \bibliographystyle{ {{- biblio_style if biblio_style else "plainnat" -}} }
   \bibliography{ {{bibliography}} }
 \end{frame}
 {% endif %}

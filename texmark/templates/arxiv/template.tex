@@ -111,7 +111,7 @@
 % REFERENCES
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 {% if bibliography -%}
-\bibliographystyle{ {{ biblio_style if biblio_style else "plainnat" }} }
+\bibliographystyle{ {{- biblio_style if biblio_style else "plainnat" -}} }
 \bibliography{ {{bibliography}} }
 {% endif %}
 

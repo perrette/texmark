@@ -126,7 +126,7 @@
 % REFERENCES
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 {% if bibliography -%}
-\bibliographystyle{ {{ biblio_style if biblio_style else "elsarticle-num" }} }
+\bibliographystyle{ {{- biblio_style if biblio_style else "elsarticle-num" -}} }
 \bibliography{ {{bibliography}} }
 {% endif %}
 
