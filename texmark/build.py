@@ -30,7 +30,7 @@ from texmark.filters import embed as _filters_embed
 from texmark.filters import crossref as _filters_crossref
 from texmark.filters.figures import expand_figstar_sentinels
 from texmark import journals as _journals
-from texmark.project import Project, resolve_project, _scan_ast_for_embeds
+from texmark.project import Project, resolve_project, load_markdown, _scan_ast_for_embeds
 
 
 # In-process filters (texmark-journal in particular) call panflute's
@@ -155,7 +155,7 @@ def _resolve_journal_template(metadata, journal_template):
     """Effective journal template (CLI > yaml > 'default'), written back to
     ``metadata['journal']['template']`` where the filters read it."""
     if not journal_template:
-        journal_template = metadata.get('journal', {}).get('template', 'default')
+        journal_template = metadata['journal'].get('template', 'default')
         if not journal_template:
             journal_template = "default"
     metadata.setdefault('journal', {})['template'] = journal_template
@@ -286,7 +286,7 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
               includeonly='', extra_includes=None, engine=None,
               rewrite_unicode=None):
     # 1. Parse markdown and resolve effective metadata.
-    post = frontmatter.loads(open(input_md).read())
+    post = load_markdown(open(input_md).read())
     metadata = post.metadata
 
     journal_template = _resolve_journal_template(metadata, journal_template)
@@ -746,9 +746,9 @@ def plan_project(args) -> ProjectPlan:
 
     # The root's effective journal template decides whether --only applies:
     # \includeonly requires \include, which only book-family templates emit.
-    root_yaml_meta = frontmatter.loads(open(primary_input).read()).metadata
+    root_yaml_meta = load_markdown(open(primary_input).read()).metadata
     root_template = (args.journal_template
-                     or (root_yaml_meta.get('journal', {}) or {}).get('template')
+                     or root_yaml_meta['journal'].get('template')
                      or 'default')
 
     includeonly = ''
@@ -790,7 +790,7 @@ def _resolve_build_options(plan):
     engine, so companions — which use the engine from their own YAML —
     get the right auto behaviour without the root's engine leaking in.
     """
-    yaml_meta = frontmatter.loads(open(plan.primary_input).read()).metadata
+    yaml_meta = load_markdown(open(plan.primary_input).read()).metadata
     engine = str(plan.args.engine or yaml_meta.get('engine') or 'pdflatex')
     backend = str(plan.args.backend or yaml_meta.get('backend') or 'latexmk')
     rewrite_unicode = plan.args.rewrite_unicode or yaml_meta.get('rewrite_unicode')
@@ -944,7 +944,7 @@ def _collect_watch_paths(plan, metadata):
     watch_paths.extend(plan.project.companion_files)
 
     for comp_path in plan.project.companion_files:
-        comp_meta = frontmatter.loads(comp_path.read_text()).metadata
+        comp_meta = load_markdown(comp_path.read_text()).metadata
         comp_bib = comp_meta.get('bibliography')
         if comp_bib:
             watch_paths.append(Path(comp_path).parent / comp_bib)

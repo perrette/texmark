@@ -30,6 +30,28 @@ class Project:
         )
 
 
+def normalize_metadata(metadata: dict) -> dict:
+    """Canonical form of the YAML front matter, applied once where it is loaded.
+
+    ``journal: copernicus`` (a bare string) is shorthand for
+    ``journal: {template: copernicus}``; an empty ``journal:`` means no
+    options. Everything downstream can then rely on ``journal`` being a mapping.
+    """
+    journal = metadata.get("journal")
+    if isinstance(journal, str):
+        metadata["journal"] = {"template": journal}
+    elif journal is None:
+        metadata["journal"] = {}
+    return metadata
+
+
+def load_markdown(text: str) -> frontmatter.Post:
+    """Parse a markdown document, normalising its front matter."""
+    post = frontmatter.loads(text)
+    normalize_metadata(post.metadata)
+    return post
+
+
 def _detect_git_root(directory: Path) -> Path | None:
     """Return the git repo root containing directory, or None if not in a git repo."""
     try:
@@ -50,7 +72,7 @@ def _detect_git_root(directory: Path) -> Path | None:
 def _scan_ast_for_embeds(markdown_path: Path) -> list[Path]:
     """Parse a markdown file's body via pandoc AST and return Image URLs ending in .md."""
     text = markdown_path.read_text()
-    post = frontmatter.loads(text)
+    post = load_markdown(text)
 
     ast_json = pypandoc.convert_text(
         frontmatter.dumps(post),
@@ -116,7 +138,7 @@ def resolve_project(inputs: list[Path], project_root: Path | None = None) -> Pro
 
     # Load root metadata
     root_text = root.read_text()
-    root_post = frontmatter.loads(root_text)
+    root_post = load_markdown(root_text)
     metadata = dict(root_post.metadata)
 
     # Resolve companion files (root YAML only)
