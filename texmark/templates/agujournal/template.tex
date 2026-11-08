@@ -59,19 +59,26 @@
 {% set _kp = ([keypoints] if keypoints is string else keypoints) -%}
 \begin{keypoints}
 {% for kp in _kp -%}
+{% if '\\item' in kp | string -%}
+{#- a `# Key Points` markdown list arrives as a rendered itemize: keep its \items, drop the wrapper -#}
+{{ kp | replace('\\begin{itemize}', '') | replace('\\tightlist', '') | replace('\\end{itemize}', '') | trim }}
+{% else -%}
 \item {{ kp }}
+{% endif -%}
 {% endfor -%}
 \end{keypoints}
 {% endif %}
 
 \begin{abstract}
 {{ abstract | join_if_list(' ') | replace('\n\n', ' ') | replace('\n', ' ') }}
-{% if plainlanguagesummary -%}
-\begin{plainlanguagesummary}
-{{ plainlanguagesummary | join_if_list(' ') | replace('\n\n', ' ') | replace('\n', ' ') }}
-\end{plainlanguagesummary}
-{% endif -%}
 \end{abstract}
+
+{% if plainlanguagesummary -%}
+%% agujournal2019.cls has no plain-language-summary environment;
+%% AGU manuscripts set it as an unnumbered section after the abstract.
+\section*{Plain Language Summary}
+{{ plainlanguagesummary | join_if_list(' ') | replace('\n\n', ' ') | replace('\n', ' ') }}
+{% endif %}
 
 {{body}}
 
