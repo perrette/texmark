@@ -33,7 +33,8 @@
 {% if bibliography_per_chapter -%}
 \usepackage[backend=biber,style=authoryear]{biblatex}
 {% if bibliography -%}
-\addbibresource{ {{ bibliography }} }
+{% for _bib in bibliography.split(",") %}\addbibresource{ {{- _bib -}} }
+{% endfor %}
 {% endif -%}
 {% else -%}
 \usepackage{natbib}

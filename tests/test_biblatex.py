@@ -68,7 +68,7 @@ def test_per_chapter_emits_biblatex_and_refsections(tmp_path, monkeypatch):
     tex = (build_dir / "root.tex").read_text()
     # biblatex preamble replaces natbib
     assert "\\usepackage[backend=biber,style=authoryear]{biblatex}" in tex
-    assert "\\addbibresource{ refs.bib }" in tex
+    assert "\\addbibresource{refs.bib}" in tex
     assert "\\usepackage{natbib}" not in tex
     # no global natbib bibliography when per-chapter
     assert "\\bibliographystyle" not in tex
@@ -173,3 +173,18 @@ def test_compile_pdf_raw_uses_bibtex_without_biblatex(tmp_path, monkeypatch):
     flat = [tok for cmd in calls for tok in cmd]
     assert "bibtex" in flat
     assert "biber" not in flat
+
+
+@pytest.mark.parametrize("template", ["book", "report", "memoir", "classicthesis"])
+def test_per_chapter_bibliography_list_one_addbibresource_each(tmp_path, monkeypatch, template):
+    """biblatex takes one file per \\addbibresource, so a list of .bib files
+    gives one call per file."""
+    (tmp_path / "a.bib").write_text("@article{a, title={A}, author={X}, year={2020}}\n")
+    (tmp_path / "b.bib").write_text("@article{b, title={B}, author={Y}, year={2021}}\n")
+    monkeypatch.chdir(tmp_path)
+    tex = _build_single(
+        tmp_path,
+        "---\ntitle: T\nbibliography: [a.bib, b.bib]\nbibliography_per_chapter: true\n"
+        f"journal:\n  template: {template}\n---\n\n# One\n\nText.\n",
+    )
+    assert "\\addbibresource{a.bib}\n\\addbibresource{b.bib}" in tex
