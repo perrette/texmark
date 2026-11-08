@@ -34,6 +34,7 @@ The prefix on the label selects the LaTeX command:
 | `fig:` | `\ref` | a bare number — "3" |
 | `tbl:` | `\ref` | a bare number — "3" |
 | `sec:` | `\ref` | a bare number — "3" |
+| `lst:` | `\ref` | a bare number — "3" |
 
 `\eqref` supplies its own parentheses; `\ref` does not add any word. Write the
 noun yourself: `Figure @fig:eof` → "Figure 3", `Table [#](#tbl:gulf)` → "Table 2".
@@ -41,12 +42,30 @@ The number is computed by LaTeX's two-pass `.aux` resolution, so it appears only
 in the PDF, never in the preview. There is no range syntax — write both ends:
 `\eqref{eq:a}–\eqref{eq:b}`.
 
+## Several references in one bracket
+
+When every key in a bracket has one of these prefixes, the references are
+joined with commas and "and":
+
+| Source | LaTeX |
+|---|---|
+| `[@fig:a; @fig:b]` | `\ref{fig:a} and~\ref{fig:b}` |
+| `[@fig:a; @fig:b; @fig:c]` | `\ref{fig:a}, \ref{fig:b} and~\ref{fig:c}` |
+| `[@eq:a; @eq:b]` | `\eqref{eq:a} and~\eqref{eq:b}` |
+| `[@fig:a; @tbl:t]` | `\ref{fig:a} and~\ref{tbl:t}` |
+
+Text written in the bracket before the first key or after the last one is kept:
+`[see @fig:a; @fig:b, left]` → `see \ref{fig:a} and~\ref{fig:b}, left`. As for a
+single reference, write the noun yourself: `Figures [@fig:a; @fig:b]` →
+"Figures 1 and 2". A bracket that also holds a real citation key
+(`[@fig:a; @smith2020]`) is left as a citation.
+
 ## The two forms are not symmetric
 
 - `[#](#id)` works for **any** label. Unknown prefixes fall back to `\ref`, so a
   heading slug like `[#](#my-heading)` resolves even though it has no `…:` prefix.
-- `@id` works **only** for the four prefixes above (`eq:`, `fig:`, `tbl:`,
-  `sec:`). An `@` with any other prefix is treated as a bibliography citation,
+- `@id` works **only** for the five prefixes above (`eq:`, `fig:`, `tbl:`,
+  `sec:`, `lst:`). An `@` with any other prefix is treated as a bibliography citation,
   not a reference — e.g. `@my-heading` becomes a citation, and `@tab:gulf` (note
   `tab`, not `tbl`) does too. When in doubt, `[#](#id)` is the safe form.
 
