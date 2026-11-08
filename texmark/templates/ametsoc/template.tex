@@ -43,10 +43,12 @@
 {%- set idx = aff|int(0) -%}
 {%- if idx > 0 -%}{{ letters[idx - 1] }}{%- else -%}{{ aff }}{%- endif -%}
 {%- endmacro -%}
+{# Corresponding author(s): authors with `corresponding: true`, else the first author. -#}
+{% set corr = (authors or []) | selectattr('corresponding') | list or (authors or [])[:1] -%}
 \authors{
 {%- for author in authors %}
 {{author.firstname}}~{{author.lastname}}
-{%- if loop.first and author.email %}\correspondingauthor{ {{author.firstname}}~{{author.lastname}}, {{author.email}} }
+{%- if author in corr and author.email %}\correspondingauthor{ {{author.firstname}}~{{author.lastname}}, {{author.email}} }
 {%- endif -%}
 {%- if author.thanks %}\thanks{ {{author.thanks}} }{% endif -%}
 \aff{ {{ affkey(author.affiliation) }} }

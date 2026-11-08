@@ -61,9 +61,12 @@
 %% Authors. sn-jnl uses \fnm{} / \sur{} for given / family names; the
 %% starred form \author* marks the corresponding author. Affiliation
 %% indices appear in brackets, comma-separated for multi-affiliation.
+{# Corresponding author(s): authors with `corresponding: true`, else the first author. -#}
+{% set corr = (authors or []) | selectattr('corresponding') | list or (authors or [])[:1] -%}
 {% for author in authors -%}
-\author{% if loop.first %}*{% endif %}[{{ author.affiliation }}]{\fnm{ {{author.firstname}} } \sur{ {{author.lastname}} }}{% if author.email %}\email{ {{author.email}} }{% endif %}
-
+\author{% if author in corr %}*{% endif %}[{{ author.affiliation }}]{\fnm{ {{author.firstname}} } \sur{ {{author.lastname}} }}{% if author.email %}\email{ {{author.email}} }{% endif %}
+{% if author.equalcontrib %}\equalcont{These authors contributed equally to this work.}
+{% endif %}
 {% endfor %}
 
 {% for affil in affiliations -%}

@@ -41,7 +41,9 @@ the official `.sty` from the PNAS LaTeX package into
 - `# Significance` / `# Significance Statement` — 50–120 words, broad
   audience; rendered into `\significancestatement{}` (auto-floated into a
   blue box on page 1)
-- `# Equal Authors` — note about equal contribution
+- `# Equal Authors` — note about equal contribution, rendered into
+  `\equalauthors{}`. Takes priority over the per-author `equalcontrib: true`
+  key (see [Author roles](../yaml-reference.md#author-roles)).
 - `# Author Contributions` — rendered into `\authorcontributions{}`
 - `# Competing Interests` / `# Declaration` / `# Author Declaration`
 - `# Data Availability` — rendered into `\dataavailability{}`

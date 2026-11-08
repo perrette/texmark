@@ -63,8 +63,15 @@
 {%- set idx = aff|int(0) -%}
 {%- if idx > 0 -%}{{ letters[idx - 1] }}{%- else -%}{{ aff }}{%- endif -%}
 {%- endmacro -%}
+{# Corresponding author(s): authors with `corresponding: true`, else the first author.
+   Per-author `equalcontrib: true` is used only when no top-level `equalauthors`
+   text is given; it then takes footnote marker 1 and the corresponding marker
+   becomes 2, in the order PNAS prints the two notes. -#}
+{% set corr = (authors or []) | selectattr('corresponding') | list or (authors or [])[:1] -%}
+{% set equal = [] if equalauthors else (authors or []) | selectattr('equalcontrib') | list -%}
+{% set corrmark = 2 if equal else 1 -%}
 {% for author in authors -%}
-\author[{{ affkey(author.affiliation) }}{% if loop.first %},1{% endif %}]{ {{author.firstname}}~{{author.lastname}} }
+\author[{{ affkey(author.affiliation) }}{% if author in equal %},1{% endif %}{% if author in corr %},{{ corrmark }}{% endif %}]{ {{author.firstname}}~{{author.lastname}} }
 {% endfor %}
 
 {% for affil in affiliations -%}
@@ -84,10 +91,13 @@
 
 {% if equalauthors -%}
 \equalauthors{ {{ equalauthors | join_if_list }} }
+{% elif equal -%}
+\equalauthors{\textsuperscript{1}These authors contributed equally to this work.}
 {% endif %}
 
-{% if authors and authors[0].email -%}
-\correspondingauthor{\textsuperscript{1}To whom correspondence should be addressed. E-mail: {{ authors[0].email }} }
+{% set corr_emails = corr | map(attribute='email') | select | list -%}
+{% if corr_emails -%}
+\correspondingauthor{\textsuperscript{ {{- corrmark -}} }To whom correspondence should be addressed. E-mail: {{ corr_emails | join(', ') }} }
 {% endif %}
 
 {% if keywords -%}

@@ -82,9 +82,12 @@
 
 % Author and institution list.
 % % Institution numbers etc. should be hard-coded, do *not* use the \footnote command.
+{# Corresponding author(s): authors with `corresponding: true`, else the first author. -#}
+{% set corr = (authors or []) | selectattr('corresponding') | list or (authors or [])[:1] -%}
+{% set equal = (authors or []) | selectattr('equalcontrib') | list -%}
 \author{
 	{% for author in authors -%}
-		{{author.firstname}}~{{author.lastname}}$^{ {{author.affiliation}}\ast }${% if loop.last -%}\and{%else%},{% endif %}
+		{{author.firstname}}~{{author.lastname}}$^{ {{author.affiliation}}{% if author in corr %}\ast{% endif %}{% if author in equal %}\dagger{% endif %} }${% if loop.last -%}\and{%else%},{% endif %}
 	{% endfor -%}
 	% You can write out first names or use initials - either way is acceptable, but be consistent
 	% First~Author$^{1\ast\dagger}$,
@@ -99,9 +102,11 @@
 	% \small$^{2}$Another Department, Different Institution, City \& Postal Code, Country.\and
 	% Identify at least one corresponding author, with contact emailll$^\ast$Corresponding author. Email: example@mail.com\and
 	% Joint contributions can be indicated like this
-	\small$^\ast$Corresponding author. Email: {{ authors[0].email }}
+	\small$^\ast${% if corr|length > 1 %}Corresponding authors{% else %}Corresponding author{% endif %}. Email: {{ corr | map(attribute='email') | select | join(', ') }}{% if equal %}\and
+	\small$^\dagger$These authors contributed equally to this work.
+{% else %}
 	% \small$^\dagger$These authors contributed equally to this work.
-}
+{% endif %}}
 % \author{
 % 	% You can write out first names or use initials - either way is acceptable, but be consistent
 % 	First~Author$^{1\ast\dagger}$,

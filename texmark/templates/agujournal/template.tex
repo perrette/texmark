@@ -50,8 +50,10 @@
 \affiliation{ {{ loop.index }} }{ {{ affil }} }
 {% endfor %}
 
-{% if authors and authors[0].email -%}
-\correspondingauthor{ {{ authors[0].firstname }}~{{ authors[0].lastname }} }{ {{ authors[0].email }} }
+{# AGU takes a single corresponding author: the first with `corresponding: true`, else the first author. -#}
+{% set corr = ((authors or []) | selectattr('corresponding') | list or (authors or [])[:1])[:1] -%}
+{% if corr and corr[0].email -%}
+\correspondingauthor{ {{ corr[0].firstname }}~{{ corr[0].lastname }} }{ {{ corr[0].email }} }
 {% endif %}
 
 %% Three key points, each <= 140 characters, no special punctuation.

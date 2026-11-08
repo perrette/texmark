@@ -49,8 +49,10 @@
 
 %% Authors and affiliations via authblk: numbered affiliations match the
 %% integer indices in the yaml metadata.
+{# Corresponding author(s): authors with `corresponding: true`, else the first author. -#}
+{% set corr = (authors or []) | selectattr('corresponding') | list or (authors or [])[:1] -%}
 {% for author in authors -%}
-\author[{{ author.affiliation }}]{ {{author.firstname}}~{{author.lastname}}{% if loop.first and author.email %}\thanks{Corresponding author: \href{mailto:{{author.email}}}{ {{author.email}} }}{% endif %} }
+\author[{{ author.affiliation }}]{ {{author.firstname}}~{{author.lastname}}{% if author in corr and author.email %}\thanks{Corresponding author: \href{mailto:{{author.email}}}{ {{author.email}} }}{% endif %} }
 {% endfor -%}
 {% for affil in affiliations -%}
 \affil[{{ loop.index }}]{ {{ affil }} }

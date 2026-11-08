@@ -109,14 +109,22 @@
 
 % \Author[affil]{given_name}{surname}
 
+{# Corresponding author(s): authors with `corresponding: true`, else the first author. -#}
+{% set corr = (authors or []) | selectattr('corresponding') | list or (authors or [])[:1] -%}
 {%for author in authors -%}
-\Author[{{author.affiliation}}]{%-if loop.first%}[{{author.email}}]{%endif%}{ {{author.firstname}} }{ {{author.lastname}} }
+\Author[{{author.affiliation}}]{%-if author in corr%}[{{author.email}}]{%endif%}{ {{author.firstname}} }{ {{author.lastname}} }
 {% endfor %}
 
 
 {%for affil in affiliations -%}
 \affil[{{ loop.index }}]{ {{ affil }} }
 {% endfor %}
+{%- set econtrib = [] -%}
+{%- for author in authors or [] -%}{%- if author.equalcontrib -%}{%- set _ = econtrib.append(loop.index) -%}{%- endif -%}{%- endfor -%}
+{%- if econtrib %}
+%% Equal contribution (rendered only in Copernicus production builds)
+\equalcontrib{ {{- econtrib | join(',') -}} }
+{% endif %}
 
 {% if running and running.title -%}
 \runningtitle{ {{running.title}} }
