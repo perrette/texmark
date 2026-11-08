@@ -132,8 +132,7 @@ def test_frontmatter_noop_for_article_class(tmp_path, monkeypatch):
     )
     build_dir = tmp_path / "build"
     monkeypatch.chdir(tmp_path)
-    # Use arxiv (article-class) rather than default to avoid a pre-existing
-    # Jinja2 syntax issue in the default template's \graphicspath line.
+    # any article-class template
     argv = ["texmark", str(md), "-j", "arxiv", "-d", str(build_dir)]
     monkeypatch.setattr(sys, "argv", argv)
     main()

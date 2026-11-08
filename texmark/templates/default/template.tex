@@ -1,5 +1,5 @@
 % template.tex - Pandoc-based LaTeX template for scientific papers
-\documentclass[$if(documentclassoptions)$$documentclassoptions$$else$11pt,a4paper,cite$endif$]{article}
+\documentclass[{{ documentclassoptions | join_if_list(',') if documentclassoptions else "11pt,a4paper" }}]{article}
 
 % Package imports
 \usepackage[utf8]{inputenc}
@@ -11,19 +11,21 @@
 \usepackage{caption}
 \usepackage{subcaption}
 \usepackage{booktabs}
+\usepackage{natbib}
 \usepackage{hyperref}
 \usepackage{geometry}
 {%for package in packages%}
 {% if 'usepackage' in package %}
 {{package}}
 {% else %}
-\usepackage{{package}}
+\usepackage{ {{package}} }
 {% endif %}
 {%endfor%}
 \geometry{margin=1in}
 
-\graphicspath{{../images/}}
+{% raw %}\graphicspath{{../images/}}{% endraw %}
 
+{% raw %}
 \newenvironment{CSLReferences}[2] % #1 hanging-ident, #2 entry spacing
  {% don't indent paragraphs
   \setlength{\parindent}{0pt}
@@ -32,16 +34,14 @@
   % set entry spacing
   \setlength{\parskip}{#2\baselineskip}}
 {}
-
-% Set up bibliography style
-$if(bibliography)$
-\bibliographystyle{$if(biblio-style)$$biblio-style$$else$plain$endif$}
-$endif$
+{% endraw %}
 
 % Title block
-\title{$for(title)$$title$$sep$ \and $endfor$}
-\author{$for(author)$$author$$sep$ \and $endfor$}
-\date{$date$}
+\title{ {{ title }} }
+\author{ {%- for author in authors | default([]) -%}
+{{ (author.firstname ~ " " ~ author.lastname) if author is mapping else author }}{% if not loop.last %} \and {% endif %}
+{%- endfor -%} }
+\date{ {{ date if date else "" }} }
 
 {{ xr_preamble | default("") }}
 {{ user_preamble | default("") }}
@@ -49,16 +49,17 @@ $endif$
 \begin{document}
 \maketitle
 
-$if(abstract)$
+{% if abstract -%}
 \begin{abstract}
-$abstract$
+{{ abstract | join_if_list }}
 \end{abstract}
-$endif$
+{% endif %}
 
-$body$
+{{ body }}
 
-$if(bibliography)$
-\bibliography{$for(bibliography)$$bibliography$$sep$,$endfor$}
-$endif$
+{% if bibliography -%}
+\bibliographystyle{ {{- biblio_style if biblio_style else "plainnat" -}} }
+\bibliography{ {{- bibliography | join_if_list(",") -}} }
+{% endif %}
 
 \end{document}
