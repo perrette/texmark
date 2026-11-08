@@ -4,7 +4,7 @@
 %% \backmatter structure, and emits \include{stem} for top-level embeds
 %% (texmark-embed filter handles the class-aware emission).
 
-\documentclass[$if(documentclassoptions)$$documentclassoptions$$else$11pt,a4paper,openright$endif$]{book}
+\documentclass[{{ documentclassoptions | join_if_list(',') if documentclassoptions else "11pt,a4paper,openright" }}]{book}
 
 %% Fonts and microtypography
 \usepackage[T1]{fontenc}

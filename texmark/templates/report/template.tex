@@ -4,7 +4,7 @@
 %% has no sectioning macros for preliminary/main/back matter; those are omitted.
 %% Top-level embeds emit \include{stem} (texmark-embed class-aware emission).
 
-\documentclass[$if(documentclassoptions)$$documentclassoptions$$else$11pt,a4paper$endif$]{report}
+\documentclass[{{ documentclassoptions | join_if_list(',') if documentclassoptions else "11pt,a4paper" }}]{report}
 
 %% Fonts and microtypography
 \usepackage[T1]{fontenc}

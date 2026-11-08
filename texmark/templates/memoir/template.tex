@@ -10,7 +10,7 @@
 %% memoir manages page geometry itself, so the `geometry` package is
 %% deliberately omitted to avoid the documented incompatibility.
 
-\documentclass[$if(documentclassoptions)$$documentclassoptions$$else$11pt,a4paper,openright$endif$]{memoir}
+\documentclass[{{ documentclassoptions | join_if_list(',') if documentclassoptions else "11pt,a4paper,openright" }}]{memoir}
 
 %% Fonts and microtypography
 \usepackage[T1]{fontenc}
