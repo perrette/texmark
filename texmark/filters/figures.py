@@ -11,6 +11,7 @@ from pathlib import Path
 import panflute as pf
 
 from texmark.logs import logger
+from texmark.shared import journal_template
 
 
 def tag_figures(elem, doc):
@@ -176,7 +177,7 @@ def stringify_captions(elem, doc):
     if not isinstance(elem, (pf.Figure, pf.Table)) or not elem.caption:
         return
 
-    template = doc.get_metadata('journal', {}).get("template")
+    template = journal_template(doc)
     munger = CAPTION_MUNGERS.get(template)
     if munger is None:
         return  # fast path

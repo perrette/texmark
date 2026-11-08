@@ -14,10 +14,14 @@
 \usepackage{natbib}
 \usepackage{hyperref}
 \usepackage{geometry}
+{% set already_included_packages = [
+  "inputenc", "fontenc", "lmodern", "microtype", "amsmath", "amssymb", "graphicx",
+  "caption", "subcaption", "booktabs", "natbib", "hyperref", "geometry",
+] -%}
 {%for package in packages%}
 {% if 'usepackage' in package %}
 {{package}}
-{% else %}
+{% elif package not in already_included_packages %}
 \usepackage{ {{package}} }
 {% endif %}
 {%endfor%}

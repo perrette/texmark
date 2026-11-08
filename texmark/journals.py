@@ -34,7 +34,7 @@ import panflute as pf
 
 from texmark.context import BuildContext
 from texmark.logs import logger
-from texmark.shared import filters, Filter, BOOK_FAMILY_TEMPLATES
+from texmark.shared import filters, Filter, BOOK_FAMILY_TEMPLATES, journal_template
 from texmark.sectiontracker import SectionFilter, panflute2latex
 from texmark.filters.tabular import table_to_latex
 from texmark.filters.embed import embed_filter
@@ -300,7 +300,7 @@ class FrontmatterFilter:
         self._yaml_has = {}
 
     def prepare(self, doc):
-        template = doc.get_metadata('journal', {}).get('template', '')
+        template = journal_template(doc) or ''
         self._skip = template not in BOOK_FAMILY_TEMPLATES
         self._yaml_has = {}
         if self._skip:
@@ -436,17 +436,17 @@ def get_filter_chain(template):
 
 def run_filters(doc):
     if doc is not None:
-        journal = doc.get_metadata('journal') or {}
+        template = journal_template(doc)
     else:
         logger.warning('doc is None')
-        journal = {'template': 'default'}
+        template = 'default'
 
     filters_module = BuildContext.from_doc(doc).filters_module if doc is not None else None
     if filters_module:
         logger.info(f"Loading filters module: {filters_module}")
         importlib.import_module(filters_module)
 
-    for filter in get_filter_chain(journal.get("template")):
+    for filter in get_filter_chain(template):
         logger.debug(f'Running filter: {filter} on {doc}')
         doc = pf.run_filter(action=filter.action if hasattr(filter, 'action') else filter,
                    prepare=filter.prepare if hasattr(filter, 'prepare') else None,

@@ -2,7 +2,7 @@ import panflute as pf
 from pathlib import Path
 
 from texmark.context import BuildContext
-from texmark.shared import BOOK_FAMILY_TEMPLATES
+from texmark.shared import BOOK_FAMILY_TEMPLATES, journal_template
 
 
 def _is_remote_url(url):
@@ -34,9 +34,7 @@ def _embed_command(doc):
         return '\\input'
     if BuildContext.from_doc(doc).embed_depth >= 1:
         return '\\input'
-    journal = doc.get_metadata('journal', {}) or {}
-    template = journal.get('template') if isinstance(journal, dict) else None
-    if template in BOOK_FAMILY_TEMPLATES:
+    if journal_template(doc) in BOOK_FAMILY_TEMPLATES:
         return '\\include'
     return '\\input'
 

@@ -62,6 +62,13 @@ def test_default_template_extra_packages(doc, monkeypatch):
     assert "\\usepackage{ siunitx }" in out
 
 
+def test_default_template_skips_already_loaded_packages(doc, monkeypatch):
+    out = (_build(doc, monkeypatch, "--packages", "natbib", "hyperref", "siunitx") / "doc.tex").read_text()
+    assert out.count("{natbib}") == 1 and "{ natbib }" not in out
+    assert "{ hyperref }" not in out
+    assert "\\usepackage{ siunitx }" in out
+
+
 @pytest.mark.skipif(shutil.which("latexmk") is None or shutil.which("pdflatex") is None,
                     reason="latexmk/pdflatex not available")
 def test_default_template_builds_pdf(doc, monkeypatch):

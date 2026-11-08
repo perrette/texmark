@@ -4,7 +4,7 @@ import pytest
 
 from texmark.filters.download_images import is_remote_url, safe_filename_from_url
 from texmark.filters.figures import parse_attr_string
-from texmark.build import join_if_list, normalize_metadata
+from texmark.build import join_if_list, meta_to_python
 
 
 class TestIsRemoteUrl:
@@ -93,28 +93,28 @@ class TestJoinIfList:
         assert join_if_list(42) == 42
 
 
-class TestNormalizeMetadata:
+class TestMetaToPython:
     def test_metastring(self):
-        assert normalize_metadata(pf.MetaString("hello")) == "hello"
+        assert meta_to_python(pf.MetaString("hello")) == "hello"
 
     def test_metabool(self):
-        assert normalize_metadata(pf.MetaBool(True)) is True
-        assert normalize_metadata(pf.MetaBool(False)) is False
+        assert meta_to_python(pf.MetaBool(True)) is True
+        assert meta_to_python(pf.MetaBool(False)) is False
 
     def test_metainlines_stringifies(self):
         # MetaInlines of plain words stringifies to their concatenated text
         inlines = pf.MetaInlines(pf.Str("hello"), pf.Space(), pf.Str("world"))
-        assert normalize_metadata(inlines) == "hello world"
+        assert meta_to_python(inlines) == "hello world"
 
     def test_metalist_recurses(self):
         ml = pf.MetaList(pf.MetaString("a"), pf.MetaString("b"))
-        assert normalize_metadata(ml) == ["a", "b"]
+        assert meta_to_python(ml) == ["a", "b"]
 
     def test_metamap_recurses(self):
         mm = pf.MetaMap(name=pf.MetaString("alice"), age=pf.MetaString("30"))
-        out = normalize_metadata(mm)
+        out = meta_to_python(mm)
         assert out == {"name": "alice", "age": "30"}
 
     def test_primitive_passthrough(self):
-        assert normalize_metadata("str") == "str"
-        assert normalize_metadata(7) == 7
+        assert meta_to_python("str") == "str"
+        assert meta_to_python(7) == 7

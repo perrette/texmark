@@ -1,5 +1,6 @@
 import panflute as pf
 from texmark.logs import logger
+from texmark.shared import journal_template
 
 
 _CELL_MARKER = '%TEXMARK-CELL-BREAK%'
@@ -70,8 +71,7 @@ def table_to_latex(elem, doc):
     if not isinstance(elem, pf.Table):
         return
 
-    table_type = (doc.get_metadata('table_type')
-                  or (doc.get_metadata('journal') or {}).get("template"))
+    table_type = doc.get_metadata('table_type') or journal_template(doc)
 
     caption_text = render_caption(elem.caption)
 

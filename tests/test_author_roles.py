@@ -214,9 +214,6 @@ def test_author_roles_build_pdf(tmp_path, monkeypatch, template):
     assert (build_dir / "doc.pdf").read_bytes()[:4] == b"%PDF"
     log = (build_dir / "doc.log").read_text(errors="replace")
     errors = re.findall(r"^! .*?^l\.\d+ .*?$", log, re.M | re.S)
-    # science.template emits \dataavailability, which the science preamble does
-    # not define; unrelated to the author block.
-    errors = [e for e in errors if r"\dataavailability" not in e]
     assert not errors, errors
     if pypdf is not None and template != "copernicus":  # copernicus gobbles \equalcontrib locally
         text = "".join(page.extract_text() or "" for page in pypdf.PdfReader(str(build_dir / "doc.pdf")).pages)
