@@ -43,6 +43,15 @@ class SectionFilter:
             **self.sections_map,
             **(doc.get_metadata('sections_map', {}) or {}),
         }
+        # Apply the same renames to YAML front-matter keys, so that e.g.
+        # ``plain-language-summary:`` reaches the template as
+        # ``plainlanguagesummary`` just like a ``# Plain Language Summary``
+        # section does. An explicitly given target key wins. 'appendix' is
+        # skipped: templates pair it with the section-derived appendixtitles.
+        for alias, target in self._sections_map.items():
+            if (alias != target and target != 'appendix'
+                    and alias in doc.metadata and target not in doc.metadata):
+                doc.metadata[target] = doc.metadata[alias]
         self._remap_command_sections = {
             **self.remap_command_sections,
             **(doc.get_metadata('remap_command_sections', {}) or {}),

@@ -129,6 +129,16 @@ def join_if_list(value, sep='\n\n'):
     return value
 
 
+def bib_files(value):
+    """The ``bibliography`` metadata as a list of paths. Like pandoc, it may
+    be a single path or a list of paths."""
+    if not value:
+        return []
+    if isinstance(value, (list, tuple)):
+        return [str(v) for v in value if v]
+    return [str(value)]
+
+
 def _resolve_rewrite_unicode(value, engine: str) -> bool:
     """Resolve ``rewrite_unicode`` (``auto``/``on``/``off`` or a bool) given
     the effective LaTeX engine. ``auto`` is the default and turns on only
@@ -358,7 +368,7 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
 
     if not bib_file:
         bib_file = metadata.get('bibliography', None)
-    bib_args = ['--bibliography', bib_file] if bib_file else []
+    bib_args = [arg for f in bib_files(bib_file) for arg in ('--bibliography', f)]
     user_pandoc_args = metadata.get('pandoc_args', [])
     division_args = []
     if (journal_template in BOOK_FAMILY_TEMPLATES
@@ -403,7 +413,11 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
         env = jinja2.Environment(loader=jinja2.FileSystemLoader(resource_path))
         env.filters['join_if_list'] = join_if_list
         master_template = env.get_template(template_name)
-        output_text = master_template.render(body=body, **metadata)
+        # A list of .bib files is passed to \bibliography{} comma-separated.
+        template_vars = dict(metadata)
+        if isinstance(template_vars.get('bibliography'), list):
+            template_vars['bibliography'] = ','.join(bib_files(template_vars['bibliography']))
+        output_text = master_template.render(body=body, **template_vars)
 
     with open(output_tex, "w") as f:
         f.write(output_text)
@@ -437,17 +451,17 @@ def stage_bibliography(bib_file, build_dir, engine, rewrite_unicode=None):
     codepoints and HTML tags for pdflatex (see compile_pdf). Called from
     compile_pdf and, for tex-only builds, from build_project, so that the
     staged bibliography never lags behind the source when the PDF is
-    compiled by hand or by an external latexmk call."""
-    if not bib_file:
-        return
-    src = Path(bib_file)
+    compiled by hand or by an external latexmk call. ``bib_file`` is a
+    path or a list of paths."""
     build_dir = Path(build_dir)
-    if src.exists() and src.parent.resolve() != build_dir.resolve():
-        if _resolve_rewrite_unicode(rewrite_unicode, engine):
-            from texmark.unicode_bib import stage_bib
-            stage_bib(src, build_dir)
-        else:
-            shutil.copy2(src, build_dir / src.name)
+    for f in bib_files(bib_file):
+        src = Path(f)
+        if src.exists() and src.parent.resolve() != build_dir.resolve():
+            if _resolve_rewrite_unicode(rewrite_unicode, engine):
+                from texmark.unicode_bib import stage_bib
+                stage_bib(src, build_dir)
+            else:
+                shutil.copy2(src, build_dir / src.name)
 
 
 def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
@@ -908,14 +922,14 @@ def build_project(plan):
         # master, never compile targets.
         targets = [(
             plan.tex_file, plan.pdf_file,
-            str(root_metadata.get('bibliography') or ''),
+            bib_files(root_metadata.get('bibliography')),
             str(root_metadata.get('resource_path') or ''),
             root_biblatex,
         )]
         for _cp, c_tex, c_pdf, c_meta in companion_builds:
             targets.append((
                 c_tex, c_pdf,
-                str(c_meta.get('bibliography') or ''),
+                bib_files(c_meta.get('bibliography')),
                 str(c_meta.get('resource_path') or ''),
                 False,
             ))
@@ -925,7 +939,7 @@ def build_project(plan):
         # compiled from the generated .tex by other means sees the current
         # .bib (compile_pdf does this itself on the --pdf path).
         for meta in [root_metadata] + [m for _cp, _t, _p, m in companion_builds]:
-            stage_bibliography(str(meta.get('bibliography') or ''), plan.build_dir,
+            stage_bibliography(meta.get('bibliography'), plan.build_dir,
                                engine, rewrite_unicode)
 
     return root_metadata
@@ -933,20 +947,18 @@ def build_project(plan):
 
 def _collect_watch_paths(plan, metadata):
     """Paths whose mtime change triggers a rebuild in --watch mode."""
-    bib = metadata.get('bibliography')
     # The journal template lives under texmark's install dir; watching it
     # is convenient when iterating on a new template.
     rp = metadata.get('resource_path')
     tmpl_path = Path(str(rp)) / 'template.tex' if rp else None
 
-    watch_paths: list = [plan.primary_input, bib, tmpl_path]
+    watch_paths: list = [plan.primary_input, *bib_files(metadata.get('bibliography')), tmpl_path]
     watch_paths.extend(plan.project.embedded_files)
     watch_paths.extend(plan.project.companion_files)
 
     for comp_path in plan.project.companion_files:
         comp_meta = load_markdown(comp_path.read_text()).metadata
-        comp_bib = comp_meta.get('bibliography')
-        if comp_bib:
+        for comp_bib in bib_files(comp_meta.get('bibliography')):
             watch_paths.append(Path(comp_path).parent / comp_bib)
         comp_jt = comp_meta.get('journal', {}).get('template') or 'default'
         watch_paths.append(rootpath / f'templates/{comp_jt}/template.tex')
