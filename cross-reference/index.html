@@ -624,6 +624,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#several-references-in-one-bracket" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Several references in one bracket
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-two-forms-are-not-symmetric" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1427,6 +1438,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#several-references-in-one-bracket" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Several references in one bracket
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#the-two-forms-are-not-symmetric" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1553,6 +1575,11 @@ link in the Markdown preview matters. Both produce the same reference in the PDF
 <td><code>\ref</code></td>
 <td>a bare number — "3"</td>
 </tr>
+<tr>
+<td><code>lst:</code></td>
+<td><code>\ref</code></td>
+<td>a bare number — "3"</td>
+</tr>
 </tbody>
 </table>
 <p><code>\eqref</code> supplies its own parentheses; <code>\ref</code> does not add any word. Write the
@@ -1560,12 +1587,46 @@ noun yourself: <code>Figure @fig:eof</code> → "Figure 3", <code>Table [#](#tbl
 The number is computed by LaTeX's two-pass <code>.aux</code> resolution, so it appears only
 in the PDF, never in the preview. There is no range syntax — write both ends:
 <code>\eqref{eq:a}–\eqref{eq:b}</code>.</p>
+<h2 id="several-references-in-one-bracket">Several references in one bracket<a class="headerlink" href="#several-references-in-one-bracket" title="Permanent link">&para;</a></h2>
+<p>When every key in a bracket has one of these prefixes, the references are
+joined with commas and "and":</p>
+<table>
+<thead>
+<tr>
+<th>Source</th>
+<th>LaTeX</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>[@fig:a; @fig:b]</code></td>
+<td><code>\ref{fig:a} and~\ref{fig:b}</code></td>
+</tr>
+<tr>
+<td><code>[@fig:a; @fig:b; @fig:c]</code></td>
+<td><code>\ref{fig:a}, \ref{fig:b} and~\ref{fig:c}</code></td>
+</tr>
+<tr>
+<td><code>[@eq:a; @eq:b]</code></td>
+<td><code>\eqref{eq:a} and~\eqref{eq:b}</code></td>
+</tr>
+<tr>
+<td><code>[@fig:a; @tbl:t]</code></td>
+<td><code>\ref{fig:a} and~\ref{tbl:t}</code></td>
+</tr>
+</tbody>
+</table>
+<p>Text written in the bracket before the first key or after the last one is kept:
+<code>[see @fig:a; @fig:b, left]</code> → <code>see \ref{fig:a} and~\ref{fig:b}, left</code>. As for a
+single reference, write the noun yourself: <code>Figures [@fig:a; @fig:b]</code> →
+"Figures 1 and 2". A bracket that also holds a real citation key
+(<code>[@fig:a; @smith2020]</code>) is left as a citation.</p>
 <h2 id="the-two-forms-are-not-symmetric">The two forms are not symmetric<a class="headerlink" href="#the-two-forms-are-not-symmetric" title="Permanent link">&para;</a></h2>
 <ul>
 <li><code>[#](#id)</code> works for <strong>any</strong> label. Unknown prefixes fall back to <code>\ref</code>, so a
   heading slug like <code>[#](#my-heading)</code> resolves even though it has no <code>…:</code> prefix.</li>
-<li><code>@id</code> works <strong>only</strong> for the four prefixes above (<code>eq:</code>, <code>fig:</code>, <code>tbl:</code>,
-  <code>sec:</code>). An <code>@</code> with any other prefix is treated as a bibliography citation,
+<li><code>@id</code> works <strong>only</strong> for the five prefixes above (<code>eq:</code>, <code>fig:</code>, <code>tbl:</code>,
+  <code>sec:</code>, <code>lst:</code>). An <code>@</code> with any other prefix is treated as a bibliography citation,
   not a reference — e.g. <code>@my-heading</code> becomes a citation, and <code>@tab:gulf</code> (note
   <code>tab</code>, not <code>tbl</code>) does too. When in doubt, <code>[#](#id)</code> is the safe form.</li>
 </ul>
