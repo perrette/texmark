@@ -26,6 +26,11 @@ To add a journal: add a ``JOURNALS`` entry (and a matching template under
   drop_sections           sections removed with a warning (template can't
                           place them)
   post                    hooks appended after the SectionFilter
+  crossref                optional prefix words for ``@fig:x`` / ``@eq:x`` / ... references
+                          (keys ``fig``, ``figs``, ``eq``, ``eqs``, ``tbl``,
+                          ``tbls``, ``sec``, ``secs``, ``lst``, ``lsts``; see
+                          ``texmark.filters.crossref_labels``); the document's
+                          ``crossref`` front matter overrides them
 """
 
 import importlib
@@ -40,6 +45,7 @@ from texmark.filters.tabular import table_to_latex
 from texmark.filters.embed import embed_filter
 from texmark.filters.crossref import crossref_filter
 from texmark.filters.equations import equations_filter
+from texmark.filters.crossref_labels import crossref_labels_filter, CrossrefLabelsFilter
 from texmark.filters.images import strip_leading_slash, resolve_image_paths
 from texmark.filters.figures import (
     tag_figures,
@@ -53,6 +59,7 @@ basic_filters = [
     embed_filter,
     crossref_filter,
     equations_filter,
+    crossref_labels_filter,
     strip_leading_slash,
     resolve_image_paths,
     extract_table_identifier,
@@ -261,6 +268,9 @@ JOURNALS = {
 def journal_chain(config):
     """Build a fresh filter chain from a ``JOURNALS`` config entry."""
     chain = list(basic_filters)
+    if config.get('crossref'):
+        labels = CrossrefLabelsFilter(config['crossref'])
+        chain = [labels if f is crossref_labels_filter else f for f in chain]
     if config.get('cite'):
         chain.append(config['cite'])
     chain.append(SectionFilter(

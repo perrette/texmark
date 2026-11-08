@@ -29,6 +29,7 @@ figure-span: full                      # optional: wraps in figure* (full text w
 copy_figures: false                    # optional: see Figure paths page
 figure_folders: [images, ../shared]    # optional: see Figure paths page
 project_root: .                        # optional: see Figure paths page
+crossref: {fig: "Fig.", figs: "Figs."}  # optional: words written before @fig:x, @eq:x, ... (see Cross-references page)
 # Multi-file keys (see Multi-file projects page)
 chapters: [chapters/intro.md, ...]    # optional: alternative to body embed syntax
 companions: [si.md]                   # optional: companion documents (separate PDFs)
