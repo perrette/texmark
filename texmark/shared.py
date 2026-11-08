@@ -49,3 +49,18 @@ body_formats['presentation'] = body_formats['beamer']
 # so ``\includeonly{}`` can scope them; nested embeds and article-class
 # templates emit ``\input{stem}`` instead (LaTeX forbids nested ``\include``).
 BOOK_FAMILY_TEMPLATES = {"book", "report", "memoir", "classicthesis"}
+
+
+def journal_template(doc):
+    """Template name from the ``journal`` metadata of a panflute ``doc``.
+
+    ``texmark`` normalises ``journal: <name>`` to ``{template: <name>}``, but
+    the pandoc filters can also be run directly on a document whose
+    ``journal`` is still a bare string. Returns None when no template is set.
+    """
+    journal = doc.get_metadata('journal', None)
+    if isinstance(journal, str):
+        return journal
+    if isinstance(journal, dict):
+        return journal.get('template')
+    return None

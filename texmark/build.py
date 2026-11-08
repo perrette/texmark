@@ -103,7 +103,7 @@ def sync_tree(src, dst):
         shutil.copy2(path, target)
 
 
-def normalize_metadata(meta):
+def meta_to_python(meta):
     """
     Recursively convert panflute metadata into plain JSON-serializable Python dict.
     (Plain strings, lists, dicts, no MetaInlines etc.)
@@ -115,9 +115,9 @@ def normalize_metadata(meta):
     elif isinstance(meta, pf.MetaBool):
         return meta.boolean
     elif isinstance(meta, pf.MetaList):
-        return [normalize_metadata(item) for item in meta]
+        return [meta_to_python(item) for item in meta]
     elif isinstance(meta, pf.MetaMap):
-        return {key: normalize_metadata(value) for key, value in meta.items()}
+        return {key: meta_to_python(value) for key, value in meta.items()}
     else:
         # Primitive types (str, int, etc.) or unknown - return as is
         return meta
@@ -390,7 +390,7 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     # 2. Apply filters and convert to the JSON AST.
     post.metadata = metadata
     ast_json_str, doc = _apply_filters_to_ast(post, filters, pandoc_args)
-    metadata.update(normalize_metadata(doc.metadata))
+    metadata.update(meta_to_python(doc.metadata))
 
     # 3. Render the AST to LaTeX (filters not needed again) and write the
     # output: the bare body for body-only chunks, or the Jinja master

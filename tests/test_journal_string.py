@@ -46,3 +46,47 @@ def test_build_with_string_journal(tmp_path, monkeypatch):
     main()
     out = (build_dir / "doc.tex").read_text()
     assert "\\introduction" in out  # copernicus template + filters were applied
+
+
+FILTER_DOC = """---
+title: T
+journal: {journal}
+---
+
+# Dedication
+
+For someone.
+
+# Introduction
+
+![A caption. More text.](fig.png){{#fig:a}}
+
+| a | b |
+|---|---|
+| 1 | 2 |
+
+: Table caption. {{#tbl:a}}
+"""
+
+
+@pytest.mark.skipif(not pandoc_available(), reason="pandoc not available")
+@pytest.mark.parametrize("journal", ["science", "copernicus", "book"])
+def test_journal_filter_standalone_with_string_journal(journal):
+    """The texmark-journal filter, run by pandoc directly (without texmark's
+    front-matter normalisation), accepts ``journal: <name>``."""
+    import io
+    import panflute as pf
+    import pypandoc
+    from texmark.journals import run_filters
+    from texmark.shared import journal_template
+
+    json_text = pypandoc.convert_text(FILTER_DOC.format(journal=journal), "json", format="markdown")
+    doc = pf.load(io.StringIO(json_text))
+    assert doc.get_metadata("journal") == journal
+    assert journal_template(doc) == journal
+    doc = run_filters(doc)
+    latex = pf.convert_text(doc, input_format="panflute", output_format="latex", standalone=False)
+    if journal == "science":
+        assert r"\textbf{A caption}." in latex  # science caption munger ran
+    if journal == "book":
+        assert doc.get_metadata("dedication")  # book front-matter section lifted
