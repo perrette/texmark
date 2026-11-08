@@ -44,9 +44,9 @@ def test_dataavailability_paragraph(tmp_path, monkeypatch):
     assert r"\dataavailability" not in tex
 
 
-def test_dataavailability_omitted_when_unset(tmp_path, monkeypatch):
+def test_dataavailability_placeholder_when_unset(tmp_path, monkeypatch):
     tex = _build(tmp_path, monkeypatch, _md())
-    assert "Data and materials availability" not in tex
+    assert "\\paragraph*{Data and materials availability:}\nplease add a \"data availability\" section" in tex
     assert r"\dataavailability" not in tex
 
 

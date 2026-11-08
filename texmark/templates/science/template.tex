@@ -251,10 +251,8 @@
 \paragraph*{Competing interests:}
 {{competinginterests | join_if_list | default('There are no competing interests to declare.')}}
 {% endif -%}
-{% if dataavailability -%}
 \paragraph*{Data and materials availability:}
-{{dataavailability | join_if_list}}
-{% endif -%}
+{{dataavailability | join_if_list | default('please add a "data availability" section')}}
 
 
 %%%%%%%%%%%%%%%% SUPPLEMENT LIST %%%%%%%%%%%%%%%
