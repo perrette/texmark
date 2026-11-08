@@ -9,9 +9,12 @@ authors:
     lastname: Perrette
     affiliation: 1              # integer index into `affiliations` (most templates)
     email: mahe.perrette@gmail.com
+    corresponding: true         # optional: see Author roles below
+    equalcontrib: true          # optional: see Author roles below
   - firstname: Co
     lastname: Author
     affiliation: 2
+    equalcontrib: true
 affiliations:
   - "Alfred Wegener Institute, ..."
   - "Another Institution"
@@ -46,6 +49,34 @@ preamble: macros.tex                  # optional: file path or inline block scal
 
 See the [Figure paths](figures.md), [Multi-file projects](multi-file.md), and
 [Custom preamble](preamble.md) pages for the fields grouped above.
+
+### Author roles
+
+Two optional per-author keys:
+
+- `corresponding: true` marks a corresponding author. Several authors may be
+  marked. When no author has the key, the first author is the corresponding
+  author. The journal templates that print a corresponding-author marker or
+  email use the marked author(s): `copernicus`, `arxiv`, `ametsoc`,
+  `elsarticle`, `springernature`, `science`, `pnas`. `agujournal` takes a
+  single corresponding author and uses the first marked one. Templates that
+  print every author's email (`book`, `report`, `memoir`, `classicthesis`)
+  ignore the key.
+- `equalcontrib: true` marks authors who contributed equally. It is rendered
+  only by templates whose document class has a command for it, and ignored by
+  all others:
+    - `copernicus`: `\equalcontrib{i,j}` with the positions of the marked
+      authors. copernicus.cls only renders it in Copernicus's production
+      build, so it does not show in a local PDF.
+    - `springernature`: `\equalcont{These authors contributed equally to this
+      work.}` after each marked author (dagger symbol).
+    - `pnas`: footnote marker 1 on the marked authors and
+      `\equalauthors{These authors contributed equally to this work.}`; the
+      corresponding-author marker then becomes 2. A top-level `equalauthors`
+      field (or `# Equal Authors` section) takes priority, in which case the
+      per-author key is ignored.
+    - `science`: a dagger after the marked authors' names and the line
+      "These authors contributed equally to this work." under the author list.
 
 ### journal.draft
 
