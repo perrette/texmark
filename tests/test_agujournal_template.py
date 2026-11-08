@@ -73,3 +73,35 @@ def test_keypoints_from_yaml(tmp_path, monkeypatch, yaml_value, expected):
     items = [s.strip() for s in kp.split(r"\item")[1:]]
     assert items == expected
     assert kp.split(r"\item")[0].strip() == ""
+
+
+def test_pls_from_hyphenated_yaml_key(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    tex = _build(
+        tmp_path,
+        "---\ntitle: T\nabstract: The abstract.\n"
+        "plain-language-summary: The YAML summary.\n---\n\n# Introduction\n\nHello.\n",
+    )
+    pls = tex.index(r"\section*{Plain Language Summary}")
+    assert pls < tex.index("The YAML summary.")
+
+
+def test_explicit_plainlanguagesummary_wins(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    tex = _build(
+        tmp_path,
+        "---\ntitle: T\nplainlanguagesummary: Explicit summary.\n"
+        "plain-language-summary: Hyphenated summary.\n---\n\n# Introduction\n\nHello.\n",
+    )
+    assert "Explicit summary." in tex
+    assert "Hyphenated summary." not in tex
+
+
+def test_keypoints_from_hyphenated_yaml_key(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    tex = _build(
+        tmp_path,
+        "---\ntitle: T\nkey-points:\n  - YAML one\n  - YAML two\n---\n\n# Introduction\n\nHello.\n",
+    )
+    items = [s.strip() for s in _keypoints_block(tex).split(r"\item")[1:]]
+    assert items == ["YAML one", "YAML two"]
