@@ -33,8 +33,11 @@ heading -- has nothing to merge into and stays its own paragraph.)
 
 Same-document cross-references -- written ``@eq:foo`` or ``[](#eq:foo)`` -- are
 rewritten to ``\\eqref{eq:foo}``. The same syntax works for figures (``fig:``),
-tables (``tbl:``) and sections (``sec:``), which resolve to a bare ``\\ref`` (a
-number like "Figure 3", not the parenthesised "(3)" used for equations).
+tables (``tbl:``), sections (``sec:``) and listings (``lst:``), which resolve to a
+bare ``\\ref`` (a number like "Figure 3", not the parenthesised "(3)" used for
+equations). Several keys in one bracket are joined: ``[@fig:a; @fig:b]`` ->
+``\\ref{fig:a} and~\\ref{fig:b}``, three or more -> ``\\ref{a}, \\ref{b} and~\\ref{c}``.
+A bracket that also holds a real citation key stays a citation.
 
 The body is wrapped verbatim, with one deliberate exception: the **alignment
 family** (``align``/``flalign``/``alignat``) processes ``&``/``\\\\`` itself, so an
@@ -76,7 +79,13 @@ UNWRAP_ENVS = {"align", "flalign", "alignat"}
 # Same-document cross-reference prefixes -> the LaTeX command they resolve to.
 # Equations take ``\eqref`` (parenthesised, "(3)"); everything else takes a bare
 # ``\ref`` ("Figure 3", "Table 2", "Section 4").
-_REF_COMMANDS = {"eq": "eqref", "fig": "ref", "tbl": "ref", "sec": "ref"}
+_REF_COMMANDS = {
+    "eq": "eqref", "fig": "ref", "tbl": "ref", "sec": "ref", "lst": "ref",
+}
+
+# Placed before the last of several references in one bracket
+# (``\ref{a}, \ref{b} and~\ref{c}``); ``~`` is a non-breaking space.
+REF_CONJUNCTION = " and~"
 
 # Block containers whose child block-lists may hold an equation paragraph
 # followed by a trailer paragraph that needs merging.
@@ -192,12 +201,19 @@ def _rewrite_inlines(content):
 
 def _ref_command(identifier):
     """LaTeX ref command for a labelled-object identifier (``eq:…`` -> ``eqref``;
-    ``fig:``/``tbl:``/``sec:`` -> ``ref``), or ``None`` when the prefix isn't a
+    ``fig:``/``tbl:``/``sec:``/``lst:`` -> ``ref``), or ``None`` when the prefix isn't a
     cross-reference prefix (e.g. a real citation key like ``smith2020``)."""
     prefix, sep, _rest = identifier.partition(":")
     if not sep:
         return None
     return _REF_COMMANDS.get(prefix)
+
+
+def _join_refs(refs):
+    """``a``; ``a and~b``; ``a, b and~c``."""
+    if len(refs) == 1:
+        return refs[0]
+    return ", ".join(refs[:-1]) + REF_CONJUNCTION + refs[-1]
 
 
 def _ends_with_display_math(blk):
@@ -314,13 +330,24 @@ class EquationsFilter:
         # Same-document cross-references -- ``@prefix:id`` (a Cite) or
         # ``[](#prefix:id)`` (a Link) -- become \eqref/\ref. Cross-DOCUMENT
         # references (``[](other.md#id)``) are handled by the crossref filter.
+        # A bracket is a reference only when every key has a cross-reference
+        # prefix; one real citation key keeps the whole bracket a citation.
         if isinstance(elem, pf.Cite):
             ids = [c.id for c in elem.citations]
-            if len(ids) == 1:
-                cmd = _ref_command(ids[0])
-                if cmd:
-                    return pf.RawInline(f"\\{cmd}{{{ids[0]}}}", format="latex")
-            return None
+            cmds = [_ref_command(i) for i in ids]
+            if not ids or not all(cmds):
+                return None
+            refs = [f"\\{cmd}{{{i}}}" for cmd, i in zip(cmds, ids)]
+            ref = pf.RawInline(_join_refs(refs), format="latex")
+            # Prose written inside the bracket ([see @fig:a; @fig:b, left]).
+            # Pandoc drops the space between the prefix and the key; put it back.
+            before = list(elem.citations[0].prefix)
+            if before and not isinstance(before[-1], (pf.Space, pf.SoftBreak)):
+                before.append(pf.Space())
+            after = list(elem.citations[-1].suffix)
+            if before or after:
+                return [*before, ref, *after]
+            return ref
         if isinstance(elem, pf.Link):
             url = elem.url or ""
             if url.startswith("#"):
