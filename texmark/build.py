@@ -952,10 +952,13 @@ def build_project(plan):
             ))
         _compile_documents(plan, targets, engine, backend, rewrite_unicode)
     else:
-        # tex-only build: stage the bibliographies anyway, so that a PDF
-        # compiled from the generated .tex by other means sees the current
-        # .bib (compile_pdf does this itself on the --pdf path).
+        # tex-only build: stage the template resources (.cls, .sty, .bst)
+        # and the bibliographies anyway, so that the generated .tex can be
+        # compiled by other means in the build directory (compile_pdf does
+        # this itself on the --pdf path).
         for meta in [root_metadata] + [m for _cp, _t, _p, m in companion_builds]:
+            if meta.get('resource_path'):
+                sync_tree(meta['resource_path'], plan.build_dir)
             stage_bibliography(meta.get('bibliography'), plan.build_dir,
                                engine, rewrite_unicode)
 
