@@ -152,7 +152,7 @@ def test_draft_build_uses_separate_job(tmp_path, monkeypatch):
 
 @needs_latexmk
 def test_draft_from_yaml_then_full_build_on_default_output(tmp_path, monkeypatch):
-    """YAML draft: true publishes the draft over <build>/doc.pdf (the full
+    """YAML build_draft: true publishes the draft over <build>/doc.pdf (the full
     job's own PDF); the next full build must replace it although latexmk
     alone would find nothing to do."""
     monkeypatch.chdir(tmp_path)
@@ -161,7 +161,7 @@ def test_draft_from_yaml_then_full_build_on_default_output(tmp_path, monkeypatch
     _texmark(monkeypatch, src, "--pdf", "-d", build)
     full_pdf = (build / "doc.pdf").read_bytes()
 
-    _write_doc(tmp_path, FIG_DOC.replace("---\n\n#", "draft: true\n---\n\n#"))
+    _write_doc(tmp_path, FIG_DOC.replace("---\n\n#", "build_draft: true\n---\n\n#"))
     _texmark(monkeypatch, src, "--pdf", "-d", build)
     assert (build / "doc.pdf").read_bytes() == (build / "doc-draft.pdf").read_bytes()
 

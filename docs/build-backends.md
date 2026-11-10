@@ -31,7 +31,7 @@ CLI flags win over YAML.
 texmark doc.md --pdf --draft
 ```
 
-`--draft` (YAML `draft: true`) compiles the document with graphicx's `draft`
+`--draft` (YAML `build_draft: true`) compiles the document with graphicx's `draft`
 option: every figure is replaced by a box of the same size with the file name
 in it. The layout, page numbers and references are those of the full build,
 and the compilation is faster for figure-heavy documents because the figures
@@ -64,7 +64,7 @@ Limitations:
 texmark doc.md --pdf --progressive
 ```
 
-`--progressive` (YAML `progressive: true`) writes the PDF in three stages and
+`--progressive` (YAML `build_progressive: true`) writes the PDF in three stages and
 replaces the output PDF after each one, so a viewer that reloads on change
 shows a first version early:
 

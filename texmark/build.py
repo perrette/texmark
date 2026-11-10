@@ -957,8 +957,8 @@ def _resolve_build_options(plan):
     engine = str(plan.args.engine or yaml_meta.get('engine') or 'pdflatex')
     backend = str(plan.args.backend or yaml_meta.get('backend') or 'latexmk')
     rewrite_unicode = plan.args.rewrite_unicode or yaml_meta.get('rewrite_unicode')
-    draft = bool(plan.args.draft or yaml_meta.get('draft'))
-    progressive = bool(plan.args.progressive or yaml_meta.get('progressive'))
+    draft = bool(plan.args.draft or yaml_meta.get('build_draft'))
+    progressive = bool(plan.args.progressive or yaml_meta.get('build_progressive'))
     return engine, backend, rewrite_unicode, draft, progressive
 
 
