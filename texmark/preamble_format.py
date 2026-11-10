@@ -177,19 +177,20 @@ def prepare(build_dir, tex_name, engine, backend):
         logger.debug(f"texmark: no preamble marker in {tex_name}; "
                      "compiling without a precompiled preamble")
         return None
-    if not mylatexformat_path():
-        logger.debug("texmark: mylatexformat.ltx not found; "
-                     "compiling without a precompiled preamble")
-        return None
-
     name = format_name(tex_name)
     fmt = build_dir / f'{name}.fmt'
     state = _load_state(build_dir, tex_name)
+    # Checked before looking for mylatexformat.ltx (a kpsewhich call, about
+    # 0.1 s): the key covers mylatexformat.ltx, which the format build reads.
     if state.get('key') == _key(build_dir, preamble, engine, state.get('files', [])):
         if state.get('status') == 'ok' and fmt.exists():
             return name
         if state.get('status') in ('build-failed', 'run-failed'):
             return None
+    if not mylatexformat_path():
+        logger.debug("texmark: mylatexformat.ltx not found; "
+                     "compiling without a precompiled preamble")
+        return None
 
     cmd = [engine, '-ini', '-interaction=batchmode', '-recorder',
            f'-jobname={name}', f'&{engine}', 'mylatexformat.ltx', tex_name]
