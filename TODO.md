@@ -67,7 +67,8 @@ Questions to settle first:
 
 ## Build speed
 
-`--draft` and `--progressive` are implemented. Left open:
+`--draft`, `--progressive` and the precompiled preamble are implemented.
+Left open:
 
 - **Superseding a running build.** In `--watch` mode a change saved during a
   rebuild waits until that rebuild (all progressive stages) has finished.
@@ -81,9 +82,6 @@ Questions to settle first:
   files with part of the labels and citations, and the next single-pass draft
   shows them as ??. Saving the job's .aux/.bbl/... before each stage and
   restoring them when a stage did not finish would avoid that.
-- **Precompiled preamble.** Dumping the preamble into a format file
-  (`mylatexformat`, `pdflatex -ini`) would cut the start-up time of each
-  engine pass for documents with many packages. Idea only; not tried.
 - **Draft jobs with companion documents.** `--draft` is ignored with
   companions because xr-hyper reads each peer's `<stem>.aux`. The crossref
   filter could point `\externaldocument` at the draft job's .aux in draft

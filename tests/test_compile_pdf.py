@@ -128,22 +128,25 @@ def _embeds_figure(build, job):
 
 
 @needs_latexmk
-def test_draft_build_uses_separate_job(tmp_path, monkeypatch):
+@pytest.mark.parametrize("fmt_args", [[], ["--no-preamble-format"]])
+def test_draft_build_uses_separate_job(tmp_path, monkeypatch, fmt_args):
     """--draft compiles the job doc-draft with graphicx's draft option,
-    writes the -o PDF, and leaves the full job's files alone."""
+    writes the -o PDF, and leaves the full job's files alone. Without the
+    precompiled preamble, the option is passed on the command line."""
     monkeypatch.chdir(tmp_path)
     src = _write_fig_doc(tmp_path)
     build = tmp_path / "build"
     out = build / "out.pdf"
 
-    _texmark(monkeypatch, src, "--pdf", "-d", build, "-o", out)
+    _texmark(monkeypatch, src, "--pdf", "-d", build, "-o", out, *fmt_args)
     assert _embeds_figure(build, "doc")
     full_aux = (build / "doc.aux").stat().st_mtime_ns
     full_pdf = (build / "doc.pdf").read_bytes()
 
-    _texmark(monkeypatch, src, "--pdf", "--draft", "-d", build, "-o", out)
+    _texmark(monkeypatch, src, "--pdf", "--draft", "-d", build, "-o", out, *fmt_args)
     assert (build / "doc-draft.aux").exists()
-    assert "\\PassOptionsToPackage{draft}{graphicx}\\input{doc.tex}" in (build / "doc-draft.log").read_text()
+    pretex = "\\PassOptionsToPackage{draft}{graphicx}\\input{doc.tex}"
+    assert (pretex in (build / "doc-draft.log").read_text()) == bool(fmt_args)
     assert not _embeds_figure(build, "doc-draft")
     assert out.read_bytes() == (build / "doc-draft.pdf").read_bytes()
     assert (build / "doc.aux").stat().st_mtime_ns == full_aux

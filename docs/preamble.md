@@ -52,12 +52,19 @@ preamble:
 
 Templates emit the preamble in this order:
 
-1. `{{ xr_preamble }}` — xr-hyper `\externaldocument` declarations (from companions)
+1. `{{ xr_setup }}` — `\usepackage{xr-hyper}` (with companions) and the
+   counter prefixes
 2. `{{ user_preamble }}` — your `preamble:` content
-3. `\begin{document}`
+3. `{{ endofdump }}` — the end of the part of the preamble that texmark can
+   precompile (see [Precompiled preamble](build-backends.md#precompiled-preamble))
+4. `{{ xr_externals }}` — the `\externaldocument` declarations (from
+   companions), which read the companions' `.aux` files on every run
+5. `{{ includeonly }}` (book-family templates) and `\begin{document}`
 
-xr-hyper is loaded before user-defined macros so any user command that
-references companion labels compiles correctly.
+xr-hyper is loaded before user-defined macros. Custom templates can still
+use `{{ xr_preamble }}`, which holds the package, the `\externaldocument`
+declarations and the counter prefixes together; without `{{ endofdump }}`
+the document is compiled without a precompiled preamble.
 
 ## Default
 
