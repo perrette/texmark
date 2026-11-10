@@ -21,6 +21,9 @@ One JSON entry per embedded document, ``<build_dir>/.texmark-cache/<stem>.json``
     panflute version. An embedded document only receives the root's settings
     through these arguments (it reads its own YAML), so they cover inherited
     metadata too.
+``ctx``
+    the same as ``key`` but for the markdown text, with the document's YAML
+    front matter instead.
 ``deps``
     recorded after the build: size and mtime of every local figure the
     document references (or null if it was missing). In --copy-figures mode
@@ -29,6 +32,10 @@ One JSON entry per embedded document, ``<build_dir>/.texmark-cache/<stem>.json``
     files the build left in the build dir, which must still be there: the
     .tex (sha256, so a .tex modified by anything else is rebuilt) and, by
     size, the bundled and downloaded figures.
+``blocks``
+    the LaTeX of the document's blocks, for ``texmark.blockcache``: when only
+    the text changed (same ``ctx``, figures unchanged), the next build
+    converts only the paragraphs that changed.
 
 Cross-document references need no extra handling: texmark-crossref only uses
 the peer stems (part of the key), not the peers' contents. Labels are
@@ -59,13 +66,14 @@ import panflute as pf
 import pypandoc
 
 import texmark
+from texmark.blockcache import BlockCache
 from texmark.filters.download_images import safe_filename_from_url
 from texmark.filters.images import resolve_image_paths
 from texmark.logs import logger
 from texmark.project import load_markdown, parse_markdown, _scan_ast_for_embeds
 
 CACHE_DIR = '.texmark-cache'
-_FORMAT = 1
+_FORMAT = 2
 _FILE_ARGS = ('--filter', '-F', '--lua-filter', '-L', '--defaults', '-d',
               '--metadata-file', '--citeproc', '-C', '--csl', '--citation-abbreviations',
               '--include-in-header', '-H', '--include-before-body', '-B',
@@ -112,6 +120,8 @@ def _stat(path):
 
 
 def _key(input_md, text, metadata, kwargs):
+    """``(key, ctx)``: ``ctx`` covers everything but the markdown text
+    (the YAML front matter included), ``key`` also the text."""
     src_dir = Path(input_md).resolve().parent
     files = []
     preamble = metadata.get('preamble') or []
@@ -124,10 +134,11 @@ def _key(input_md, text, metadata, kwargs):
         files.append(Path(texmark.__file__).resolve().parent / template)
     payload = {
         'env': _environment(), 'cwd': os.getcwd(),
-        'input': str(Path(input_md).resolve()), 'text': _sha(text.encode()),
+        'input': str(Path(input_md).resolve()), 'metadata': metadata,
         'kwargs': kwargs, 'files': {str(f): _file_digest(f) for f in files},
     }
-    return _sha(json.dumps(payload, sort_keys=True, default=str).encode())
+    ctx = _sha(json.dumps(payload, sort_keys=True, default=str).encode())
+    return _sha(f'{ctx} {_sha(text.encode())}'.encode()), ctx
 
 
 def _image_urls(node):
@@ -166,17 +177,39 @@ def _record(input_md, text, output_tex, kwargs):
     return deps, {'tex': [str(tex), _file_digest(tex)], 'files': outputs}
 
 
-def _up_to_date(entry, key, kwargs):
-    if entry.get('key') != key:
-        return False
+def _files_unchanged(entry, kwargs):
+    """The figures read and the files written (but the .tex) by the build
+    recorded in ``entry`` are as it left them."""
     if any(_stat(p) != st for p, st in entry['deps'].items()):
-        return False
-    tex_path, tex_sha = entry['outputs']['tex']
-    if tex_sha is None or _file_digest(tex_path) != tex_sha:
         return False
     build_dir = Path(kwargs.get('build_dir') or 'build')
     return all((s := _stat(build_dir / rel)) and s[0] == size
                for rel, size in entry['outputs']['files'].items())
+
+
+def _up_to_date(entry, key, kwargs):
+    if entry.get('key') != key:
+        return False
+    tex_path, tex_sha = entry['outputs']['tex']
+    if tex_sha is None or _file_digest(tex_path) != tex_sha:
+        return False
+    return _files_unchanged(entry, kwargs)
+
+
+def _block_cache(entry, ctx, kwargs):
+    """The block cache state for a build whose texcache entry is ``entry``."""
+    if not isinstance(entry, dict):
+        return BlockCache()
+    try:
+        if entry.get('ctx') != ctx:
+            return BlockCache(reason='build settings, front matter or texmark changed')
+        if not _files_unchanged(entry, kwargs):
+            return BlockCache(reason='figure files changed')
+        if not isinstance(entry.get('blocks'), dict):
+            return BlockCache(reason='the previous run recorded no blocks')
+    except (KeyError, TypeError, ValueError):
+        return BlockCache(reason='the previous entry is unreadable')
+    return BlockCache(entry['blocks'])
 
 
 def _load(path):
@@ -203,7 +236,7 @@ def cached_build_tex(build_tex, input_md, output_tex, *, enabled=True, **kwargs)
             or any(_reads_files(a) for a in metadata.get('pandoc_args') or [])):
         return build_tex(input_md, output_tex, **kwargs)
     entry_path = Path(kwargs.get('build_dir') or 'build') / CACHE_DIR / f'{Path(output_tex).stem}.json'
-    key = _key(input_md, text, metadata, kwargs)
+    key, ctx = _key(input_md, text, metadata, kwargs)
     entry = _load(entry_path)
     try:
         if isinstance(entry, dict) and _up_to_date(entry, key, kwargs):
@@ -211,9 +244,11 @@ def cached_build_tex(build_tex, input_md, output_tex, *, enabled=True, **kwargs)
             return None
     except (KeyError, TypeError, ValueError):
         pass
-    result = build_tex(input_md, output_tex, **kwargs)
+    blocks = _block_cache(entry, ctx, kwargs)
+    result = build_tex(input_md, output_tex, block_cache=blocks, **kwargs)
     deps, outputs = _record(input_md, text, output_tex, kwargs)
-    _save(entry_path, {'key': key, 'deps': deps, 'outputs': outputs})
+    _save(entry_path, {'key': key, 'ctx': ctx, 'deps': deps, 'outputs': outputs,
+                       'blocks': blocks.entry})
     return result
 
 

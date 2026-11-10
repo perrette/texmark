@@ -103,6 +103,13 @@ in `<build>/.texmark-cache/`. Files that use custom filters
 (`--filters`, `filters_module`, or filter options in `pandoc_args`) are
 always converted. `--no-cache` converts every file.
 
+When only the text of an embedded file changed, the conversion reuses
+the LaTeX of its unchanged paragraphs from the previous run, and
+converts only the paragraphs (and lists, quotes, footnotes...) that
+were edited. Edits to headers, figures, tables, display equations and
+the paragraphs next to them, or to the YAML front matter, convert the
+whole file. The result is the same as a full conversion.
+
 ## Companions — main paper + supplementary information
 
 Companions are separate documents that compile to separate PDFs, with

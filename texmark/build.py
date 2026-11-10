@@ -9,6 +9,7 @@ watch loop.
 """
 import argparse
 import io
+import json
 import os
 import re
 import shutil
@@ -32,6 +33,7 @@ from texmark.filters import embed as _filters_embed
 from texmark.filters import crossref as _filters_crossref
 from texmark.filters.figures import expand_figstar_sentinels
 from texmark import journals as _journals
+from texmark import blockcache as _blockcache
 from texmark import texcache as _texcache
 from texmark.project import (Project, resolve_project, load_markdown, parse_markdown,
                              _scan_ast_for_embeds)
@@ -253,6 +255,18 @@ def _apply_filters_to_ast(doc, filters):
 
 def _render_body(ast_json_str, journal_template, metadata, pandoc_args):
     """Render the filtered AST to the LaTeX (or beamer) body string."""
+    return _finish_body(_render_latex(ast_json_str, journal_template, metadata, pandoc_args))
+
+
+def _finish_body(body):
+    """Post-process the writer output (see ``_render_body``)."""
+    # Rewrite ``apply_figure_defaults`` sentinels into figure*/end{figure*}.
+    # See ``texmark.filters.figures.expand_figstar_sentinels`` for details.
+    return expand_figstar_sentinels(body)
+
+
+def _render_latex(ast_json_str, journal_template, metadata, pandoc_args):
+    """The pandoc writer pass of ``_render_body``."""
     body_fmt = body_formats.get(journal_template, body_formats['default'])
     body_args = ['--template', rootpath / "templates" / body_fmt['template']] + pandoc_args
     # Beamer frames are sliced at --slide-level (heading depth that starts a new
@@ -262,16 +276,13 @@ def _render_body(ast_json_str, journal_template, metadata, pandoc_args):
     if body_fmt['format'] == 'beamer':
         slide_level = (metadata.get('beamer') or {}).get('slide_level', 2)
         body_args.append(f'--slide-level={slide_level}')
-    body = pypandoc.convert_text(
+    return pypandoc.convert_text(
         ast_json_str,
         format="json",
         to=body_fmt['format'],
         extra_args=body_args,
         verify_format=False,
     )
-    # Rewrite ``apply_figure_defaults`` sentinels into figure*/end{figure*}.
-    # See ``texmark.filters.figures.expand_figstar_sentinels`` for details.
-    return expand_figstar_sentinels(body)
 
 
 def _extra_include_directives(extra_includes, journal_template, metadata):
@@ -305,7 +316,7 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
               companion_stems=None, embed_stems=None, own_stem=None,
               figure_manifest_accumulate=False, embed_depth=0,
               includeonly='', extra_includes=None, engine=None,
-              rewrite_unicode=None):
+              rewrite_unicode=None, block_cache=None):
     # 1. Read the front matter and resolve effective metadata.
     text = open(input_md).read()
     metadata = load_markdown(text).metadata
@@ -400,26 +411,55 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
 
     # 2. Parse the markdown (shared with the embed scan), set the values
     # resolved above in its metadata, and apply the filters.
-    doc = pf.load(io.StringIO(parse_markdown(text)))
-    _set_yaml_metadata(doc, {key: metadata[key] for key in (
-        'journal', 'longtable', 'packages', CONTEXT_METADATA_KEY,
-        'includeonly', 'user_preamble')})
-    # What --bibliography sets on the pandoc command line: a MetaString per
-    # file (not markdown), overriding the YAML value.
-    bibs = [pf.MetaString(f) for f in bib_files(bib_file)]
-    if bibs:
-        doc.metadata['bibliography'] = bibs[0] if len(bibs) == 1 else pf.MetaList(*bibs)
-    ast_json_str, doc = _apply_filters_to_ast(doc, filters)
+    def load_doc(ast=None):
+        # ``ast``: pandoc JSON (a dict) to load instead of the parsed text
+        # (the block cache converts some of the blocks only).
+        doc = pf.load(io.StringIO(parse_markdown(text) if ast is None else json.dumps(ast)))
+        _set_yaml_metadata(doc, {key: metadata[key] for key in (
+            'journal', 'longtable', 'packages', CONTEXT_METADATA_KEY,
+            'includeonly', 'user_preamble')})
+        # What --bibliography sets on the pandoc command line: a MetaString
+        # per file (not markdown), overriding the YAML value.
+        bibs = [pf.MetaString(f) for f in bib_files(bib_file)]
+        if bibs:
+            doc.metadata['bibliography'] = bibs[0] if len(bibs) == 1 else pf.MetaList(*bibs)
+        return doc
+
+    def render(ast_json_str):
+        return _render_latex(ast_json_str, journal_template, metadata, pandoc_args)
+
+    def plain(doc):
+        ast_json_str, doc = _apply_filters_to_ast(doc, filters)
+        return render(ast_json_str), doc
+
+    raw_body = None
+    if block_cache is not None:
+        # Reuse the LaTeX of unchanged paragraphs (texmark/blockcache.py).
+        if not body_only:
+            block_cache.disable('the document is not body-only')
+        elif not all(f in _INPROC_FILTERS for f in filters):
+            block_cache.disable('of user filters')
+        elif body_formats.get(journal_template, body_formats['default'])['format'] != 'latex':
+            block_cache.disable('the output format is not latex')
+        elif user_pandoc_args:
+            block_cache.disable('of pandoc_args')
+        else:
+            def chain_for(doc):
+                return [flt for name in filters for flt in _inproc_chain(name, doc)]
+            raw_body, doc = _blockcache.convert(
+                block_cache, text, json.loads(parse_markdown(text)), load_doc,
+                chain_for, render, plain)
+    if raw_body is None:
+        raw_body, doc = plain(load_doc())
     metadata.update(meta_to_python(doc.metadata))
 
-    # 3. Render the AST to LaTeX (filters not needed again) and write the
-    # output: the bare body for body-only chunks, or the Jinja master
-    # template (authors, abstract, preamble, ...) wrapped around it.
+    # 3. Write the output: the bare body for body-only chunks, or the Jinja
+    # master template (authors, abstract, preamble, ...) wrapped around it.
     build_dir = Path(build_dir)
     build_dir.mkdir(parents=True, exist_ok=True)
     Path(output_tex).parent.mkdir(parents=True, exist_ok=True)
 
-    body = _render_body(ast_json_str, journal_template, metadata, pandoc_args)
+    body = _finish_body(raw_body)
     if extra_includes and not body_only:
         body = body + '\n' + _extra_include_directives(
             extra_includes, journal_template, metadata)
