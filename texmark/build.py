@@ -562,12 +562,9 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
         # copy (not move) so the destination inode is preserved across rebuilds —
         # PDF viewers like evince keep scroll position when content changes in place.
         shutil.copyfile(actual_pdf, output_pdf)
-        # actual_pdf is just the engine's jobname artifact; once copied to the
-        # requested --output path it would otherwise linger in build_dir as a
-        # confusing duplicate (e.g. --tex build/foo.tex -o build/bar.pdf leaving
-        # both build/foo.pdf and build/bar.pdf). latexmk/pdflatex regenerate it
-        # from scratch on every call, so removing it here is safe.
-        actual_pdf.unlink()
+        # actual_pdf (the engine's jobname PDF) stays in build_dir: latexmk
+        # checks for it, and without it reruns the engine on every build
+        # even when nothing changed.
 
 
 MAX_PASSES = 4
