@@ -1354,7 +1354,11 @@ package and can in principle be extended or copied.</p>
   (or <code>custom_filter</code> in the metadata) to prompt the texmark filter to load that
   module and make it available via <code>-j your-custom-name</code>. Note that will require
   you to explicitly pass <code>--template</code> as well — unless you overwrite an existing
-  filter.</li>
+  filter.
+  The filters of a chain run in order. Your own filters each walk the
+  document separately; consecutive built-in filters that only act on the
+  element they are given share one walk (see
+  <a href="https://github.com/perrette/texmark/blob/main/texmark/chain.py"><code>texmark/chain.py</code></a>).</li>
 </ul>
 
 
