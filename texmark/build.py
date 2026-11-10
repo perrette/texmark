@@ -31,7 +31,8 @@ from texmark.filters import embed as _filters_embed
 from texmark.filters import crossref as _filters_crossref
 from texmark.filters.figures import expand_figstar_sentinels
 from texmark import journals as _journals
-from texmark.project import Project, resolve_project, load_markdown, _scan_ast_for_embeds
+from texmark.project import (Project, resolve_project, load_markdown, parse_markdown,
+                             _scan_ast_for_embeds)
 
 
 # In-process filters (texmark-journal in particular) call panflute's
@@ -196,49 +197,49 @@ def _resolve_user_preamble(metadata, src_dir):
     return _resolve_item(str(preamble_raw))
 
 
-def _apply_filters_to_ast(post, filters, pandoc_args):
-    """Pandoc markdown -> JSON AST pass with all filters applied.
+def _set_yaml_metadata(doc, values):
+    """Set ``values`` (plain Python) in the metadata of ``doc``, converted the
+    way pandoc converts YAML front matter: strings are read as markdown, and
+    so become MetaInlines/MetaBlocks. The values are written as a YAML block
+    and parsed with ``parse_markdown``, which is cached, so an unchanged set
+    of values (--watch rebuilds) costs no pandoc call."""
+    yaml_block = frontmatter.dumps(frontmatter.Post('', **values))
+    meta = pf.load(io.StringIO(parse_markdown(yaml_block))).metadata
+    for key in list(meta.content):
+        doc.metadata[key] = meta[key]
 
-    Fast path: when every filter is a built-in, call pandoc once with no
-    --filter args and walk the AST with in-process panflute filters. Each
+
+def _apply_filters_to_ast(doc, filters):
+    """Run all filters on the parsed document.
+
+    Fast path: when every filter is a built-in, walk the AST with in-process
+    panflute filters, without any pandoc call. Each
     --filter would otherwise spawn a fresh Python interpreter to re-import
     panflute and round-trip the AST through JSON — ~150-470 ms per filter
     on a typical paper, all startup overhead.
 
-    Mixed path: any user-supplied filter triggers the subprocess pipeline so
-    custom filters keep working unchanged.
+    Mixed path: any user-supplied filter triggers the subprocess pipeline
+    (one JSON -> JSON pandoc call with all filters) so custom filters keep
+    working unchanged.
 
     Returns ``(ast_json_str, doc)`` — the filtered AST both as a JSON string
     (input to the body render) and as the loaded panflute doc (so the caller
     can pick up metadata the filters modified).
     """
     if all(f in _INPROC_FILTERS for f in filters):
-        ast_json_str = pypandoc.convert_text(
-            frontmatter.dumps(post),
-            format="markdown+footnotes",
-            to="json",
-            extra_args=pandoc_args,
-            verify_format=False,
-        )
-        doc = pf.load(io.StringIO(ast_json_str))
         for f in filters:
             doc = _run_inproc_filter(f, doc)
         sink = io.StringIO()
         pf.dump(doc, sink)
         return sink.getvalue(), doc
 
-    # Copy `pandoc_args` so the --filter additions don't leak into the
-    # JSON->LaTeX pass downstream, which would re-run every filter and double
-    # any stateful transforms (e.g. resolve_image_paths injecting a
-    # \graphicspath block).
-    cmd_json = list(pandoc_args)
-    for f in filters:
-        cmd_json.extend(['--filter', f])
+    sink = io.StringIO()
+    pf.dump(doc, sink)
     ast_json_str = pypandoc.convert_text(
-        frontmatter.dumps(post),
-        format="markdown+footnotes",
+        sink.getvalue(),
+        format="json",
         to="json",
-        extra_args=cmd_json,
+        extra_args=[arg for f in filters for arg in ('--filter', f)],
         verify_format=False,
     )
     return ast_json_str, pf.load(io.StringIO(ast_json_str))
@@ -299,9 +300,9 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
               figure_manifest_accumulate=False, embed_depth=0,
               includeonly='', extra_includes=None, engine=None,
               rewrite_unicode=None):
-    # 1. Parse markdown and resolve effective metadata.
-    post = load_markdown(open(input_md).read())
-    metadata = post.metadata
+    # 1. Read the front matter and resolve effective metadata.
+    text = open(input_md).read()
+    metadata = load_markdown(text).metadata
 
     journal_template = _resolve_journal_template(metadata, journal_template)
     metadata.setdefault('longtable', False)
@@ -391,9 +392,18 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
         "texmark-journal",
         ] + (filters or metadata.get('filters', []))
 
-    # 2. Apply filters and convert to the JSON AST.
-    post.metadata = metadata
-    ast_json_str, doc = _apply_filters_to_ast(post, filters, pandoc_args)
+    # 2. Parse the markdown (shared with the embed scan), set the values
+    # resolved above in its metadata, and apply the filters.
+    doc = pf.load(io.StringIO(parse_markdown(text)))
+    _set_yaml_metadata(doc, {key: metadata[key] for key in (
+        'journal', 'longtable', 'packages', CONTEXT_METADATA_KEY,
+        'includeonly', 'user_preamble')})
+    # What --bibliography sets on the pandoc command line: a MetaString per
+    # file (not markdown), overriding the YAML value.
+    bibs = [pf.MetaString(f) for f in bib_files(bib_file)]
+    if bibs:
+        doc.metadata['bibliography'] = bibs[0] if len(bibs) == 1 else pf.MetaList(*bibs)
+    ast_json_str, doc = _apply_filters_to_ast(doc, filters)
     metadata.update(meta_to_python(doc.metadata))
 
     # 3. Render the AST to LaTeX (filters not needed again) and write the
