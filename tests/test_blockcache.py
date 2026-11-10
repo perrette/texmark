@@ -51,6 +51,12 @@ Delta paragraph, after the equation paragraph.
 
 > A quote.
 
+| a | b |
+|---|---|
+| 1 | 2 |
+
+: A table {#tbl:one}
+
 Epsilon paragraph refers to @fig:one and [the section](#sec:one).
 
 ## Two
@@ -67,6 +73,7 @@ def project(tmp_path, monkeypatch):
         "---\ntitle: Root\njournal:\n  template: book\n---\n\nRoot text.\n\n![](ch1.md)\n")
     (src / "ch1.md").write_text(CHAPTER)
     (src / "images" / "fig.png").write_bytes(PNG)
+    (src / "images" / "fig2.png").write_bytes(PNG + b"2")
     monkeypatch.chdir(tmp_path)
     return src
 
@@ -138,6 +145,10 @@ def test_first_build_is_full(check):
     ("Epsilon paragraph", "Epsilon [new link](#sec:one) paragraph"),
     ("Zeta paragraph, the last one.", "Zeta paragraph, the last one.\n\nEta, a new last paragraph."),
     ("Delta paragraph", "Delta edited paragraph"),
+    ("A caption", "An edited caption"),
+    ("![A caption](images/fig.png){#fig:one}", "![A caption](images/fig.png){#fig:one width=50%}"),
+    ("A table {#tbl:one}", "An edited table {#tbl:one}"),
+    ("| 1 | 2 |", "| 1 | 3 |"),
     ("Beta paragraph", "New paragraph.\n\nBeta paragraph"),
 ])
 def test_only_the_edited_block_is_converted(project, check, old, new):
@@ -174,7 +185,8 @@ def test_unchanged_paragraphs_moved(project, check):
 @pytest.mark.parametrize("old, new, reason", [
     ("# One {#sec:one}", "# One edited {#sec:one}", "blocks other than self-contained"),
     ("## Two", "## Two\n\nNew.\n\n## Three", "blocks other than self-contained"),
-    ("A caption", "An edited caption", "blocks other than self-contained"),
+    ("A caption](images/fig.png)", "A caption](images/fig2.png)", "images were added"),
+    ("> A quote.", "> A quote.\n\n![New](images/fig2.png)", "images were added"),
     ("Gamma paragraph", "Gamma edited paragraph", "blocks other than self-contained"),
     ("and the text after it", "and the edited text after it", "blocks other than self-contained"),
     ("Second item", "Second item, see [](other.md){.include}", "blocks other than self-contained"),
@@ -187,6 +199,31 @@ def test_fallbacks(project, check, old, new, reason):
     edit(project, old, new)
     logs, _ = check()
     assert logs[-1].startswith("block cache: full conversion because " + reason), logs
+
+
+def test_figure_caption_with_copy_figures(project, check):
+    check("--copy-figures")
+    edit(project, "A caption", "An edited caption")
+    logs, writes = check("--copy-figures")
+    assert logs[-1].startswith("block cache: converted 1 of")
+    write, = chapter_writes(writes)
+    assert "figures/fig.png" in write
+    assert Path("build/figures/fig.png").exists()
+
+
+def test_collect_figures_and_tables(project, check):
+    """Figures and Tables moved to the end are never self-contained."""
+    edit(project, "# One {#sec:one}",
+         "---\ncollect_figures_and_tables: true\n---\n\n# One {#sec:one}")
+    root = project / "root.md"
+    root.write_text(root.read_text().replace("template: book", COPERNICUS))
+    check()
+    edit(project, "A caption", "An edited caption")
+    logs, _ = check()
+    assert logs[-1].startswith("block cache: full conversion because blocks other than")
+    edit(project, "Alpha paragraph", "Alpha edited paragraph")
+    logs, _ = check()
+    assert logs[-1].startswith("block cache: converted 1 of")
 
 
 def test_figure_file_change_falls_back(project, check):
@@ -274,8 +311,9 @@ def _classify(md):
     ("Text [@a] and a note.^[Note.] \\raw{x}", [True]),
     ("- a\n- b\n\n> q\n\n```\ncode\n```\n\n<!-- c -->\n\n---", [True] * 5),
     ("# H\n\nText.", [False, True]),
-    ("![c](a.png)\n\nText ![i](b.png).", [False, False]),
-    ("| a |\n|---|\n| 1 |", [False]),
+    ("![c](a.png)\n\nText ![i](b.png).", [True, True]),
+    ("![c](http://x.org/a.png)\n\n![c](a.md)\n\n[](x.md){.include}", [False] * 3),
+    ("| a |\n|---|\n| 1 |", [True]),
     ("Aa.\n\nBb.\n\n$$x$$\n\nCc.\n\nDd.", [True, False, False, False, True]),
     ("Aa.\n\n- item with $$x$$\n\nBb.", [False, False, False]),
     ("[](x.md){.include}\n\n[x](x.md)", [False, True]),
@@ -283,6 +321,14 @@ def _classify(md):
 ])
 def test_classify(md, expected):
     assert _classify(md) == expected
+
+
+def test_classify_images_and_collected_figures():
+    ast = json.loads(parse_markdown("![c](b.png)\n\nText ![i](a.png).\n\n| a |\n|---|\n| 1 |"))
+    _, sc, images = blockcache.classify(ast["blocks"])
+    assert sc == [True] * 3 and images == ["a.png", "b.png"]
+    _, sc, images = blockcache.classify(ast["blocks"], figures=False)
+    assert sc == [False, True, False] and images == ["a.png"]
 
 
 def test_split():

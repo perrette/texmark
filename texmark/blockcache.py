@@ -15,11 +15,14 @@ its JSON, citation numbers left out (``_NOTE_NUM``).
 Self-contained blocks
 ---------------------
 A top-level block is *self-contained* (S) when it is a Para, Plain, list,
-BlockQuote, LineBlock, CodeBlock, RawBlock, HorizontalRule or Div, and
+BlockQuote, LineBlock, CodeBlock, RawBlock, HorizontalRule, Div, Figure or
+Table, and
 
-* contains no Header, Image, Figure, Table, display math, nor a Link with the
-  ``include`` class, and
-* is not next to a top-level block that contains display math.
+* contains no Header, display math, Link with the ``include`` class, nor
+  Image with a remote URL or a ``.md`` one (an embed),
+* is not next to a top-level block that contains display math, and
+* if the document sets ``collect_figures_and_tables``, is not and contains
+  no Figure or Table.
 
 Every other block is *non-self-contained* (N). Consecutive N blocks form an
 N run. A document is a sequence of *units*: S blocks and N runs.
@@ -27,19 +30,27 @@ N run. A document is a sequence of *units*: S blocks and N runs.
 Why S blocks can be converted on their own, given the default filter chains
 (``journals``, checked by ``_supported``):
 
-* the element-local filters (``texmark.chain.WALK_GROUPS``, the citation
-  rewriters, ``header_to_*``) act on one element and its subtree, using only
-  the document metadata and build context; on an S block, only the
-  equations (Cite, Link, Para), crossref and leading-slash (Link) and embed
-  (Para) actions can do anything;
+* the element-local filters (``texmark.chain.WALK_GROUPS`` but
+  ``resolve_image_paths``, the citation rewriters, ``header_to_*``) act on
+  one element and its subtree, using only the document metadata and build
+  context (``embed_filter`` turns embeds into ``\\input``, ``tag_figures``
+  names a figure after its image, ``table_to_latex`` renders a table...);
 * ``equations_filter.prepare`` merges a paragraph with its neighbour only
   when one of them contains display math: never an S block (no display
   math, no neighbour with display math);
-* the image filters collect and rewrite Images only (none in S blocks);
+* ``resolve_image_paths`` rewrites the URL of each Image from the build
+  context and, in --copy-figures mode, from the bundle names it chose in
+  prepare for all the document's images (copying the files). These names
+  depend only on the image URLs and files, so they are the previous run's
+  as long as the sorted list of the S blocks' image URLs is unchanged
+  (images in N blocks are in the skeleton, below) and so are the figure
+  files (texcache's ``deps``). ``download_images`` only acts on remote
+  images (never in S blocks);
 * ``SectionFilter`` and ``FrontmatterFilter`` move whole sections (from a
   Header to the next one) into metadata, and ``collect_figures_and_tables``
-  moves Figures and Tables; which blocks move depends on the Headers, the
-  metadata and the position of the blocks between the Headers (see below).
+  moves Figures and Tables to the end (never S blocks then); which blocks
+  move depends on the Headers, the metadata and the position of the blocks
+  between the Headers (see below).
 
 And for pandoc's LaTeX writer: the body of a block list is the outputs of
 its blocks, each rendered on its own, the non-empty ones joined by a blank
@@ -71,7 +82,8 @@ pieces and
 
 * everything except the text is unchanged (texcache's ``ctx`` key: build
   arguments, YAML front matter, environment, figure files),
-* pandoc's metadata is unchanged, and
+* pandoc's metadata is unchanged, as is the list of image URLs of the S
+  blocks, and
 * the *skeleton* is unchanged: the sequence of units with each N run given
   by the hashes of its blocks and consecutive S blocks collapsed into one
   marker. N blocks and their positions relative to S blocks are thus the
@@ -81,8 +93,10 @@ pieces and
 
 The S blocks not seen in the previous run (by hash) are then put, between
 separators, in a document of their own with the same metadata, filtered
-(without the image filters, which have side effects: copying figures,
-writing the figure manifest) and rendered in one writer call. The filtered
+and rendered in one writer call. The image filters, which have side effects
+(downloading and copying figures, writing the figure manifest), are left
+out: ``resolve_image_paths`` is replaced by ``_ImagePaths``, which rewrites
+the URLs with the previous run's bundle names. The filtered
 metadata of that document must equal the one recorded by the full
 conversion (otherwise a filter took something from the document into the
 metadata). The body is assembled from the recorded and new pieces.
@@ -104,18 +118,19 @@ import panflute as pf
 
 from texmark import journals as _journals
 from texmark.filters import download_images as _download_images
-from texmark.filters.images import resolve_image_paths
+from texmark.filters.images import ResolveImagePathsFilter, resolve_image_paths
 from texmark.logs import logger
 from texmark.sectiontracker import SectionFilter
 from texmark.shared import Filter
 
 _S_TYPES = {'Para', 'Plain', 'BulletList', 'OrderedList', 'DefinitionList',
             'BlockQuote', 'LineBlock', 'CodeBlock', 'RawBlock',
-            'HorizontalRule', 'Div'}
-# Element types that make a block N, as they appear in compact pandoc JSON.
-_N_MARKERS = tuple(f'"t":"{t}"' for t in ('Header', 'Image', 'Figure', 'Table'))
+            'HorizontalRule', 'Div', 'Figure', 'Table'}
+# Element types, as they appear in compact pandoc JSON.
+_HEADER = '"t":"Header"'
+_FIGURES = ('"t":"Figure"', '"t":"Table"')
 _DISPLAY_MATH = '"t":"DisplayMath"'
-_LINK = '"t":"Link"'
+_LINK_OR_IMAGE = ('"t":"Link"', '"t":"Image"')
 _TOKEN = 'TEXMARKBLOCK'
 # The reader numbers citations through the document (``citationNoteNum``),
 # so a citation or footnote added in one paragraph changes the JSON of every
@@ -130,8 +145,6 @@ _LOCAL_FILTERS = set(map(id, _journals.basic_filters + [
     _journals.header_to_unnumbered, _journals.header_to_paragraph]))
 _PREPARE_HOOKS = {_journals._surface_chapter_style,
                   _journals._surface_classicthesis_options}
-# Filters left out of the chain for a document of S blocks only.
-_IMAGE_FILTERS = {id(resolve_image_paths), id(_download_images.action)}
 
 
 def _supported(f):
@@ -167,29 +180,43 @@ def _sha(s):
     return hashlib.sha256(s.encode()).hexdigest()
 
 
-def _has_include_link(node):
+def _local_links(node, urls):
+    """False if ``node`` holds an include Link or a remote or .md Image;
+    else True, with the Image URLs appended to ``urls``."""
     if isinstance(node, dict):
-        if node.get('t') == 'Link' and 'include' in node['c'][0][1]:
-            return True
-        return any(_has_include_link(v) for v in node.values())
+        t = node.get('t')
+        if t == 'Link' and 'include' in node['c'][0][1]:
+            return False
+        if t == 'Image':
+            url = node['c'][2][0]
+            if url.startswith(('http://', 'https://')) or url.lower().endswith('.md'):
+                return False
+            urls.append(url)
+        return all(_local_links(v, urls) for v in node.values())
     if isinstance(node, list):
-        return any(_has_include_link(v) for v in node)
-    return False
+        return all(_local_links(v, urls) for v in node)
+    return True
 
 
-def classify(blocks):
-    """``(hashes, self_contained)`` for a list of top-level blocks (pandoc JSON)."""
+def classify(blocks, figures=True):
+    """``(hashes, self_contained, image URLs of the S blocks, sorted)`` for a
+    list of top-level blocks (pandoc JSON). ``figures``: whether Figures and
+    Tables can be S."""
     dumped = [_dumps(b) for b in blocks]
     math = [_DISPLAY_MATH in s for s in dumped]
-    sc = []
+    sc, images = [], []
     for i, (b, s) in enumerate(zip(blocks, dumped)):
+        urls = []
         ok = (b['t'] in _S_TYPES and not math[i]
               and not (i > 0 and math[i - 1])
               and not (i + 1 < len(blocks) and math[i + 1])
-              and not any(m in s for m in _N_MARKERS)
-              and not (_LINK in s and _has_include_link(b)))
+              and _HEADER not in s
+              and (figures or not any(m in s for m in _FIGURES))
+              and (not any(m in s for m in _LINK_OR_IMAGE) or _local_links(b, urls)))
         sc.append(ok)
-    return [_sha(_NOTE_NUM.sub('', s)) for s in dumped], sc
+        if ok:
+            images.extend(urls)
+    return [_sha(_NOTE_NUM.sub('', s)) for s in dumped], sc, sorted(images)
 
 
 def units(hashes, sc):
@@ -313,7 +340,8 @@ def convert(state, text, ast, load_doc, chain_for, render, plain):
     the writer. ``plain(doc)``: a conversion without the block cache,
     returning ``(latex body, doc)``.
     """
-    hashes, sc = classify(ast['blocks'])
+    hashes, sc, images = classify(ast['blocks'],
+                                  figures='collect_figures_and_tables' not in ast['meta'])
     us = units(hashes, sc)
     sk = skeleton(hashes, us)
     meta_in = _sha(_dumps(ast['meta']))
@@ -324,6 +352,8 @@ def convert(state, text, ast, load_doc, chain_for, render, plain):
         try:
             if prev['meta_in'] != meta_in:
                 reason = 'the document metadata changed'
+            elif prev['images'] != images:
+                reason = 'images were added, removed or replaced'
             elif prev['skeleton'] != sk:
                 reason = ('blocks other than self-contained paragraphs changed '
                           f'({_first_change(prev["skeleton"], sk, us, ast["blocks"])})')
@@ -340,7 +370,8 @@ def convert(state, text, ast, load_doc, chain_for, render, plain):
     if not _check_chain(state, chain):
         return plain(doc)
     logger.debug(f'block cache: full conversion because {reason}')
-    return _full(state, doc, hashes, us, sk, meta_in, chain, render, plain, load_doc, text)
+    return _full(state, doc, hashes, us, sk, meta_in, images, chain, render, plain,
+                 load_doc, text)
 
 
 def _check_chain(state, chain):
@@ -348,6 +379,22 @@ def _check_chain(state, chain):
     if unsupported:
         state.disable(f'of the filter {unsupported[0]!r}')
     return not unsupported
+
+
+class _ImagePaths(ResolveImagePathsFilter):
+    """``resolve_image_paths`` without side effects: no \\graphicspath block,
+    no copies, no manifest; in --copy-figures mode, the given bundle names."""
+
+    def __init__(self, url_map):
+        super().__init__()
+        self._url_map = url_map
+
+    def prepare(self, doc):
+        self.configure(doc)
+        self.url_map.update(self._url_map)
+
+    def finalize(self, doc):
+        pass
 
 
 def _run_chain(chain, doc):
@@ -361,7 +408,7 @@ def _dump(doc):
     return sink.getvalue()
 
 
-def _full(state, doc, hashes, us, sk, meta_in, chain, render, plain, load_doc, text):
+def _full(state, doc, hashes, us, sk, meta_in, images, chain, render, plain, load_doc, text):
     token = _new_token(text)
     doc.content, n = _layout(us, list(doc.content), token)
     doc = _run_chain(chain, doc)
@@ -381,7 +428,7 @@ def _full(state, doc, hashes, us, sk, meta_in, chain, render, plain, load_doc, t
         else:
             nruns.append(piece)
     state.entry = {
-        'meta_in': meta_in, 'skeleton': sk, 'meta': _meta_json(doc),
+        'meta_in': meta_in, 'skeleton': sk, 'images': images, 'meta': _meta_json(doc),
         'lead': lead, 'tail': tail, 'nruns': nruns, 'sblocks': sblocks,
         'url_map': dict(resolve_image_paths.url_map),
     }
@@ -406,7 +453,9 @@ def _incremental(state, prev, ast, hashes, us, load_doc, chain_for, render, plai
     if not _check_chain(state, chain):
         return plain(load_doc())
     n = len(new) + 1
-    doc = _run_chain([f for f in chain if id(f) not in _IMAGE_FILTERS], doc)
+    image_paths = _ImagePaths(prev['url_map'])
+    doc = _run_chain([image_paths if f is resolve_image_paths else f for f in chain
+                      if f is not _download_images.action], doc)
     if not _separators_kept(doc, token, n):
         state.reason = 'separators were not kept by the conversion'
         return None
