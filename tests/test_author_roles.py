@@ -50,10 +50,13 @@ def _md(roles=None, extra=""):
 
 def _build(tmp_path, monkeypatch, template, md_text, name="doc"):
     monkeypatch.chdir(tmp_path)
-    md = tmp_path / f"{name}.md"
+    # Same document stem for every name: the stem appears in the .tex (the
+    # draft-job switch), and the tests compare .tex files across names.
+    (tmp_path / name).mkdir(exist_ok=True)
+    md = tmp_path / name / "doc.md"
     md.write_text(md_text)
     build_dir = tmp_path / f"build-{name}"
-    tex_path = build_dir / f"{name}.tex"
+    tex_path = build_dir / "doc.tex"
     build_tex(str(md), str(tex_path), build_dir=str(build_dir), journal_template=template)
     return tex_path.read_text()
 

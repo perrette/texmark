@@ -86,8 +86,9 @@ def test_preamble_absent_no_change(tmp_path, _subprocess_finds_local_texmark):
 
 
 @pytestmark_pandoc
-def test_preamble_placed_after_xr_preamble(tmp_path, _subprocess_finds_local_texmark):
-    """user_preamble appears after xr_preamble in the rendered .tex."""
+def test_preamble_placed_between_xr_setup_and_externals(tmp_path, _subprocess_finds_local_texmark):
+    """user_preamble comes after xr-hyper is loaded and before the preamble
+    marker, which precedes \\externaldocument (see texmark.preamble_format)."""
     from texmark.build import build_tex
     md = tmp_path / "doc.md"
     md.write_text(
@@ -100,8 +101,8 @@ def test_preamble_placed_after_xr_preamble(tmp_path, _subprocess_finds_local_tex
     build_tex(str(md), str(out), build_dir=str(tmp_path / "build"),
               journal_template="arxiv", companion_stems=["si"], own_stem="doc")
     tex = out.read_text()
-    xr_pos = tex.find("\\externaldocument")
-    cmd_pos = tex.find("\\newcommand{\\myCmd}")
-    assert xr_pos != -1, "xr_preamble content not found"
-    assert cmd_pos != -1, "user_preamble content not found"
-    assert xr_pos < cmd_pos, "user_preamble should appear after xr_preamble"
+    positions = [tex.find(s) for s in (
+        "\\usepackage{xr-hyper}", "\\newcommand{\\myCmd}",
+        "\\csname endofdump\\endcsname", "\\externaldocument")]
+    assert -1 not in positions, positions
+    assert positions == sorted(positions), positions

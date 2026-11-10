@@ -51,6 +51,7 @@ backend: latexmk                      # optional: latexmk, raw, tectonic
 rewrite_unicode: auto                 # optional: auto, on, off
 build_draft: false                    # optional: figures as boxes (same as --draft)
 build_progressive: false              # optional: staged PDF builds (same as --progressive)
+build_preamble_format: true           # optional: false disables the precompiled preamble (same as --no-preamble-format)
 ```
 
 See the [Figure paths](figures.md), [Multi-file projects](multi-file.md), and
@@ -109,6 +110,12 @@ publication-ready layout of the document class. See
 `build_progressive: true` (or `--progressive`) publishes the PDF in stages: a draft
 after one LaTeX pass, the draft with references resolved, then the full
 build. See [Progressive builds](build-backends.md#progressive-builds).
+
+### build_preamble_format
+
+`build_preamble_format: false` (or `--no-preamble-format`) compiles without
+the precompiled preamble that pdflatex builds use by default. See
+[Precompiled preamble](build-backends.md#precompiled-preamble).
 
 ### journal.options
 
