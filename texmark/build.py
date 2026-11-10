@@ -13,6 +13,7 @@ import os
 import re
 import shutil
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -478,28 +479,30 @@ def stage_bibliography(bib_file, build_dir, engine, rewrite_unicode=None):
                 shutil.copy2(src, build_dir / src.name)
 
 
-def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
-                bib_file='references.bib', resource_path='', backend='latexmk',
-                biblatex=False, rewrite_unicode=None):
-    """
-    Step 2: Compile LaTeX source into PDF.
+# Draft job: figures replaced by boxes of the same size (graphicx's draft
+# option), so the layout, and hence every page number and reference, is that
+# of the full build. It runs under its own jobname, so the draft and full
+# builds keep separate .aux/.log/.fdb_latexmk files and latexmk can skip
+# either one when nothing changed since its last run.
+DRAFT_PRETEX = r'\PassOptionsToPackage{draft}{graphicx}'
 
-    backend selects the driver:
-      - 'latexmk' (default): runs latexmk, which skips reruns whose inputs
-        (.aux/.bbl/.fls) haven't changed. Typical incremental edit collapses
-        to one engine pass instead of three.
-      - 'raw': the original pdflatex → bibtex → pdflatex → pdflatex sequence,
-        unconditionally. Use when latexmk isn't available.
-      - 'tectonic': uses the standalone `tectonic` binary, which bundles
-        engine + driver + bibtex-equivalent. `engine` is ignored in this mode.
 
-    biblatex (Item 18): when True the document uses biblatex, so its
-    bibliography backend is biber rather than bibtex. The 'raw' backend runs
-    `biber <stem>` instead of `bibtex <stem>.aux`. latexmk and tectonic both
-    auto-detect biber from the emitted `.bcf` file, so they need no extra flag.
-    """
+def draft_jobname(input_tex):
+    return Path(input_tex).stem + '-draft'
+
+
+def _draft_marker(build_dir, input_tex):
+    """File recording that a draft PDF was published over the full job's own
+    PDF (the default output path). latexmk only checks that its target
+    exists, so the next full build must be forced (-g) to replace it."""
+    return Path(build_dir) / f".{Path(input_tex).stem}.pdf-is-draft"
+
+
+def prepare_build_dir(input_tex, build_dir, bib_file='', resource_path='',
+                      engine='pdflatex', rewrite_unicode=None):
+    """Put everything the engine reads into ``build_dir``: the template
+    resources, the .tex (if written elsewhere) and the bibliography."""
     build_dir = Path(build_dir)
-
     if resource_path:
         logger.info(f"Resource path: {resource_path}")
         sync_tree(resource_path, build_dir)
@@ -520,64 +523,178 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
     # cleanly. The flag accepts on/off to override the auto behaviour.
     # See docs/encoding.md for the full strategy.
     stage_bibliography(bib_file, build_dir, engine, rewrite_unicode)
-    tex_name = Path(input_tex).name
 
+
+def _engine_cmd(engine, tex_name, jobname=None, pretex=''):
+    cmd = [engine, '-interaction=nonstopmode']
+    if jobname:
+        cmd.append(f'-jobname={jobname}')
+    cmd.append(pretex + '\\input{' + tex_name + '}' if pretex else tex_name)
+    return cmd
+
+
+def engine_pass(tex_name, build_dir, engine='pdflatex', jobname=None, pretex=''):
+    """One engine pass. Returns True when the engine exited without error."""
+    cmd = _engine_cmd(engine, tex_name, jobname, pretex)
+    result = run(cmd, cwd=build_dir, check=False)
+    return getattr(result, 'returncode', 0) == 0
+
+
+def latex_errors(log_file, context=2):
+    """The error lines (``! ...`` and the ``context`` lines after each) of an
+    engine log, or an empty string."""
+    try:
+        lines = Path(log_file).read_text(errors='replace').splitlines()
+    except FileNotFoundError:
+        return ''
+    out = []
+    for i, line in enumerate(lines):
+        if line.startswith('!'):
+            out.extend(lines[i:i + 1 + context])
+    return '\n'.join(out)
+
+
+def run_latexmk(tex_name, build_dir, engine='pdflatex', jobname=None, pretex='',
+                force=False):
+    """latexmk to completion: bibtex/biber and as many engine passes as the
+    .aux/.bbl need, none when nothing changed since its last run."""
+    build_dir = Path(build_dir)
+    # -f keeps latexmk going (matching the raw backend's check=False reruns)
+    # even when an engine pass returns nonzero, so the .pdf still appears
+    # for downstream inspection.
+    engine_flag = {
+        'pdflatex': '-pdf',
+        'xelatex': '-pdfxe',
+        'lualatex': '-pdflua',
+    }.get(engine, '-pdf')
+    # Stuck-state recovery: latexmk records its previous run's outcome in
+    # <job>.fdb_latexmk. When that outcome was a pdflatex error AND the
+    # input fingerprint hasn't changed since, latexmk says "Nothing to do"
+    # and exits nonzero with "gave an error in previous invocation of
+    # latexmk". The user then sees an error message with no obvious way
+    # to act on it — the stale error masks whatever the current state is.
+    #
+    # Heuristic: if the previous engine pass left errors in <job>.log,
+    # pass -g (force-make) so latexmk re-runs the engine and surfaces
+    # the current errors (or, if the source has since been fixed, a
+    # clean build). On a clean log we run incrementally as before.
+    job = jobname or Path(tex_name).stem
+    if latex_errors(build_dir / f'{job}.log'):
+        force = True
+    cmd = ['latexmk', engine_flag, '-interaction=nonstopmode', '-f']
+    if force:
+        cmd.append('-g')
+    if jobname:
+        cmd.append(f'-jobname={jobname}')
+    if pretex:
+        cmd.append(f'-usepretex={pretex}')
+    cmd.append(tex_name)
+    run(cmd, cwd=build_dir, check=False)
+
+
+def run_raw(tex_name, build_dir, engine='pdflatex', biblatex=False,
+            jobname=None, pretex=''):
+    """engine → bibtex (or biber) → engine → engine, unconditionally."""
+    job = jobname or Path(tex_name).stem
+    engine_pass(tex_name, build_dir, engine, jobname, pretex)
+    bibcmd = ['biber', job] if biblatex else ['bibtex', f'{job}.aux']
+    run(bibcmd, cwd=build_dir, check=False)
+    engine_pass(tex_name, build_dir, engine, jobname, pretex)
+    engine_pass(tex_name, build_dir, engine, jobname, pretex)
+
+
+def run_tectonic(tex_name, build_dir):
+    run(['tectonic', '--keep-intermediates', '--keep-logs', tex_name],
+        cwd=build_dir, check=False)
+
+
+def run_driver(backend, tex_name, build_dir, engine='pdflatex', biblatex=False,
+               jobname=None, pretex='', force=False):
+    """Run the selected backend to completion on one job."""
     if backend == 'latexmk':
-        # -f keeps latexmk going (matching the raw backend's check=False reruns)
-        # even when an engine pass returns nonzero, so the .pdf still appears
-        # for downstream inspection.
-        engine_flag = {
-            'pdflatex': '-pdf',
-            'xelatex': '-pdfxe',
-            'lualatex': '-pdflua',
-        }.get(engine, '-pdf')
-        # Stuck-state recovery: latexmk records its previous run's outcome in
-        # <stem>.fdb_latexmk. When that outcome was a pdflatex error AND the
-        # input fingerprint hasn't changed since, latexmk says "Nothing to do"
-        # and exits nonzero with "gave an error in previous invocation of
-        # latexmk". The user then sees an error message with no obvious way
-        # to act on it — the stale error masks whatever the current state is.
-        #
-        # Heuristic: if the previous engine pass left errors in <stem>.log,
-        # pass -g (force-make) so latexmk re-runs the engine and surfaces
-        # the current errors (or, if the source has since been fixed, a
-        # clean build). On a clean log we run incrementally as before.
-        log_file = build_dir / Path(tex_name).with_suffix('.log').name
-        force = []
-        if log_file.exists():
-            log_text = log_file.read_text(errors='replace')
-            # pdflatex prefixes every error line with `! ` at column 0.
-            if re.search(r'(?m)^!', log_text):
-                force = ['-g']
-        cmd = ['latexmk', engine_flag, '-interaction=nonstopmode', '-f'] + force + [tex_name]
-        run(cmd, cwd=build_dir, check=False)
-    elif backend == 'tectonic':
-        cmd = ['tectonic', '--keep-intermediates', '--keep-logs', tex_name]
-        run(cmd, cwd=build_dir, check=False)
+        run_latexmk(tex_name, build_dir, engine, jobname, pretex, force=force)
     elif backend == 'raw':
-        cmd = [engine, '-interaction=nonstopmode', tex_name]
-        run(cmd, cwd=build_dir, check=False)
-        if biblatex:
-            bibcmd = ["biber", Path(input_tex).stem]
-        else:
-            bibcmd = ["bibtex", Path(input_tex).with_suffix(".aux").name]
-        run(bibcmd, cwd=build_dir, check=False)
-        run(cmd, cwd=build_dir, check=False)
-        run(cmd, cwd=build_dir, check=False)
+        run_raw(tex_name, build_dir, engine, biblatex, jobname, pretex)
+    elif backend == 'tectonic':
+        if jobname or pretex:
+            raise ValueError("the tectonic backend does not support draft jobs")
+        run_tectonic(tex_name, build_dir)
     else:
         raise ValueError(f"Unknown backend {backend!r}; use 'latexmk', 'raw', or 'tectonic'.")
 
-    actual_pdf = Path(build_dir) / Path(input_tex).with_suffix(".pdf").name
-    if Path(output_pdf) != actual_pdf:
-        # copy (not move) so the destination inode is preserved across rebuilds —
-        # PDF viewers like evince keep scroll position when content changes in place.
-        shutil.copyfile(actual_pdf, output_pdf)
-        # actual_pdf is just the engine's jobname artifact; once copied to the
-        # requested --output path it would otherwise linger in build_dir as a
-        # confusing duplicate (e.g. --tex build/foo.tex -o build/bar.pdf leaving
-        # both build/foo.pdf and build/bar.pdf). latexmk/pdflatex regenerate it
-        # from scratch on every call, so removing it here is safe.
-        actual_pdf.unlink()
+
+def publish_pdf(src, dst):
+    """Copy ``src`` to ``dst`` atomically: copy to a temporary file in the
+    destination directory, then rename it over ``dst``.
+
+    A viewer that reloads while the copy is in progress would otherwise read
+    a half-written PDF. The rename gives ``dst`` a new inode; viewers that
+    watch the file for changes reload it (checked with GNOME Papers).
+    """
+    dst = Path(dst)
+    tmp = dst.with_name(f".{dst.name}.{os.getpid()}.tmp")
+    try:
+        shutil.copyfile(src, tmp)
+        os.replace(tmp, dst)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
+def publish_job_pdf(input_tex, output_pdf, build_dir, draft=False):
+    """Publish the PDF of the full job (or of the draft job) to ``output_pdf``.
+
+    The job PDF stays in ``build_dir``: latexmk checks for it, and without
+    it reruns the engine on every build even when nothing changed.
+    """
+    build_dir = Path(build_dir)
+    full_pdf = build_dir / f'{Path(input_tex).stem}.pdf'
+    job_pdf = build_dir / f'{draft_jobname(input_tex)}.pdf' if draft else full_pdf
+    output_pdf = Path(output_pdf)
+    if output_pdf.resolve() == job_pdf.resolve():
+        return
+    if draft and output_pdf.resolve() == full_pdf.resolve():
+        _draft_marker(build_dir, input_tex).touch()
+    publish_pdf(job_pdf, output_pdf)
+
+
+def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
+                bib_file='references.bib', resource_path='', backend='latexmk',
+                biblatex=False, rewrite_unicode=None, draft=False):
+    """
+    Step 2: Compile LaTeX source into PDF.
+
+    backend selects the driver:
+      - 'latexmk' (default): runs latexmk, which skips reruns whose inputs
+        (.aux/.bbl/.fls) haven't changed. Typical incremental edit collapses
+        to one engine pass instead of three.
+      - 'raw': the original pdflatex → bibtex → pdflatex → pdflatex sequence,
+        unconditionally. Use when latexmk isn't available.
+      - 'tectonic': uses the standalone `tectonic` binary, which bundles
+        engine + driver + bibtex-equivalent. `engine` is ignored in this mode.
+
+    biblatex (Item 18): when True the document uses biblatex, so its
+    bibliography backend is biber rather than bibtex. The 'raw' backend runs
+    `biber <stem>` instead of `bibtex <stem>.aux`. latexmk and tectonic both
+    auto-detect biber from the emitted `.bcf` file, so they need no extra flag.
+
+    draft: compile the draft job (``<stem>-draft``, figures as boxes, see
+    DRAFT_PRETEX) and publish its PDF to ``output_pdf``. Not supported by
+    the tectonic backend.
+    """
+    build_dir = Path(build_dir)
+    prepare_build_dir(input_tex, build_dir, bib_file, resource_path,
+                      engine, rewrite_unicode)
+    tex_name = Path(input_tex).name
+    if draft:
+        run_driver(backend, tex_name, build_dir, engine, biblatex,
+                   jobname=draft_jobname(input_tex), pretex=DRAFT_PRETEX)
+    else:
+        marker = _draft_marker(build_dir, input_tex)
+        run_driver(backend, tex_name, build_dir, engine, biblatex,
+                   force=marker.exists())
+        marker.unlink(missing_ok=True)
+    publish_job_pdf(input_tex, output_pdf, build_dir, draft=draft)
 
 
 MAX_PASSES = 4
@@ -608,7 +725,6 @@ def watch_loop(do_build, paths, interval=0.5):
     Callers are expected to have run an initial build already, so we prime
     mtimes here and only trigger do_build on subsequent changes.
     """
-    import time
     paths = [Path(p) for p in paths if p]
     last = {}
     for p in paths:
@@ -733,6 +849,18 @@ def _build_parser():
                              'instead of recompiling them. Meaningful only for book-family '
                              'templates (article-class lacks \\include); ignored with a warning '
                              'otherwise.')
+    parser.add_argument('--draft', action='store_true', default=None,
+                        help='Compile with figures replaced by boxes of the same size (graphicx '
+                             'draft option), so the layout is that of the full build but faster. '
+                             'Runs as the LaTeX job <stem>-draft, which keeps its own .aux files; '
+                             'the PDF is still written to the --output path. Not supported with '
+                             'the tectonic backend or with companion documents. YAML key: draft.')
+    parser.add_argument('--progressive', action='store_true', default=None,
+                        help='With --pdf, publish the PDF in stages: (1) one LaTeX pass of the '
+                             'draft job (see --draft), reusing the previous references; (2) the '
+                             'draft job with references and bibliography resolved; (3) unless '
+                             '--draft is given, the full build with figures. Companion documents '
+                             'are compiled in stage 3 only. YAML key: progressive.')
     parser.add_argument('--packages', nargs='*', help='custom latex packages to include')
     # Deprecated: figures are now discovered from the markdown URLs, and
     # (with --copy-figures) always bundled into <build>/figures/. The flag
@@ -822,10 +950,28 @@ def _resolve_build_options(plan):
     engine = str(plan.args.engine or yaml_meta.get('engine') or 'pdflatex')
     backend = str(plan.args.backend or yaml_meta.get('backend') or 'latexmk')
     rewrite_unicode = plan.args.rewrite_unicode or yaml_meta.get('rewrite_unicode')
-    return engine, backend, rewrite_unicode
+    draft = bool(plan.args.draft or yaml_meta.get('draft'))
+    progressive = bool(plan.args.progressive or yaml_meta.get('progressive'))
+    return engine, backend, rewrite_unicode, draft, progressive
 
 
-def _compile_documents(plan, targets, engine, backend, rewrite_unicode):
+def _check_draft_options(plan, backend, draft, progressive):
+    """Drop the draft and progressive options where they are not supported,
+    with a warning. Returns the (draft, progressive) to apply."""
+    if backend == 'tectonic' and (draft or progressive):
+        logger.warning("texmark: the tectonic backend has no draft mode; "
+                       "ignoring --draft/--progressive and building with figures.")
+        return False, False
+    if draft and plan.project.companion_files:
+        # xr-hyper reads each peer's <stem>.aux, i.e. the full job's: a
+        # draft job would leave the cross-document references stale.
+        logger.warning("texmark: draft builds are not supported with companion "
+                       "documents; building with figures.")
+        draft = False
+    return draft, progressive
+
+
+def _compile_documents(plan, targets, engine, backend, rewrite_unicode, draft=False):
     """Compile every (tex, pdf, bib, resource_path, biblatex) target.
 
     Companions need multi-pass coordination: xr-hyper resolves cross-doc
@@ -853,13 +999,97 @@ def _compile_documents(plan, targets, engine, backend, rewrite_unicode):
         in_tex, out_pdf, bib, rp, bl = targets[0]
         compile_pdf(in_tex, out_pdf, engine=engine, build_dir=plan.args.build,
                     bib_file=bib, resource_path=rp, backend=backend,
-                    biblatex=bl, rewrite_unicode=rewrite_unicode)
+                    biblatex=bl, rewrite_unicode=rewrite_unicode, draft=draft)
+
+
+def _mtime(path):
+    try:
+        return Path(path).stat().st_mtime_ns
+    except FileNotFoundError:
+        return None
+
+
+# Files of the full job that the draft job can start from: the layout is
+# the same, so their labels, citations and contents lines are valid for it.
+_SEED_SUFFIXES = ('.aux', '.bbl', '.toc', '.lof', '.lot', '.out')
+
+
+def _seed_draft_job(build_dir, input_tex):
+    """When the draft job has never run but the full job has, start the
+    draft job from the full job's .aux/.bbl/..., so that its first single
+    pass already shows the existing references."""
+    build_dir = Path(build_dir)
+    stem, job = Path(input_tex).stem, draft_jobname(input_tex)
+    if (build_dir / f'{job}.aux').exists():
+        return
+    for suffix in _SEED_SUFFIXES:
+        src = build_dir / f'{stem}{suffix}'
+        if src.exists():
+            shutil.copy2(src, build_dir / f'{job}{suffix}')
+
+
+def _compile_progressive(plan, targets, engine, backend, rewrite_unicode,
+                         draft=False, t0=None):
+    """Compile the root document in stages, publishing the PDF after each:
+
+    1. one engine pass on the draft job: the .aux/.bbl of its previous run
+       are reused, so only labels and citations added since show as ??;
+    2. the backend to completion on the draft job (bibtex and further
+       passes where needed), published only if the PDF changed;
+    3. unless ``draft``, the full build with figures (with companions, the
+       usual multi-pass loop over all documents).
+
+    Companion documents are compiled in stage 3 only.
+    """
+    t0 = time.monotonic() if t0 is None else t0
+    in_tex, out_pdf, bib, rp, bl = targets[0]
+    build_dir = plan.build_dir
+    tex_name = Path(in_tex).name
+    job = draft_jobname(in_tex)
+    job_pdf = build_dir / f'{job}.pdf'
+
+    def written(what):
+        logger.info(f"texmark: {what} written: {out_pdf} "
+                    f"({time.monotonic() - t0:.1f} s)")
+
+    prepare_build_dir(in_tex, build_dir, bib, rp, engine, rewrite_unicode)
+    _seed_draft_job(build_dir, in_tex)
+
+    # Stage 1. On a LaTeX error, report it and go on, as the full build
+    # does (latexmk -f, raw backend reruns): stage 2 shows the current state.
+    before = _mtime(job_pdf)
+    if not engine_pass(tex_name, build_dir, engine, jobname=job, pretex=DRAFT_PRETEX):
+        errors = latex_errors(build_dir / f'{job}.log')
+        if errors:
+            logger.warning(f"texmark: LaTeX errors in the draft pass:\n{errors}")
+    if _mtime(job_pdf) not in (None, before):
+        publish_job_pdf(in_tex, out_pdf, build_dir, draft=True)
+        written("draft PDF (1 pass)")
+    else:
+        logger.warning("texmark: the draft pass wrote no PDF")
+
+    # Stage 2.
+    before = _mtime(job_pdf)
+    run_driver(backend, tex_name, build_dir, engine, bl,
+               jobname=job, pretex=DRAFT_PRETEX)
+    if _mtime(job_pdf) not in (None, before):
+        publish_job_pdf(in_tex, out_pdf, build_dir, draft=True)
+        written("draft PDF (references resolved)")
+    else:
+        logger.info("texmark: draft PDF unchanged after the reference passes")
+
+    # Stage 3.
+    if draft:
+        return
+    _compile_documents(plan, targets, engine, backend, rewrite_unicode)
+    written("PDF with figures")
 
 
 def build_project(plan):
     """One full build of the plan: embeds, master, companions, PDFs."""
+    t0 = time.monotonic()
     args = plan.args
-    engine, backend, rewrite_unicode = _resolve_build_options(plan)
+    engine, backend, rewrite_unicode, draft, progressive = _resolve_build_options(plan)
 
     # Body-only builds for each embedded chapter, written as
     # `<build>/<stem>.tex` so the master's `\input{<stem>}` resolves at
@@ -947,12 +1177,21 @@ def build_project(plan):
                 str(c_meta.get('resource_path') or ''),
                 False,
             ))
-        _compile_documents(plan, targets, engine, backend, rewrite_unicode)
+        draft, progressive = _check_draft_options(plan, backend, draft, progressive)
+        if progressive:
+            _compile_progressive(plan, targets, engine, backend, rewrite_unicode,
+                                 draft=draft, t0=t0)
+        else:
+            _compile_documents(plan, targets, engine, backend, rewrite_unicode,
+                               draft=draft)
     else:
-        # tex-only build: stage the bibliographies anyway, so that a PDF
-        # compiled from the generated .tex by other means sees the current
-        # .bib (compile_pdf does this itself on the --pdf path).
+        # tex-only build: stage the template resources (.cls, .sty, .bst)
+        # and the bibliographies anyway, so that the generated .tex can be
+        # compiled by other means in the build directory (compile_pdf does
+        # this itself on the --pdf path).
         for meta in [root_metadata] + [m for _cp, _t, _p, m in companion_builds]:
+            if meta.get('resource_path'):
+                sync_tree(meta['resource_path'], plan.build_dir)
             stage_bibliography(meta.get('bibliography'), plan.build_dir,
                                engine, rewrite_unicode)
 

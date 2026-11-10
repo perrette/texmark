@@ -252,3 +252,18 @@ def test_tex_only_build_stages_bibliography(tmp_path, monkeypatch):
     B.main()
     assert (build_dir / "refs.bib").exists()
     assert "key1" in (build_dir / "refs.bib").read_text()
+
+
+def test_tex_only_build_stages_template_resources(tmp_path, monkeypatch):
+    """Without --pdf the template's class, style and .bst files must still be
+    copied into the build directory, so the generated .tex compiles there."""
+    import sys
+    from texmark import build as B
+    src = tmp_path / "src"; src.mkdir()
+    (src / "doc.md").write_text("---\ntitle: T\njournal:\n  template: classicthesis\n---\n\nText.\n")
+    build_dir = tmp_path / "build"
+    monkeypatch.setattr(sys, "argv", ["texmark", str(src / "doc.md"), "-d", str(build_dir)])
+    monkeypatch.chdir(src)
+    B.main()
+    assert (build_dir / "doc.tex").exists()
+    assert (build_dir / "classicthesis.sty").exists()
