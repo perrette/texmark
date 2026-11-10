@@ -218,6 +218,7 @@ def _apply_filters_to_ast(post, filters, pandoc_args):
             format="markdown+footnotes",
             to="json",
             extra_args=pandoc_args,
+            verify_format=False,
         )
         doc = pf.load(io.StringIO(ast_json_str))
         for f in filters:
@@ -238,6 +239,7 @@ def _apply_filters_to_ast(post, filters, pandoc_args):
         format="markdown+footnotes",
         to="json",
         extra_args=cmd_json,
+        verify_format=False,
     )
     return ast_json_str, pf.load(io.StringIO(ast_json_str))
 
@@ -258,6 +260,7 @@ def _render_body(ast_json_str, journal_template, metadata, pandoc_args):
         format="json",
         to=body_fmt['format'],
         extra_args=body_args,
+        verify_format=False,
     )
     # Rewrite ``apply_figure_defaults`` sentinels into figure*/end{figure*}.
     # See ``texmark.filters.figures.expand_figstar_sentinels`` for details.

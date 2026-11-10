@@ -78,6 +78,7 @@ def _scan_ast_for_embeds(markdown_path: Path) -> list[Path]:
         frontmatter.dumps(post),
         format="markdown+footnotes",
         to="json",
+        verify_format=False,
     )
     doc = pf.load(io.StringIO(ast_json))
 
