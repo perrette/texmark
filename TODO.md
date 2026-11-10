@@ -64,3 +64,31 @@ Questions to settle first:
   first affiliation instead of following the corresponding author.
 - science: with several corresponding authors the line reads
   "Corresponding authors. Email: a, b"; check against Science's guidelines.
+
+## Build speed
+
+`--draft` and `--progressive` are implemented. Left open:
+
+- **Superseding a running build.** In `--watch` mode a change saved during a
+  rebuild waits until that rebuild (all progressive stages) has finished.
+  Stopping the running stages on a new change would show the next draft
+  sooner, but needs the two items below so that a stopped LaTeX run leaves
+  the build directory usable.
+- **Build-directory lock.** Two texmark processes on the same build directory
+  (a `--watch` and a one-off build, or an editor's build task) write the same
+  .aux/.log files. A lock file taken for the whole build would serialise them.
+- **Aux snapshot and rollback.** An engine pass stopped half-way leaves .aux
+  files with part of the labels and citations, and the next single-pass draft
+  shows them as ??. Saving the job's .aux/.bbl/... before each stage and
+  restoring them when a stage did not finish would avoid that.
+- **Precompiled preamble.** Dumping the preamble into a format file
+  (`mylatexformat`, `pdflatex -ini`) would cut the start-up time of each
+  engine pass for documents with many packages. Idea only; not tried.
+- **Draft jobs with companion documents.** `--draft` is ignored with
+  companions because xr-hyper reads each peer's `<stem>.aux`. The crossref
+  filter could point `\externaldocument` at the draft job's .aux in draft
+  mode (xr-hyper's optional URL argument keeps the links on `<stem>.pdf`).
+- **Atomic output for the default path.** When the output is the full job's
+  own PDF (`<build>/<stem>.pdf`, the default without `-o`), pdflatex writes
+  it in place, so a viewer can still see a half-written file during a full
+  build. Only `-o` paths and draft publishes are renamed into place.

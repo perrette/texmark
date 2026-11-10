@@ -187,3 +187,74 @@ def test_draft_raw_backend_command(tmp_path, monkeypatch):
                         "\\PassOptionsToPackage{draft}{graphicx}\\input{doc.tex}"]
     assert ["bibtex", "doc-draft.aux"] in calls
     assert (tmp_path / "out.pdf").exists()
+
+
+NEW_SECTION = """
+# Methods {#sec:new}
+
+As shown in Section \\ref{sec:new}.
+"""
+
+
+def _record_publishes(monkeypatch, build):
+    """Record, for each published PDF, its job and whether that job's log
+    reports an undefined reference at that moment."""
+    import texmark.build as B
+    published = []
+    real = B.publish_pdf
+
+    def recording(src, dst):
+        job = Path(src).stem
+        log = (build / f"{job}.log").read_text(errors="replace")
+        published.append((job, "Reference `sec:new' on page" in log))
+        real(src, dst)
+
+    monkeypatch.setattr(B, "publish_pdf", recording)
+    return published
+
+
+@needs_latexmk
+def test_progressive_stages(tmp_path, monkeypatch, caplog):
+    """--progressive publishes the one-pass draft (new label unresolved), the
+    resolved draft, then the full build, in that order."""
+    import logging
+    monkeypatch.chdir(tmp_path)
+    src = _write_fig_doc(tmp_path)
+    build = tmp_path / "build"
+    out = build / "out.pdf"
+    _texmark(monkeypatch, src, "--pdf", "--progressive", "-d", build, "-o", out)
+
+    _write_fig_doc(tmp_path, FIG_DOC + NEW_SECTION)
+    published = _record_publishes(monkeypatch, build)
+    caplog.clear()
+    with caplog.at_level(logging.INFO, logger="texmark"):
+        _texmark(monkeypatch, src, "--pdf", "--progressive", "-d", build, "-o", out)
+
+    assert published == [("doc-draft", True), ("doc-draft", False), ("doc", False)]
+    stages = [r.getMessage().split(" written")[0] for r in caplog.records
+              if " written: " in r.getMessage()]
+    assert stages == ["texmark: draft PDF (1 pass)",
+                      "texmark: draft PDF (references resolved)",
+                      "texmark: PDF with figures"]
+    assert out.read_bytes() == (build / "doc.pdf").read_bytes()
+    assert _embeds_figure(build, "doc")
+    assert not _embeds_figure(build, "doc-draft")
+
+
+@needs_latexmk
+def test_progressive_draft_stops_after_draft_stages(tmp_path, monkeypatch):
+    """--progressive --draft runs stages 1-2 only; a first draft job starts
+    from the full job's .aux, so existing references resolve in stage 1."""
+    monkeypatch.chdir(tmp_path)
+    src = _write_fig_doc(tmp_path, FIG_DOC + NEW_SECTION)
+    build = tmp_path / "build"
+    out = build / "out.pdf"
+    _texmark(monkeypatch, src, "--pdf", "-d", build, "-o", out)
+    full_log = (build / "doc.log").stat().st_mtime_ns
+
+    published = _record_publishes(monkeypatch, build)
+    _texmark(monkeypatch, src, "--pdf", "--progressive", "--draft", "-d", build, "-o", out)
+    assert published[0] == ("doc-draft", False)
+    assert all(job == "doc-draft" for job, _ in published)
+    assert (build / "doc.log").stat().st_mtime_ns == full_log
+    assert out.read_bytes() == (build / "doc-draft.pdf").read_bytes()

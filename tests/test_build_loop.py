@@ -179,3 +179,35 @@ def test_single_input_no_companions_is_single_pass(tmp_path, monkeypatch):
         build_main()
 
     assert calls == ["solo.tex"]
+
+
+def test_progressive_with_companions_draft_stages_root_only(tmp_path, monkeypatch):
+    """--progressive with companions: stages 1-2 run on the root's draft job
+    only, then the usual multi-pass loop compiles every document with figures."""
+    src = _copy_companions_fixture(tmp_path)
+    build_dir = tmp_path / "build"
+    events = []
+
+    def fake_engine_pass(tex_name, build_dir, engine="pdflatex", jobname=None, pretex=""):
+        events.append(("pass", tex_name, jobname))
+        return True
+
+    def fake_driver(backend, tex_name, build_dir, engine="pdflatex", biblatex=False,
+                    jobname=None, pretex="", force=False):
+        events.append(("driver", tex_name, jobname))
+
+    def fake_compile(input_tex, output_pdf, **kw):
+        events.append(("compile", Path(input_tex).name, kw.get("draft", False)))
+
+    from texmark.build import main as build_main
+    monkeypatch.chdir(src.parent)
+    monkeypatch.setattr(sys, "argv", ["texmark", str(src / "main.md"), "-d", str(build_dir),
+                                      "--pdf", "--progressive"])
+    with patch("texmark.build.engine_pass", side_effect=fake_engine_pass), \
+         patch("texmark.build.run_driver", side_effect=fake_driver), \
+         patch("texmark.build.compile_pdf", side_effect=fake_compile):
+        build_main()
+
+    assert events[:2] == [("pass", "main.tex", "main-draft"),
+                          ("driver", "main.tex", "main-draft")]
+    assert events[2:] == [("compile", "main.tex", False), ("compile", "si.tex", False)] * 2

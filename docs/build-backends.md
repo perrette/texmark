@@ -58,6 +58,46 @@ Limitations:
   (with a warning): cross-document references are read from each document's
   `<stem>.aux`, which a draft job does not update.
 
+## Progressive builds
+
+```bash
+texmark doc.md --pdf --progressive
+```
+
+`--progressive` (YAML `progressive: true`) writes the PDF in three stages and
+replaces the output PDF after each one, so a viewer that reloads on change
+shows a first version early:
+
+1. One engine pass of the draft job. The `.aux` and `.bbl` of the previous
+   draft build are reused, so the existing references and citations are
+   right; only labels and citations added since then show as `??`. Printed
+   as `draft PDF (1 pass) written: <output>`.
+2. The backend to completion on the draft job: bibtex/biber and further
+   passes where needed. The PDF is published again only if it changed.
+   Printed as `draft PDF (references resolved) written: <output>`.
+3. The full build with figures (`PDF with figures written: <output>`).
+   Skipped when `--draft` is also given.
+
+Each line also gives the time since the build started. On a LaTeX error in
+stage 1 texmark prints the error lines and continues with stage 2, as the
+full build continues past errors. The first draft build in a build directory
+that already has a full build starts from the full job's `.aux`, `.bbl` and
+`.toc`, so stage 1 already shows the existing references.
+
+This is the recommended loop while writing, combined with `--watch` (see
+[Live preview](live-preview.md)):
+
+```bash
+texmark doc.md --pdf --progressive --watch
+```
+
+The stages run one after the other, so the PDF with figures comes later than
+with a plain build. Use `--progressive --draft` to stop after stage 2.
+
+With [companion documents](multi-file.md), stages 1 and 2 compile the root
+document only; stage 3 compiles every document as a plain build does. With
+the `tectonic` backend, `--progressive` is ignored with a warning.
+
 > **Unicode and HTML in bibliographies / body text** — texmark transparently
 > rewrites non-ASCII Unicode and CrossRef-style HTML markup
 > (`<i>δ</i><sup>18</sup>O`) into LaTeX commands at build time, so pdflatex

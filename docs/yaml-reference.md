@@ -50,6 +50,7 @@ engine: pdflatex                      # optional: pdflatex, xelatex, lualatex
 backend: latexmk                      # optional: latexmk, raw, tectonic
 rewrite_unicode: auto                 # optional: auto, on, off
 draft: false                          # optional: figures as boxes (same as --draft)
+progressive: false                    # optional: staged PDF builds (same as --progressive)
 ```
 
 See the [Figure paths](figures.md), [Multi-file projects](multi-file.md), and
@@ -102,6 +103,12 @@ box of the same size, which is faster and gives the same layout. It is
 unrelated to `journal.draft`, which selects the submission or
 publication-ready layout of the document class. See
 [Draft builds](build-backends.md#draft-builds).
+
+### progressive
+
+`progressive: true` (or `--progressive`) publishes the PDF in stages: a draft
+after one LaTeX pass, the draft with references resolved, then the full
+build. See [Progressive builds](build-backends.md#progressive-builds).
 
 ### journal.options
 

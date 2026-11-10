@@ -13,6 +13,7 @@ import os
 import re
 import shutil
 import subprocess
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -714,7 +715,6 @@ def watch_loop(do_build, paths, interval=0.5):
     Callers are expected to have run an initial build already, so we prime
     mtimes here and only trigger do_build on subsequent changes.
     """
-    import time
     paths = [Path(p) for p in paths if p]
     last = {}
     for p in paths:
@@ -845,6 +845,12 @@ def _build_parser():
                              'Runs as the LaTeX job <stem>-draft, which keeps its own .aux files; '
                              'the PDF is still written to the --output path. Not supported with '
                              'the tectonic backend or with companion documents. YAML key: draft.')
+    parser.add_argument('--progressive', action='store_true', default=None,
+                        help='With --pdf, publish the PDF in stages: (1) one LaTeX pass of the '
+                             'draft job (see --draft), reusing the previous references; (2) the '
+                             'draft job with references and bibliography resolved; (3) unless '
+                             '--draft is given, the full build with figures. Companion documents '
+                             'are compiled in stage 3 only. YAML key: progressive.')
     parser.add_argument('--packages', nargs='*', help='custom latex packages to include')
     # Deprecated: figures are now discovered from the markdown URLs, and
     # (with --copy-figures) always bundled into <build>/figures/. The flag
@@ -935,23 +941,24 @@ def _resolve_build_options(plan):
     backend = str(plan.args.backend or yaml_meta.get('backend') or 'latexmk')
     rewrite_unicode = plan.args.rewrite_unicode or yaml_meta.get('rewrite_unicode')
     draft = bool(plan.args.draft or yaml_meta.get('draft'))
-    return engine, backend, rewrite_unicode, draft
+    progressive = bool(plan.args.progressive or yaml_meta.get('progressive'))
+    return engine, backend, rewrite_unicode, draft, progressive
 
 
-def _draft_supported(plan, backend):
-    """Whether a draft job can be compiled for this project and backend;
-    warns when it cannot."""
-    if backend == 'tectonic':
+def _check_draft_options(plan, backend, draft, progressive):
+    """Drop the draft and progressive options where they are not supported,
+    with a warning. Returns the (draft, progressive) to apply."""
+    if backend == 'tectonic' and (draft or progressive):
         logger.warning("texmark: the tectonic backend has no draft mode; "
-                       "building with figures.")
-        return False
-    if plan.project.companion_files:
+                       "ignoring --draft/--progressive and building with figures.")
+        return False, False
+    if draft and plan.project.companion_files:
         # xr-hyper reads each peer's <stem>.aux, i.e. the full job's: a
         # draft job would leave the cross-document references stale.
         logger.warning("texmark: draft builds are not supported with companion "
                        "documents; building with figures.")
-        return False
-    return True
+        draft = False
+    return draft, progressive
 
 
 def _compile_documents(plan, targets, engine, backend, rewrite_unicode, draft=False):
@@ -985,10 +992,94 @@ def _compile_documents(plan, targets, engine, backend, rewrite_unicode, draft=Fa
                     biblatex=bl, rewrite_unicode=rewrite_unicode, draft=draft)
 
 
+def _mtime(path):
+    try:
+        return Path(path).stat().st_mtime_ns
+    except FileNotFoundError:
+        return None
+
+
+# Files of the full job that the draft job can start from: the layout is
+# the same, so their labels, citations and contents lines are valid for it.
+_SEED_SUFFIXES = ('.aux', '.bbl', '.toc', '.lof', '.lot', '.out')
+
+
+def _seed_draft_job(build_dir, input_tex):
+    """When the draft job has never run but the full job has, start the
+    draft job from the full job's .aux/.bbl/..., so that its first single
+    pass already shows the existing references."""
+    build_dir = Path(build_dir)
+    stem, job = Path(input_tex).stem, draft_jobname(input_tex)
+    if (build_dir / f'{job}.aux').exists():
+        return
+    for suffix in _SEED_SUFFIXES:
+        src = build_dir / f'{stem}{suffix}'
+        if src.exists():
+            shutil.copy2(src, build_dir / f'{job}{suffix}')
+
+
+def _compile_progressive(plan, targets, engine, backend, rewrite_unicode,
+                         draft=False, t0=None):
+    """Compile the root document in stages, publishing the PDF after each:
+
+    1. one engine pass on the draft job: the .aux/.bbl of its previous run
+       are reused, so only labels and citations added since show as ??;
+    2. the backend to completion on the draft job (bibtex and further
+       passes where needed), published only if the PDF changed;
+    3. unless ``draft``, the full build with figures (with companions, the
+       usual multi-pass loop over all documents).
+
+    Companion documents are compiled in stage 3 only.
+    """
+    t0 = time.monotonic() if t0 is None else t0
+    in_tex, out_pdf, bib, rp, bl = targets[0]
+    build_dir = plan.build_dir
+    tex_name = Path(in_tex).name
+    job = draft_jobname(in_tex)
+    job_pdf = build_dir / f'{job}.pdf'
+
+    def written(what):
+        logger.info(f"texmark: {what} written: {out_pdf} "
+                    f"({time.monotonic() - t0:.1f} s)")
+
+    prepare_build_dir(in_tex, build_dir, bib, rp, engine, rewrite_unicode)
+    _seed_draft_job(build_dir, in_tex)
+
+    # Stage 1. On a LaTeX error, report it and go on, as the full build
+    # does (latexmk -f, raw backend reruns): stage 2 shows the current state.
+    before = _mtime(job_pdf)
+    if not engine_pass(tex_name, build_dir, engine, jobname=job, pretex=DRAFT_PRETEX):
+        errors = latex_errors(build_dir / f'{job}.log')
+        if errors:
+            logger.warning(f"texmark: LaTeX errors in the draft pass:\n{errors}")
+    if _mtime(job_pdf) not in (None, before):
+        publish_job_pdf(in_tex, out_pdf, build_dir, draft=True)
+        written("draft PDF (1 pass)")
+    else:
+        logger.warning("texmark: the draft pass wrote no PDF")
+
+    # Stage 2.
+    before = _mtime(job_pdf)
+    run_driver(backend, tex_name, build_dir, engine, bl,
+               jobname=job, pretex=DRAFT_PRETEX)
+    if _mtime(job_pdf) not in (None, before):
+        publish_job_pdf(in_tex, out_pdf, build_dir, draft=True)
+        written("draft PDF (references resolved)")
+    else:
+        logger.info("texmark: draft PDF unchanged after the reference passes")
+
+    # Stage 3.
+    if draft:
+        return
+    _compile_documents(plan, targets, engine, backend, rewrite_unicode)
+    written("PDF with figures")
+
+
 def build_project(plan):
     """One full build of the plan: embeds, master, companions, PDFs."""
+    t0 = time.monotonic()
     args = plan.args
-    engine, backend, rewrite_unicode, draft = _resolve_build_options(plan)
+    engine, backend, rewrite_unicode, draft, progressive = _resolve_build_options(plan)
 
     # Body-only builds for each embedded chapter, written as
     # `<build>/<stem>.tex` so the master's `\input{<stem>}` resolves at
@@ -1076,8 +1167,13 @@ def build_project(plan):
                 str(c_meta.get('resource_path') or ''),
                 False,
             ))
-        draft = draft and _draft_supported(plan, backend)
-        _compile_documents(plan, targets, engine, backend, rewrite_unicode, draft=draft)
+        draft, progressive = _check_draft_options(plan, backend, draft, progressive)
+        if progressive:
+            _compile_progressive(plan, targets, engine, backend, rewrite_unicode,
+                                 draft=draft, t0=t0)
+        else:
+            _compile_documents(plan, targets, engine, backend, rewrite_unicode,
+                               draft=draft)
     else:
         # tex-only build: stage the template resources (.cls, .sty, .bst)
         # and the bibliographies anyway, so that the generated .tex can be
