@@ -1812,6 +1812,13 @@ and the flag is ignored).</p>
    concatenates them at compile time, so all labels and references
    resolve natively within one document.</li>
 </ol>
+<p>Step 1 is skipped for an embedded file whose inputs have not changed
+since the previous run: its <code>.tex</code> from that run is kept. The inputs
+are the file's text, the build options, the template, the figures it
+references, and the versions of texmark and pandoc; they are recorded
+in <code>&lt;build&gt;/.texmark-cache/</code>. Files that use custom filters
+(<code>--filters</code>, <code>filters_module</code>, or filter options in <code>pandoc_args</code>) are
+always converted. <code>--no-cache</code> converts every file.</p>
 <h2 id="companions-main-paper-supplementary-information">Companions — main paper + supplementary information<a class="headerlink" href="#companions-main-paper-supplementary-information" title="Permanent link">&para;</a></h2>
 <p>Companions are separate documents that compile to separate PDFs, with
 cross-document references between them. Declare companions in the root

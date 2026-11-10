@@ -1334,8 +1334,18 @@
 </code></pre></div>
 <p>Rebuilds whenever the input markdown, bibliography, or template changes.
 Combine with an auto-reloading PDF viewer (zathura, evince, okular) for a
-live-preview workflow — the output PDF is rewritten in place so viewers
-that follow inode changes keep your scroll position.</p>
+live-preview workflow. The output PDF is written to a temporary file next to
+it and renamed over the previous one, so a viewer never reads a half-written
+file. Viewers that watch the file for changes reload it after the rename
+(checked with GNOME Papers).</p>
+<p>For a faster first view after each change, add <code>--progressive</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>texmark<span class="w"> </span>sources/main.md<span class="w"> </span>--pdf<span class="w"> </span>--watch<span class="w"> </span>--progressive
+</code></pre></div>
+<p>Each rebuild then publishes a draft PDF after one LaTeX pass (figures as
+boxes, references from the previous build), then with the references
+resolved, then with the figures. See
+<a href="../build-backends/#progressive-builds">Progressive builds</a>. A change saved
+while a rebuild runs is picked up when that rebuild has finished.</p>
 <p>In multi-file projects <code>--watch</code> also tracks every embedded chapter and
 every companion document (plus each companion's bibliography and template).
 See <a href="../multi-file/">Multi-file projects</a> for the details.</p>

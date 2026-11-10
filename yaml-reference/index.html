@@ -891,6 +891,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#build_draft" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        build_draft
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#build_progressive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        build_progressive
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#journaloptions" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1445,6 +1467,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#build_draft" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        build_draft
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#build_progressive" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        build_progressive
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#journaloptions" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1540,6 +1584,12 @@
 <a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a><span class="nt">classicthesis-options</span><span class="p">:</span><span class="w"> </span><span class="s">"parts"</span><span class="w">        </span><span class="c1"># optional: classicthesis only</span>
 <a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a><span class="c1"># Custom LaTeX preamble (see Custom preamble page)</span>
 <a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a><span class="nt">preamble</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">macros.tex</span><span class="w">                  </span><span class="c1"># optional: file path or inline block scalar</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a><span class="c1"># Build options (see Build backends page; the CLI flags override them)</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a><span class="nt">engine</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pdflatex</span><span class="w">                      </span><span class="c1"># optional: pdflatex, xelatex, lualatex</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a><span class="nt">backend</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">latexmk</span><span class="w">                      </span><span class="c1"># optional: latexmk, raw, tectonic</span>
+<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a><span class="nt">rewrite_unicode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span><span class="w">                 </span><span class="c1"># optional: auto, on, off</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a><span class="nt">build_draft</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">                    </span><span class="c1"># optional: figures as boxes (same as --draft)</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a><span class="nt">build_progressive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">              </span><span class="c1"># optional: staged PDF builds (same as --progressive)</span>
 </code></pre></div>
 <p>See the <a href="../figures/">Figure paths</a>, <a href="../multi-file/">Multi-file projects</a>, and
 <a href="../preamble/">Custom preamble</a> pages for the fields grouped above.</p>
@@ -1582,6 +1632,16 @@ the flag to the right class options for its document class; see the
 <a href="../journals/#submission-vs-publication-ready-layout">submission vs publication-ready table</a>
 for what each journal does. <code>science</code> and <code>arxiv</code> have no production variant,
 so the flag is a no-op there.</p>
+<h3 id="build_draft">build_draft<a class="headerlink" href="#build_draft" title="Permanent link">&para;</a></h3>
+<p><code>build_draft: true</code> (or <code>--draft</code>) compiles the PDF with every figure replaced by a
+box of the same size, which is faster and gives the same layout. It is
+unrelated to <code>journal.draft</code>, which selects the submission or
+publication-ready layout of the document class. See
+<a href="../build-backends/#draft-builds">Draft builds</a>.</p>
+<h3 id="build_progressive">build_progressive<a class="headerlink" href="#build_progressive" title="Permanent link">&para;</a></h3>
+<p><code>build_progressive: true</code> (or <code>--progressive</code>) publishes the PDF in stages: a draft
+after one LaTeX pass, the draft with references resolved, then the full
+build. See <a href="../build-backends/#progressive-builds">Progressive builds</a>.</p>
 <h3 id="journaloptions">journal.options<a class="headerlink" href="#journaloptions" title="Permanent link">&para;</a></h3>
 <p>Raw document-class options, given as a string (<code>twocol</code>) or a list
 (<code>[final, 5p, times]</code>). When set, these are passed to <code>\documentclass</code> verbatim

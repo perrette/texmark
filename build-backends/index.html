@@ -663,6 +663,24 @@
         
       
       
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build backends and engines
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
       <a href="./" class="md-nav__link md-nav__link--active">
         
   
@@ -679,6 +697,47 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#draft-builds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Draft builds
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#progressive-builds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Progressive builds
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
       
     </li>
   
@@ -1306,6 +1365,36 @@
     
   
   
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#draft-builds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Draft builds
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#progressive-builds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Progressive builds
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
 </nav>
                   </div>
                 </div>
@@ -1370,6 +1459,62 @@ both are configurable from the CLI or YAML.</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="nt">engine</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pdflatex</span><span class="w">          </span><span class="c1"># or xelatex, lualatex</span>
 </code></pre></div>
 <p>CLI flags win over YAML.</p>
+<h2 id="draft-builds">Draft builds<a class="headerlink" href="#draft-builds" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>texmark<span class="w"> </span>doc.md<span class="w"> </span>--pdf<span class="w"> </span>--draft
+</code></pre></div>
+<p><code>--draft</code> (YAML <code>build_draft: true</code>) compiles the document with graphicx's <code>draft</code>
+option: every figure is replaced by a box of the same size with the file name
+in it. The layout, page numbers and references are those of the full build,
+and the compilation is faster for figure-heavy documents because the figures
+are not embedded in the PDF.</p>
+<p>The draft is compiled as a separate LaTeX job named <code>&lt;stem&gt;-draft</code>
+(<code>doc-draft.aux</code>, <code>doc-draft.log</code>, <code>doc-draft.pdf</code>), so draft and full builds
+keep their own auxiliary files and latexmk can skip either one when nothing
+changed since its last run. The PDF is still written to the <code>--output</code> path
+(by default <code>&lt;build&gt;/&lt;stem&gt;.pdf</code>). With latexmk the job is run as</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>latexmk<span class="w"> </span>-pdf<span class="w"> </span>-jobname<span class="o">=</span>doc-draft<span class="w"> </span>-usepretex<span class="o">=</span><span class="s1">'\PassOptionsToPackage{draft}{graphicx}'</span><span class="w"> </span>doc.tex
+</code></pre></div>
+<p>and with the <code>raw</code> backend the option is put in the engine's input argument
+(<code>pdflatex -jobname=doc-draft '\PassOptionsToPackage{draft}{graphicx}\input{doc.tex}'</code>).</p>
+<p>Limitations:</p>
+<ul>
+<li>The <code>tectonic</code> backend has no draft mode; texmark warns and builds with
+  figures.</li>
+<li>Projects with <a href="../multi-file/">companion documents</a> build with figures
+  (with a warning): cross-document references are read from each document's
+  <code>&lt;stem&gt;.aux</code>, which a draft job does not update.</li>
+</ul>
+<h2 id="progressive-builds">Progressive builds<a class="headerlink" href="#progressive-builds" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>texmark<span class="w"> </span>doc.md<span class="w"> </span>--pdf<span class="w"> </span>--progressive
+</code></pre></div>
+<p><code>--progressive</code> (YAML <code>build_progressive: true</code>) writes the PDF in three stages and
+replaces the output PDF after each one, so a viewer that reloads on change
+shows a first version early:</p>
+<ol>
+<li>One engine pass of the draft job. The <code>.aux</code> and <code>.bbl</code> of the previous
+   draft build are reused, so the existing references and citations are
+   right; only labels and citations added since then show as <code>??</code>. Printed
+   as <code>draft PDF (1 pass) written: &lt;output&gt;</code>.</li>
+<li>The backend to completion on the draft job: bibtex/biber and further
+   passes where needed. The PDF is published again only if it changed.
+   Printed as <code>draft PDF (references resolved) written: &lt;output&gt;</code>.</li>
+<li>The full build with figures (<code>PDF with figures written: &lt;output&gt;</code>).
+   Skipped when <code>--draft</code> is also given.</li>
+</ol>
+<p>Each line also gives the time since the build started. On a LaTeX error in
+stage 1 texmark prints the error lines and continues with stage 2, as the
+full build continues past errors. The first draft build in a build directory
+that already has a full build starts from the full job's <code>.aux</code>, <code>.bbl</code> and
+<code>.toc</code>, so stage 1 already shows the existing references.</p>
+<p>This is the recommended loop while writing, combined with <code>--watch</code> (see
+<a href="../live-preview/">Live preview</a>):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>texmark<span class="w"> </span>doc.md<span class="w"> </span>--pdf<span class="w"> </span>--progressive<span class="w"> </span>--watch
+</code></pre></div>
+<p>The stages run one after the other, so the PDF with figures comes later than
+with a plain build. Use <code>--progressive --draft</code> to stop after stage 2.</p>
+<p>With <a href="../multi-file/">companion documents</a>, stages 1 and 2 compile the root
+document only; stage 3 compiles every document as a plain build does. With
+the <code>tectonic</code> backend, <code>--progressive</code> is ignored with a warning.</p>
 <blockquote>
 <p><strong>Unicode and HTML in bibliographies / body text</strong> — texmark transparently
 rewrites non-ASCII Unicode and CrossRef-style HTML markup
