@@ -735,6 +735,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#precompiled-preamble" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Precompiled preamble
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1393,6 +1404,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#precompiled-preamble" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Precompiled preamble
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1471,11 +1493,15 @@ are not embedded in the PDF.</p>
 (<code>doc-draft.aux</code>, <code>doc-draft.log</code>, <code>doc-draft.pdf</code>), so draft and full builds
 keep their own auxiliary files and latexmk can skip either one when nothing
 changed since its last run. The PDF is still written to the <code>--output</code> path
-(by default <code>&lt;build&gt;/&lt;stem&gt;.pdf</code>). With latexmk the job is run as</p>
+(by default <code>&lt;build&gt;/&lt;stem&gt;.pdf</code>). Without the
+<a href="#precompiled-preamble">precompiled preamble</a>, with latexmk the job is run as</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>latexmk<span class="w"> </span>-pdf<span class="w"> </span>-jobname<span class="o">=</span>doc-draft<span class="w"> </span>-usepretex<span class="o">=</span><span class="s1">'\PassOptionsToPackage{draft}{graphicx}'</span><span class="w"> </span>doc.tex
 </code></pre></div>
 <p>and with the <code>raw</code> backend the option is put in the engine's input argument
-(<code>pdflatex -jobname=doc-draft '\PassOptionsToPackage{draft}{graphicx}\input{doc.tex}'</code>).</p>
+(<code>pdflatex -jobname=doc-draft '\PassOptionsToPackage{draft}{graphicx}\input{doc.tex}'</code>).
+With the precompiled preamble, graphicx is already loaded when the run
+starts, so the option is set by a line of the <code>.tex</code> that runs after the
+preamble when the job name is <code>&lt;stem&gt;-draft</code>.</p>
 <p>Limitations:</p>
 <ul>
 <li>The <code>tectonic</code> backend has no draft mode; texmark warns and builds with
@@ -1515,6 +1541,34 @@ with a plain build. Use <code>--progressive --draft</code> to stop after stage 2
 <p>With <a href="../multi-file/">companion documents</a>, stages 1 and 2 compile the root
 document only; stage 3 compiles every document as a plain build does. With
 the <code>tectonic</code> backend, <code>--progressive</code> is ignored with a warning.</p>
+<h2 id="precompiled-preamble">Precompiled preamble<a class="headerlink" href="#precompiled-preamble" title="Permanent link">&para;</a></h2>
+<p>With pdflatex and the <code>latexmk</code> or <code>raw</code> backend, texmark dumps the preamble
+(document class, packages, title block, <code>preamble:</code> content) into a format
+file, <code>&lt;build&gt;/&lt;stem&gt;-preamble.fmt</code>, with the <code>mylatexformat</code> package of TeX
+Live, and starts every LaTeX pass from it:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>pdflatex<span class="w"> </span>-ini<span class="w"> </span>-jobname<span class="o">=</span>doc-preamble<span class="w"> </span><span class="s2">"&amp;pdflatex"</span><span class="w"> </span>mylatexformat.ltx<span class="w"> </span>doc.tex<span class="w">   </span><span class="c1"># once</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>latexmk<span class="w"> </span>-pdf<span class="w"> </span>-pdflatex<span class="o">=</span><span class="s2">"pdflatex -fmt=doc-preamble %O %S"</span><span class="w"> </span>doc.tex
+</code></pre></div>
+<p>Each pass then skips loading the packages. On a thesis with classicthesis
+this saves about 1.5 s per pass; the PDF is the same.</p>
+<p>The templates mark the end of the precompiled part with the line
+<code>\csname endofdump\endcsname</code>, which does nothing when the document is
+compiled without the format. What comes after it is read on every pass:
+<code>\externaldocument</code> (companion labels), <code>\includeonly</code> (<code>--only</code>) and the
+draft switch.</p>
+<p>The format is rebuilt when the preamble text, the pdflatex version, the base
+<code>pdflatex.fmt</code>, or one of the files read while building it (local <code>.sty</code>
+files, files <code>\input</code> by the preamble, installed packages) changes; this is
+recorded in <code>&lt;build&gt;/&lt;stem&gt;-preamble.json</code>. Building it takes about as long
+as one LaTeX pass.</p>
+<p>texmark compiles the usual way, with one message, when <code>mylatexformat.ltx</code>
+is not installed, when building the format fails, or when a run with the
+format fails because of it; the last two are remembered until the preamble
+changes. The engines <code>xelatex</code> and <code>lualatex</code>, the <code>tectonic</code> backend and
+custom templates without the marker line never use a format.</p>
+<p>To disable it: <code>--no-preamble-format</code>, or in the YAML:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">build_preamble_format</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</code></pre></div>
 <blockquote>
 <p><strong>Unicode and HTML in bibliographies / body text</strong> — texmark transparently
 rewrites non-ASCII Unicode and CrossRef-style HTML markup
