@@ -559,12 +559,28 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
 
     actual_pdf = Path(build_dir) / Path(input_tex).with_suffix(".pdf").name
     if Path(output_pdf) != actual_pdf:
-        # copy (not move) so the destination inode is preserved across rebuilds —
-        # PDF viewers like evince keep scroll position when content changes in place.
-        shutil.copyfile(actual_pdf, output_pdf)
         # actual_pdf (the engine's jobname PDF) stays in build_dir: latexmk
         # checks for it, and without it reruns the engine on every build
         # even when nothing changed.
+        publish_pdf(actual_pdf, output_pdf)
+
+
+def publish_pdf(src, dst):
+    """Copy ``src`` to ``dst`` atomically: copy to a temporary file in the
+    destination directory, then rename it over ``dst``.
+
+    A viewer that reloads while the copy is in progress would otherwise read
+    a half-written PDF. The rename gives ``dst`` a new inode; viewers that
+    watch the file for changes reload it (checked with GNOME Papers).
+    """
+    dst = Path(dst)
+    tmp = dst.with_name(f".{dst.name}.{os.getpid()}.tmp")
+    try:
+        shutil.copyfile(src, tmp)
+        os.replace(tmp, dst)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
 
 
 MAX_PASSES = 4

@@ -77,3 +77,22 @@ def test_job_pdf_kept_and_unchanged_build_skips_engine(tmp_path, monkeypatch, ca
     captured = capfd.readouterr()
     assert "Nothing to do" in captured.out + captured.err
     assert (build / "doc.log").stat().st_mtime_ns == log_mtime
+
+
+@needs_latexmk
+def test_output_pdf_replaced_atomically(tmp_path, monkeypatch):
+    """The output PDF is renamed into place (new inode) and no temporary
+    file is left next to it."""
+    monkeypatch.chdir(tmp_path)
+    src = _write_doc(tmp_path)
+    build = tmp_path / "build"
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    out = out_dir / "paper.pdf"
+
+    _texmark(monkeypatch, src, "--pdf", "-d", build, "-o", out)
+    inode = out.stat().st_ino
+    _texmark(monkeypatch, src, "--pdf", "-d", build, "-o", out)
+    assert out.stat().st_ino != inode
+    assert out.read_bytes() == (build / "doc.pdf").read_bytes()
+    assert sorted(p.name for p in out_dir.iterdir()) == ["paper.pdf"]
