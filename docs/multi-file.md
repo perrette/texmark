@@ -95,6 +95,14 @@ When embedded files are present:
    concatenates them at compile time, so all labels and references
    resolve natively within one document.
 
+Step 1 is skipped for an embedded file whose inputs have not changed
+since the previous run: its `.tex` from that run is kept. The inputs
+are the file's text, the build options, the template, the figures it
+references, and the versions of texmark and pandoc; they are recorded
+in `<build>/.texmark-cache/`. Files that use custom filters
+(`--filters`, `filters_module`, or filter options in `pandoc_args`) are
+always converted. `--no-cache` converts every file.
+
 ## Companions — main paper + supplementary information
 
 Companions are separate documents that compile to separate PDFs, with
