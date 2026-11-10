@@ -25,6 +25,39 @@ engine: pdflatex          # or xelatex, lualatex
 
 CLI flags win over YAML.
 
+## Draft builds
+
+```bash
+texmark doc.md --pdf --draft
+```
+
+`--draft` (YAML `draft: true`) compiles the document with graphicx's `draft`
+option: every figure is replaced by a box of the same size with the file name
+in it. The layout, page numbers and references are those of the full build,
+and the compilation is faster for figure-heavy documents because the figures
+are not embedded in the PDF.
+
+The draft is compiled as a separate LaTeX job named `<stem>-draft`
+(`doc-draft.aux`, `doc-draft.log`, `doc-draft.pdf`), so draft and full builds
+keep their own auxiliary files and latexmk can skip either one when nothing
+changed since its last run. The PDF is still written to the `--output` path
+(by default `<build>/<stem>.pdf`). With latexmk the job is run as
+
+```bash
+latexmk -pdf -jobname=doc-draft -usepretex='\PassOptionsToPackage{draft}{graphicx}' doc.tex
+```
+
+and with the `raw` backend the option is put in the engine's input argument
+(`pdflatex -jobname=doc-draft '\PassOptionsToPackage{draft}{graphicx}\input{doc.tex}'`).
+
+Limitations:
+
+- The `tectonic` backend has no draft mode; texmark warns and builds with
+  figures.
+- Projects with [companion documents](multi-file.md) build with figures
+  (with a warning): cross-document references are read from each document's
+  `<stem>.aux`, which a draft job does not update.
+
 > **Unicode and HTML in bibliographies / body text** — texmark transparently
 > rewrites non-ASCII Unicode and CrossRef-style HTML markup
 > (`<i>δ</i><sup>18</sup>O`) into LaTeX commands at build time, so pdflatex

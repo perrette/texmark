@@ -45,6 +45,11 @@ chapter-style: veelo                  # optional: memoir only
 classicthesis-options: "parts"        # optional: classicthesis only
 # Custom LaTeX preamble (see Custom preamble page)
 preamble: macros.tex                  # optional: file path or inline block scalar
+# Build options (see Build backends page; the CLI flags override them)
+engine: pdflatex                      # optional: pdflatex, xelatex, lualatex
+backend: latexmk                      # optional: latexmk, raw, tectonic
+rewrite_unicode: auto                 # optional: auto, on, off
+draft: false                          # optional: figures as boxes (same as --draft)
 ```
 
 See the [Figure paths](figures.md), [Multi-file projects](multi-file.md), and
@@ -89,6 +94,14 @@ the flag to the right class options for its document class; see the
 [submission vs publication-ready table](journals/index.md#submission-vs-publication-ready-layout)
 for what each journal does. `science` and `arxiv` have no production variant,
 so the flag is a no-op there.
+
+### draft
+
+`draft: true` (or `--draft`) compiles the PDF with every figure replaced by a
+box of the same size, which is faster and gives the same layout. It is
+unrelated to `journal.draft`, which selects the submission or
+publication-ready layout of the document class. See
+[Draft builds](build-backends.md#draft-builds).
 
 ### journal.options
 
