@@ -141,7 +141,8 @@ def _detect_cycle(root: Path, edges: dict[Path, list[Path]]) -> None:
     dfs(root)
 
 
-def resolve_project(inputs: list[Path], project_root: Path | None = None) -> Project:
+def resolve_project(inputs: list[Path], project_root: Path | None = None,
+                    scan=None) -> Project:
     """Discover embedded files and companions from a list of input markdowns.
 
     The first input is the root document. Its YAML frontmatter provides
@@ -153,7 +154,11 @@ def resolve_project(inputs: list[Path], project_root: Path | None = None) -> Pro
     git toplevel of the root's directory, fallback to the current working
     directory (the caller's directory). git detection is skipped gracefully
     when git is absent or refuses (e.g. dubious ownership in a container).
+
+    ``scan`` replaces ``_scan_ast_for_embeds`` for the embedded files
+    (build.py passes one that caches its results on disk).
     """
+    scan = scan or _scan_ast_for_embeds
     if not inputs:
         raise ValueError("resolve_project requires at least one input file")
 
@@ -212,7 +217,7 @@ def resolve_project(inputs: list[Path], project_root: Path | None = None) -> Pro
             continue
         scanned.add(src)
         if src.exists():
-            children = _scan_ast_for_embeds(src)
+            children = scan(src)
             embed_edges[src] = children
             for child in children:
                 if child not in scanned:

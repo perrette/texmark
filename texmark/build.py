@@ -31,6 +31,7 @@ from texmark.filters import embed as _filters_embed
 from texmark.filters import crossref as _filters_crossref
 from texmark.filters.figures import expand_figstar_sentinels
 from texmark import journals as _journals
+from texmark import texcache as _texcache
 from texmark.project import (Project, resolve_project, load_markdown, parse_markdown,
                              _scan_ast_for_embeds)
 
@@ -734,6 +735,10 @@ def _build_parser():
                              'templates (article-class lacks \\include); ignored with a warning '
                              'otherwise.')
     parser.add_argument('--packages', nargs='*', help='custom latex packages to include')
+    parser.add_argument('--no-cache', action='store_true',
+                        help='Convert every embedded document (chapter) again, instead of '
+                             'reusing the .tex of those unchanged since the last run '
+                             '(cached in <build>/.texmark-cache/).')
     # Deprecated: figures are now discovered from the markdown URLs, and
     # (with --copy-figures) always bundled into <build>/figures/. The flag
     # is accepted-and-ignored so existing invocations keep working.
@@ -754,7 +759,9 @@ def plan_project(args) -> ProjectPlan:
     # When the resolved project has no embeds, no companions, and a
     # single input, downstream behaviour is identical to the historical
     # single-file pipeline.
-    project = resolve_project([Path(p) for p in args.inputs])
+    project = resolve_project(
+        [Path(p) for p in args.inputs],
+        scan=None if getattr(args, 'no_cache', False) else _texcache.cached_embed_scan(build_dir))
 
     # Pre-compute the stem lists used by the crossref filter so they don't
     # need to be re-derived on every body-only/master build call.
@@ -863,10 +870,13 @@ def build_project(plan):
 
     # Body-only builds for each embedded chapter, written as
     # `<build>/<stem>.tex` so the master's `\input{<stem>}` resolves at
-    # LaTeX time. Embeds are not separately compiled.
+    # LaTeX time. Embeds are not separately compiled. An embed whose inputs
+    # are unchanged since the last run keeps its .tex (texmark/texcache.py).
     for embed_path in plan.project.embedded_files:
         embed_tex = plan.build_dir / f"{embed_path.stem}.tex"
-        build_tex(str(embed_path), str(embed_tex),
+        _texcache.cached_build_tex(
+                  build_tex, str(embed_path), str(embed_tex),
+                  enabled=not getattr(args, 'no_cache', False),
                   template=args.template, bib_file=args.bib,
                   build_dir=args.build,
                   filters=args.filters, journal_template=plan.root_template,
