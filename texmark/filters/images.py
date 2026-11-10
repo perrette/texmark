@@ -228,7 +228,9 @@ class ResolveImagePathsFilter:
         latex = "\\graphicspath{" + "".join(parts) + "}"
         return pf.RawBlock(latex, format='latex')
 
-    def prepare(self, doc):
+    def configure(self, doc):
+        """Read the build context; the part of ``prepare`` that neither
+        changes the document nor touches files."""
         self._reset()
         ctx = BuildContext.from_doc(doc)
         self.copy_mode = ctx.copy_figures
@@ -243,6 +245,10 @@ class ResolveImagePathsFilter:
         # toggling.
         if not self.copy_mode:
             self.figure_folders = [Path(p) for p in ctx.figure_folders]
+
+    def prepare(self, doc):
+        self.configure(doc)
+        if not self.copy_mode:
             if self.figure_folders:
                 doc.content.insert(0, self._emit_graphicspath_block())
             return
