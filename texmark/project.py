@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import io
 import re
 import json
@@ -73,17 +74,29 @@ def _detect_git_root(directory: Path) -> Path | None:
 _MD_URL_END = re.compile(r'\.md"', re.IGNORECASE)
 
 
-def _scan_ast_for_embeds(markdown_path: Path) -> list[Path]:
-    """Parse a markdown file's body via pandoc AST and return Image URLs ending in .md."""
-    text = markdown_path.read_text()
-    post = load_markdown(text)
+@functools.lru_cache(maxsize=1024)
+def parse_markdown(text: str) -> str:
+    """Pandoc JSON AST of a markdown document, front matter included.
 
-    ast_json = pypandoc.convert_text(
-        frontmatter.dumps(post),
+    This is the only place a markdown file is read by pandoc: the embed scan
+    and build_tex both call it. Results are cached by content, so each file
+    is parsed once per build, and in --watch mode again only after it was
+    edited. The document's own ``pandoc_args`` are passed as reader options.
+    Callers that modify the document load their own copy (``pf.load``).
+    """
+    reader_args = frontmatter.loads(text).metadata.get("pandoc_args") or []
+    return pypandoc.convert_text(
+        text,
         format="markdown+footnotes",
         to="json",
+        extra_args=list(reader_args),
         verify_format=False,
     )
+
+
+def _scan_ast_for_embeds(markdown_path: Path) -> list[Path]:
+    """Parse a markdown file's body via pandoc AST and return Image URLs ending in .md."""
+    ast_json = parse_markdown(markdown_path.read_text())
     # An embed URL ends in ".md" (any case), which pandoc's JSON writer does
     # not escape: without '.md"' in the AST there is nothing to find, so skip
     # loading it into panflute.
