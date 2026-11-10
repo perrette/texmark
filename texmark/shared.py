@@ -15,6 +15,11 @@ class Filter:
         self._prepare = prepare
         self._finalize = finalize
 
+    @property
+    def needs_walk(self):
+        """False without an action: texmark.chain then skips the walk."""
+        return self._action is not None
+
     def action(self, elem, doc):
         if self._action:
             return _run_action(self._action, elem, doc)

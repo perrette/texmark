@@ -30,3 +30,7 @@ Two approaches are possible:
   module and make it available via `-j your-custom-name`. Note that will require
   you to explicitly pass `--template` as well — unless you overwrite an existing
   filter.
+  The filters of a chain run in order. Your own filters each walk the
+  document separately; consecutive built-in filters that only act on the
+  element they are given share one walk (see
+  [`texmark/chain.py`](https://github.com/perrette/texmark/blob/main/texmark/chain.py)).
