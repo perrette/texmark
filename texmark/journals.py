@@ -31,6 +31,7 @@ To add a journal: add a ``JOURNALS`` entry (and a matching template under
 import importlib
 
 import panflute as pf
+from texmark import walk as _walk
 
 from texmark.context import BuildContext
 from texmark.logs import logger
@@ -448,7 +449,7 @@ def run_filters(doc):
 
     for filter in get_filter_chain(template):
         logger.debug(f'Running filter: {filter} on {doc}')
-        doc = pf.run_filter(action=filter.action if hasattr(filter, 'action') else filter,
+        doc = _walk.run_filter(action=filter.action if hasattr(filter, 'action') else filter,
                    prepare=filter.prepare if hasattr(filter, 'prepare') else None,
                    finalize=filter.finalize if hasattr(filter, 'finalize') else None,
                    doc=doc)

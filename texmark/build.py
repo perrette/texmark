@@ -19,6 +19,7 @@ from pathlib import Path
 import frontmatter
 import jinja2
 import panflute as pf
+from texmark import walk as _walk
 import pypandoc
 
 import texmark
@@ -63,14 +64,14 @@ _INPROC_FILTERS = {
 
 def _run_inproc_filter(name, doc):
     if name == 'texmark-download-images':
-        return pf.run_filter(_filters_download_images.action, doc=doc)
+        return _walk.run_filter(_filters_download_images.action, doc=doc)
     if name == 'texmark-journal':
         return _journals.run_filters(doc)
     if name == 'texmark-embed':
-        return pf.run_filter(_filters_embed.embed_filter, doc=doc)
+        return _walk.run_filter(_filters_embed.embed_filter, doc=doc)
     if name == 'texmark-crossref':
         cf = _filters_crossref.crossref_filter
-        return pf.run_filter(cf.action, prepare=cf.prepare, finalize=cf.finalize, doc=doc)
+        return _walk.run_filter(cf.action, prepare=cf.prepare, finalize=cf.finalize, doc=doc)
     raise ValueError(f"Not a built-in in-process filter: {name!r}")
 
 
