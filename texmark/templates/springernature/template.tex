@@ -51,8 +51,10 @@
 {% endif -%}
 {% endfor %}
 
-{{ xr_preamble | default("") }}
+{{ xr_setup | default("") }}
 {{ user_preamble | default("") }}
+{{ endofdump | default("") }}
+{{ xr_externals | default("") }}
 
 \begin{document}
 

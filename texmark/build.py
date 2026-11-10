@@ -32,6 +32,7 @@ from texmark.filters import embed as _filters_embed
 from texmark.filters import crossref as _filters_crossref
 from texmark.filters.figures import expand_figstar_sentinels
 from texmark import journals as _journals
+from texmark import preamble_format as _preamble_format
 from texmark import texcache as _texcache
 from texmark.project import (Project, resolve_project, load_markdown, parse_markdown,
                              _scan_ast_for_embeds)
@@ -437,6 +438,13 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
         template_vars = dict(metadata)
         if isinstance(template_vars.get('bibliography'), list):
             template_vars['bibliography'] = ','.join(bib_files(template_vars['bibliography']))
+        # End of the part of the preamble that can be precompiled, and the
+        # draft-job switch that replaces DRAFT_PRETEX when it is (see
+        # texmark.preamble_format). Templates render it after the user
+        # preamble and before \externaldocument and \includeonly.
+        template_vars['endofdump'] = (
+            _preamble_format.PREAMBLE_END + '\n'
+            + _preamble_format.draft_switch(draft_jobname(output_tex)))
         output_text = master_template.render(body=body, **template_vars)
 
     with open(output_tex, "w") as f:
@@ -488,7 +496,10 @@ def stage_bibliography(bib_file, build_dir, engine, rewrite_unicode=None):
 # option), so the layout, and hence every page number and reference, is that
 # of the full build. It runs under its own jobname, so the draft and full
 # builds keep separate .aux/.log/.fdb_latexmk files and latexmk can skip
-# either one when nothing changed since its last run.
+# either one when nothing changed since its last run. With a precompiled
+# preamble, graphicx is already loaded and TeX code on the command line is
+# skipped, so the option is set by the draft switch that build_tex writes
+# after the preamble marker (texmark.preamble_format.draft_switch).
 DRAFT_PRETEX = r'\PassOptionsToPackage{draft}{graphicx}'
 
 
@@ -530,17 +541,22 @@ def prepare_build_dir(input_tex, build_dir, bib_file='', resource_path='',
     stage_bibliography(bib_file, build_dir, engine, rewrite_unicode)
 
 
-def _engine_cmd(engine, tex_name, jobname=None, pretex=''):
-    cmd = [engine, '-interaction=nonstopmode']
+def _engine_cmd(engine, tex_name, jobname=None, pretex='', fmt=None):
+    cmd = [engine]
+    if fmt:
+        cmd.append(f'-fmt={fmt}')
+    cmd.append('-interaction=nonstopmode')
     if jobname:
         cmd.append(f'-jobname={jobname}')
     cmd.append(pretex + '\\input{' + tex_name + '}' if pretex else tex_name)
     return cmd
 
 
-def engine_pass(tex_name, build_dir, engine='pdflatex', jobname=None, pretex=''):
-    """One engine pass. Returns True when the engine exited without error."""
-    cmd = _engine_cmd(engine, tex_name, jobname, pretex)
+def engine_pass(tex_name, build_dir, engine='pdflatex', jobname=None, pretex='',
+                fmt=None):
+    """One engine pass. Returns True when the engine exited without error.
+    ``fmt``: format file to start from (see texmark.preamble_format)."""
+    cmd = _engine_cmd(engine, tex_name, jobname, pretex, fmt)
     result = run(cmd, cwd=build_dir, check=False)
     return getattr(result, 'returncode', 0) == 0
 
@@ -560,7 +576,7 @@ def latex_errors(log_file, context=2):
 
 
 def run_latexmk(tex_name, build_dir, engine='pdflatex', jobname=None, pretex='',
-                force=False):
+                force=False, fmt=None):
     """latexmk to completion: bibtex/biber and as many engine passes as the
     .aux/.bbl need, none when nothing changed since its last run."""
     build_dir = Path(build_dir)
@@ -593,19 +609,21 @@ def run_latexmk(tex_name, build_dir, engine='pdflatex', jobname=None, pretex='',
         cmd.append(f'-jobname={jobname}')
     if pretex:
         cmd.append(f'-usepretex={pretex}')
+    if fmt:
+        cmd.append(f'-{engine}={engine} -fmt={fmt} %O %S')
     cmd.append(tex_name)
     run(cmd, cwd=build_dir, check=False)
 
 
 def run_raw(tex_name, build_dir, engine='pdflatex', biblatex=False,
-            jobname=None, pretex=''):
+            jobname=None, pretex='', fmt=None):
     """engine → bibtex (or biber) → engine → engine, unconditionally."""
     job = jobname or Path(tex_name).stem
-    engine_pass(tex_name, build_dir, engine, jobname, pretex)
+    engine_pass(tex_name, build_dir, engine, jobname, pretex, fmt)
     bibcmd = ['biber', job] if biblatex else ['bibtex', f'{job}.aux']
     run(bibcmd, cwd=build_dir, check=False)
-    engine_pass(tex_name, build_dir, engine, jobname, pretex)
-    engine_pass(tex_name, build_dir, engine, jobname, pretex)
+    engine_pass(tex_name, build_dir, engine, jobname, pretex, fmt)
+    engine_pass(tex_name, build_dir, engine, jobname, pretex, fmt)
 
 
 def run_tectonic(tex_name, build_dir):
@@ -614,14 +632,14 @@ def run_tectonic(tex_name, build_dir):
 
 
 def run_driver(backend, tex_name, build_dir, engine='pdflatex', biblatex=False,
-               jobname=None, pretex='', force=False):
+               jobname=None, pretex='', force=False, fmt=None):
     """Run the selected backend to completion on one job."""
     if backend == 'latexmk':
-        run_latexmk(tex_name, build_dir, engine, jobname, pretex, force=force)
+        run_latexmk(tex_name, build_dir, engine, jobname, pretex, force=force, fmt=fmt)
     elif backend == 'raw':
-        run_raw(tex_name, build_dir, engine, biblatex, jobname, pretex)
+        run_raw(tex_name, build_dir, engine, biblatex, jobname, pretex, fmt)
     elif backend == 'tectonic':
-        if jobname or pretex:
+        if jobname or pretex or fmt:
             raise ValueError("the tectonic backend does not support draft jobs")
         run_tectonic(tex_name, build_dir)
     else:
@@ -663,9 +681,36 @@ def publish_job_pdf(input_tex, output_pdf, build_dir, draft=False):
     publish_pdf(job_pdf, output_pdf)
 
 
+def run_job(runner, build_dir, tex_name, engine, backend, draft=False,
+            preamble_format=True, single_pass=False):
+    """Run one job (the full job, or the draft job when ``draft``) through
+    ``runner(fmt, pretex, force)``, which calls run_driver, or engine_pass
+    when ``single_pass``.
+
+    With ``preamble_format``, the job starts from the precompiled preamble
+    when one can be made (see texmark.preamble_format); the draft job then
+    gets its option from the switch after the preamble marker instead of
+    from ``pretex``. When the run fails because of the format, it is run
+    again without it, forced: latexmk has already recorded the current
+    sources as processed."""
+    jobname = draft_jobname(tex_name) if draft else Path(tex_name).stem
+    fmt = (_preamble_format.prepare(build_dir, tex_name, engine, backend)
+           if preamble_format else None)
+    if fmt:
+        before = _preamble_format.run_state(build_dir, jobname)
+        result = runner(fmt, '', False)
+        latexmk = backend == 'latexmk' and not single_pass
+        if not _preamble_format.run_failed(build_dir, jobname, before, latexmk):
+            return result
+        _preamble_format.disable(build_dir, tex_name)
+        return runner(None, DRAFT_PRETEX if draft else '', True)
+    return runner(None, DRAFT_PRETEX if draft else '', False)
+
+
 def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
                 bib_file='references.bib', resource_path='', backend='latexmk',
-                biblatex=False, rewrite_unicode=None, draft=False):
+                biblatex=False, rewrite_unicode=None, draft=False,
+                preamble_format=True):
     """
     Step 2: Compile LaTeX source into PDF.
 
@@ -686,18 +731,28 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
     draft: compile the draft job (``<stem>-draft``, figures as boxes, see
     DRAFT_PRETEX) and publish its PDF to ``output_pdf``. Not supported by
     the tectonic backend.
+
+    preamble_format: start the engine passes from a precompiled preamble
+    when possible (pdflatex with latexmk or raw; see run_job).
     """
     build_dir = Path(build_dir)
     prepare_build_dir(input_tex, build_dir, bib_file, resource_path,
                       engine, rewrite_unicode)
     tex_name = Path(input_tex).name
     if draft:
-        run_driver(backend, tex_name, build_dir, engine, biblatex,
-                   jobname=draft_jobname(input_tex), pretex=DRAFT_PRETEX)
+        run_job(lambda fmt, pretex, force: run_driver(
+                    backend, tex_name, build_dir, engine, biblatex,
+                    jobname=draft_jobname(input_tex), pretex=pretex, fmt=fmt,
+                    force=force),
+                build_dir, tex_name, engine, backend, draft=True,
+                preamble_format=preamble_format)
     else:
         marker = _draft_marker(build_dir, input_tex)
-        run_driver(backend, tex_name, build_dir, engine, biblatex,
-                   force=marker.exists())
+        run_job(lambda fmt, pretex, force: run_driver(
+                    backend, tex_name, build_dir, engine, biblatex,
+                    force=force or marker.exists(), fmt=fmt),
+                build_dir, tex_name, engine, backend,
+                preamble_format=preamble_format)
         marker.unlink(missing_ok=True)
     publish_job_pdf(input_tex, output_pdf, build_dir, draft=draft)
 
@@ -871,6 +926,13 @@ def _build_parser():
                         help='Convert every embedded document (chapter) again, instead of '
                              'reusing the .tex of those unchanged since the last run '
                              '(cached in <build>/.texmark-cache/).')
+    parser.add_argument('--no-preamble-format', dest='preamble_format',
+                        action='store_false', default=None,
+                        help='Do not precompile the preamble. By default, pdflatex builds '
+                             '(latexmk or raw backend) dump the preamble into '
+                             '<build>/<stem>-preamble.fmt with mylatexformat and start each '
+                             'LaTeX pass from it, falling back to a normal build when that '
+                             'fails. YAML key: build_preamble_format.')
     # Deprecated: figures are now discovered from the markdown URLs, and
     # (with --copy-figures) always bundled into <build>/figures/. The flag
     # is accepted-and-ignored so existing invocations keep working.
@@ -966,6 +1028,14 @@ def _resolve_build_options(plan):
     return engine, backend, rewrite_unicode, draft, progressive
 
 
+def _use_preamble_format(plan):
+    """--no-preamble-format, else YAML build_preamble_format (default true)."""
+    if getattr(plan.args, 'preamble_format', None) is False:
+        return False
+    yaml_meta = load_markdown(open(plan.primary_input).read()).metadata
+    return yaml_meta.get('build_preamble_format', True) is not False
+
+
 def _check_draft_options(plan, backend, draft, progressive):
     """Drop the draft and progressive options where they are not supported,
     with a warning. Returns the (draft, progressive) to apply."""
@@ -990,13 +1060,15 @@ def _compile_documents(plan, targets, engine, backend, rewrite_unicode, draft=Fa
     aux until they all stabilise. With no companions there is nothing to
     coordinate — single pass.
     """
+    use_format = _use_preamble_format(plan)
     if plan.project.companion_files:
         prev_snapshot = None
         for _pass_idx in range(1, MAX_PASSES + 1):
             for in_tex, out_pdf, bib, rp, bl in targets:
                 compile_pdf(in_tex, out_pdf, engine=engine, build_dir=plan.args.build,
                             bib_file=bib, resource_path=rp, backend=backend,
-                            biblatex=bl, rewrite_unicode=rewrite_unicode)
+                            biblatex=bl, rewrite_unicode=rewrite_unicode,
+                            preamble_format=use_format)
             cur_snapshot = _aux_files_snapshot(plan.project, plan.build_dir)
             if prev_snapshot is not None and cur_snapshot == prev_snapshot:
                 break
@@ -1010,7 +1082,8 @@ def _compile_documents(plan, targets, engine, backend, rewrite_unicode, draft=Fa
         in_tex, out_pdf, bib, rp, bl = targets[0]
         compile_pdf(in_tex, out_pdf, engine=engine, build_dir=plan.args.build,
                     bib_file=bib, resource_path=rp, backend=backend,
-                    biblatex=bl, rewrite_unicode=rewrite_unicode, draft=draft)
+                    biblatex=bl, rewrite_unicode=rewrite_unicode, draft=draft,
+                    preamble_format=use_format)
 
 
 def _mtime(path):
@@ -1069,7 +1142,11 @@ def _compile_progressive(plan, targets, engine, backend, rewrite_unicode,
     # Stage 1. On a LaTeX error, report it and go on, as the full build
     # does (latexmk -f, raw backend reruns): stage 2 shows the current state.
     before = _mtime(job_pdf)
-    if not engine_pass(tex_name, build_dir, engine, jobname=job, pretex=DRAFT_PRETEX):
+    use_format = _use_preamble_format(plan)
+    if not run_job(lambda fmt, pretex, _force: engine_pass(
+                       tex_name, build_dir, engine, jobname=job, pretex=pretex, fmt=fmt),
+                   build_dir, tex_name, engine, backend, draft=True,
+                   preamble_format=use_format, single_pass=True):
         errors = latex_errors(build_dir / f'{job}.log')
         if errors:
             logger.warning(f"texmark: LaTeX errors in the draft pass:\n{errors}")
@@ -1081,8 +1158,11 @@ def _compile_progressive(plan, targets, engine, backend, rewrite_unicode,
 
     # Stage 2.
     before = _mtime(job_pdf)
-    run_driver(backend, tex_name, build_dir, engine, bl,
-               jobname=job, pretex=DRAFT_PRETEX)
+    run_job(lambda fmt, pretex, force: run_driver(
+                backend, tex_name, build_dir, engine, bl,
+                jobname=job, pretex=pretex, fmt=fmt, force=force),
+            build_dir, tex_name, engine, backend, draft=True,
+            preamble_format=use_format)
     if _mtime(job_pdf) not in (None, before):
         publish_job_pdf(in_tex, out_pdf, build_dir, draft=True)
         written("draft PDF (references resolved)")

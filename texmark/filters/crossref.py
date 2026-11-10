@@ -10,8 +10,11 @@ This filter:
     ``\\ref{<other-stem>:<label>}`` when ``<other-stem>`` is a known peer
     (companion or sibling embed) of the active document.
   * Emits a ``xr_preamble`` string into doc metadata for every known peer,
-    of the form ``\\usepackage{xr-hyper}\\n\\externaldocument[<stem>:]{<stem>}``.
-    Templates render this just before ``\\begin{document}``.
+    of the form ``\\usepackage{xr-hyper}\\n\\externaldocument[<stem>:]{<stem>}``,
+    and the same split in two: ``xr_setup`` (the package and counter
+    prefixes) and ``xr_externals`` (the ``\\externaldocument`` lines). The
+    built-in templates render ``xr_setup`` before the preamble marker and
+    ``xr_externals`` after it (see texmark.preamble_format).
 
 Peers are advertised through the ``BuildContext`` set by build.py:
 ``crossref_companion_stems``, ``crossref_embed_stems``, ``crossref_own_stem``.
@@ -77,11 +80,12 @@ class CrossrefFilter:
 
     def finalize(self, doc):
         lines = []
+        externals = []
 
         if self.xr_targets:
             lines.append("\\usepackage{xr-hyper}")
             for stem in self.xr_targets:
-                lines.append(f"\\externaldocument[{stem}:]{{{stem}}}")
+                externals.append(f"\\externaldocument[{stem}:]{{{stem}}}")
 
         prefix_default = doc.get_metadata("prefix", None) or ""
         for counter, override_key, cmd in self._COUNTER_MAP:
@@ -93,8 +97,18 @@ class CrossrefFilter:
                     f"\\renewcommand{{\\{cmd}}}{{{p}\\arabic{{{counter}}}}}"
                 )
 
+        # xr_setup (package, counter prefixes) goes in the part of the
+        # preamble that can be precompiled; xr_externals reads the peers'
+        # .aux, so it is rendered after the preamble marker (see
+        # texmark.preamble_format). xr_preamble, both in one, is kept for
+        # custom templates.
         if lines:
-            doc.metadata["xr_preamble"] = pf.MetaString("\n".join(lines) + "\n")
+            doc.metadata["xr_setup"] = pf.MetaString("\n".join(lines) + "\n")
+        if externals:
+            doc.metadata["xr_externals"] = pf.MetaString("\n".join(externals) + "\n")
+        if lines or externals:
+            xr = lines[:1] + externals + lines[1:] if externals else lines
+            doc.metadata["xr_preamble"] = pf.MetaString("\n".join(xr) + "\n")
 
 
 crossref_filter = CrossrefFilter()

@@ -41,7 +41,8 @@ The draft is compiled as a separate LaTeX job named `<stem>-draft`
 (`doc-draft.aux`, `doc-draft.log`, `doc-draft.pdf`), so draft and full builds
 keep their own auxiliary files and latexmk can skip either one when nothing
 changed since its last run. The PDF is still written to the `--output` path
-(by default `<build>/<stem>.pdf`). With latexmk the job is run as
+(by default `<build>/<stem>.pdf`). Without the
+[precompiled preamble](#precompiled-preamble), with latexmk the job is run as
 
 ```bash
 latexmk -pdf -jobname=doc-draft -usepretex='\PassOptionsToPackage{draft}{graphicx}' doc.tex
@@ -49,6 +50,9 @@ latexmk -pdf -jobname=doc-draft -usepretex='\PassOptionsToPackage{draft}{graphic
 
 and with the `raw` backend the option is put in the engine's input argument
 (`pdflatex -jobname=doc-draft '\PassOptionsToPackage{draft}{graphicx}\input{doc.tex}'`).
+With the precompiled preamble, graphicx is already loaded when the run
+starts, so the option is set by a line of the `.tex` that runs after the
+preamble when the job name is `<stem>-draft`.
 
 Limitations:
 
@@ -97,6 +101,45 @@ with a plain build. Use `--progressive --draft` to stop after stage 2.
 With [companion documents](multi-file.md), stages 1 and 2 compile the root
 document only; stage 3 compiles every document as a plain build does. With
 the `tectonic` backend, `--progressive` is ignored with a warning.
+
+## Precompiled preamble
+
+With pdflatex and the `latexmk` or `raw` backend, texmark dumps the preamble
+(document class, packages, title block, `preamble:` content) into a format
+file, `<build>/<stem>-preamble.fmt`, with the `mylatexformat` package of TeX
+Live, and starts every LaTeX pass from it:
+
+```bash
+pdflatex -ini -jobname=doc-preamble "&pdflatex" mylatexformat.ltx doc.tex   # once
+latexmk -pdf -pdflatex="pdflatex -fmt=doc-preamble %O %S" doc.tex
+```
+
+Each pass then skips loading the packages. On a thesis with classicthesis
+this saves about 1.5 s per pass; the PDF is the same.
+
+The templates mark the end of the precompiled part with the line
+`\csname endofdump\endcsname`, which does nothing when the document is
+compiled without the format. What comes after it is read on every pass:
+`\externaldocument` (companion labels), `\includeonly` (`--only`) and the
+draft switch.
+
+The format is rebuilt when the preamble text, the pdflatex version, the base
+`pdflatex.fmt`, or one of the files read while building it (local `.sty`
+files, files `\input` by the preamble, installed packages) changes; this is
+recorded in `<build>/<stem>-preamble.json`. Building it takes about as long
+as one LaTeX pass.
+
+texmark compiles the usual way, with one message, when `mylatexformat.ltx`
+is not installed, when building the format fails, or when a run with the
+format fails because of it; the last two are remembered until the preamble
+changes. The engines `xelatex` and `lualatex`, the `tectonic` backend and
+custom templates without the marker line never use a format.
+
+To disable it: `--no-preamble-format`, or in the YAML:
+
+```yaml
+build_preamble_format: false
+```
 
 > **Unicode and HTML in bibliographies / body text** — texmark transparently
 > rewrites non-ASCII Unicode and CrossRef-style HTML markup

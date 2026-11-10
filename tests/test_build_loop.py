@@ -188,12 +188,13 @@ def test_progressive_with_companions_draft_stages_root_only(tmp_path, monkeypatc
     build_dir = tmp_path / "build"
     events = []
 
-    def fake_engine_pass(tex_name, build_dir, engine="pdflatex", jobname=None, pretex=""):
+    def fake_engine_pass(tex_name, build_dir, engine="pdflatex", jobname=None, pretex="",
+                         fmt=None):
         events.append(("pass", tex_name, jobname))
         return True
 
     def fake_driver(backend, tex_name, build_dir, engine="pdflatex", biblatex=False,
-                    jobname=None, pretex="", force=False):
+                    jobname=None, pretex="", force=False, fmt=None):
         events.append(("driver", tex_name, jobname))
 
     def fake_compile(input_tex, output_pdf, **kw):
@@ -202,7 +203,7 @@ def test_progressive_with_companions_draft_stages_root_only(tmp_path, monkeypatc
     from texmark.build import main as build_main
     monkeypatch.chdir(src.parent)
     monkeypatch.setattr(sys, "argv", ["texmark", str(src / "main.md"), "-d", str(build_dir),
-                                      "--pdf", "--progressive"])
+                                      "--pdf", "--progressive", "--no-preamble-format"])
     with patch("texmark.build.engine_pass", side_effect=fake_engine_pass), \
          patch("texmark.build.run_driver", side_effect=fake_driver), \
          patch("texmark.build.compile_pdf", side_effect=fake_compile):
