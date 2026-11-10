@@ -20,7 +20,7 @@ from pathlib import Path
 import frontmatter
 import jinja2
 import panflute as pf
-from texmark import walk as _walk
+from texmark import chain as _chain
 import pypandoc
 
 import texmark
@@ -65,16 +65,17 @@ _INPROC_FILTERS = {
 }
 
 
-def _run_inproc_filter(name, doc):
+def _inproc_chain(name, doc):
+    """The filters a built-in filter name stands for, as a chain for
+    ``texmark.chain.run_chain``."""
     if name == 'texmark-download-images':
-        return _walk.run_filter(_filters_download_images.action, doc=doc)
+        return [_filters_download_images.action]
     if name == 'texmark-journal':
-        return _journals.run_filters(doc)
+        return _journals.filter_chain_for(doc)
     if name == 'texmark-embed':
-        return _walk.run_filter(_filters_embed.embed_filter, doc=doc)
+        return [_filters_embed.embed_filter]
     if name == 'texmark-crossref':
-        cf = _filters_crossref.crossref_filter
-        return _walk.run_filter(cf.action, prepare=cf.prepare, finalize=cf.finalize, doc=doc)
+        return [_filters_crossref.crossref_filter]
     raise ValueError(f"Not a built-in in-process filter: {name!r}")
 
 
@@ -229,8 +230,11 @@ def _apply_filters_to_ast(doc, filters):
     can pick up metadata the filters modified).
     """
     if all(f in _INPROC_FILTERS for f in filters):
-        for f in filters:
-            doc = _run_inproc_filter(f, doc)
+        # One chain for all the built-ins, so that consecutive element-local
+        # filters (e.g. download-images and the journal chain's first
+        # filters) share document walks.
+        chain = [flt for name in filters for flt in _inproc_chain(name, doc)]
+        doc = _chain.run_chain(chain, doc)
         sink = io.StringIO()
         pf.dump(doc, sink)
         return sink.getvalue(), doc

@@ -24,6 +24,10 @@ def _as_list(value):
 
 
 class SectionFilter:
+    # All the work is in finalize; the action does nothing, so the chain
+    # runner (texmark.chain) skips the walk.
+    needs_walk = False
+
     def __init__(self, extract_sections, sections_map=None, remap_command_sections=None, drop_sections=()):
         self.extract_sections = list(extract_sections)
         self.sections_map = dict(sections_map or {})

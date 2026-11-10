@@ -8,9 +8,15 @@ document class wants. The ``JOURNALS`` table below holds that data; the
 ``texmark.shared.filters`` maps template name -> chain. Built-ins are
 registered as zero-argument factories so every build gets fresh filter
 instances (no state shared between builds); plain lists are also accepted
-for user registrations via ``--filters-module``. ``run_filters`` is the
-entry used both in-process by build.py and by the ``texmark-journal``
-pandoc subprocess filter.
+for user registrations via ``--filters-module``. ``filter_chain_for(doc)``
+resolves the chain for a document; build.py runs it in-process (after the
+other built-in filters, in one ``texmark.chain.run_chain`` call), and
+``run_filters`` runs it for the ``texmark-journal`` pandoc filter.
+
+The order of the chain is the order the filters run in. Which of them share
+a document walk is decided in ``texmark.chain`` (``WALK_GROUPS``), which
+lists every element-local built-in filter; a filter added to a chain without
+being listed there walks the document on its own.
 
 To add a journal: add a ``JOURNALS`` entry (and a matching template under
 ``templates/<name>/``). Keys:
@@ -31,7 +37,7 @@ To add a journal: add a ``JOURNALS`` entry (and a matching template under
 import importlib
 
 import panflute as pf
-from texmark import walk as _walk
+from texmark import chain as _chain
 
 from texmark.context import BuildContext
 from texmark.logs import logger
@@ -296,6 +302,9 @@ class FrontmatterFilter:
 
     FRONT_SECTIONS = ['dedication', 'preface', 'foreword']
 
+    # All the work is in finalize: texmark.chain skips the walk.
+    needs_walk = False
+
     def __init__(self):
         self._skip = False
         self._yaml_has = {}
@@ -435,7 +444,12 @@ def get_filter_chain(template):
     return entry() if callable(entry) else list(entry)
 
 
-def run_filters(doc):
+def filter_chain_for(doc):
+    """The filter chain for ``doc``'s journal template.
+
+    Imports the build's ``--filters-module`` first, so that user
+    registrations are in place.
+    """
     if doc is not None:
         template = journal_template(doc)
     else:
@@ -447,12 +461,10 @@ def run_filters(doc):
         logger.info(f"Loading filters module: {filters_module}")
         importlib.import_module(filters_module)
 
-    for filter in get_filter_chain(template):
-        logger.debug(f'Running filter: {filter} on {doc}')
-        doc = _walk.run_filter(action=filter.action if hasattr(filter, 'action') else filter,
-                   prepare=filter.prepare if hasattr(filter, 'prepare') else None,
-                   finalize=filter.finalize if hasattr(filter, 'finalize') else None,
-                   doc=doc)
-        assert isinstance(doc, pf.Doc), f"Filter {filter} did not return a valid doc object"
+    return get_filter_chain(template)
 
-    return doc
+
+def run_filters(doc):
+    """Run ``doc``'s journal filter chain (see ``texmark.chain`` for how the
+    filters share document walks)."""
+    return _chain.run_chain(filter_chain_for(doc), doc)

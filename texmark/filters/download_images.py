@@ -1,6 +1,5 @@
 import os
 import hashlib
-import requests
 from urllib.parse import urlparse
 import panflute as pf
 
@@ -20,6 +19,9 @@ def safe_filename_from_url(url):
     return os.path.join(hash_digest, basename)
 
 def download_image(url, output_path):
+    # Imported here: only needed for remote images, and texmark.chain imports
+    # this module whenever the journal filters run.
+    import requests
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
