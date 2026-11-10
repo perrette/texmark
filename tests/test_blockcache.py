@@ -348,7 +348,7 @@ def _random_edit(rng, text):
     chunks = text.split("\n\n")
     i = rng.randrange(len(chunks))
     kind = rng.choice(["word", "word", "insert", "delete", "marker", "cite", "note",
-                       "dup", "swap", "math", "header"])
+                       "dup", "swap", "math", "header", "caption"])
     if kind == "word":
         words = list(re.finditer(r"[A-Za-z]{3,}", chunks[i]))
         if words:
@@ -372,6 +372,8 @@ def _random_edit(rng, text):
         chunks.insert(i + 1, "$$\nx = 1\n$$")
     elif kind == "header":
         chunks.insert(i + 1, "## Header %d" % rng.randrange(100))
+    elif kind == "caption":
+        chunks[i] = chunks[i].replace("](images/", " %s](images/" % rng.choice(WORDS))
     return "\n\n".join(chunks)
 
 
@@ -386,3 +388,41 @@ def test_random_edits(project, check):
         logs, _ = check()
         incremental += any(log.startswith("block cache: converted") for log in logs)
     assert incremental >= 5
+
+
+SEQUENCES = {
+    "raw blocks ending in blank lines": [
+        "One.\n\n```{=latex}\n\\foo\n\n\n```\n\nTwo.\n\n```{=latex}\n\\bar\n\n```\n",
+        "One, edited.\n\n```{=latex}\n\\foo\n\n\n```\n\nTwo.\n\n```{=latex}\n\\bar\n\n```\n",
+        "One, edited.\n\n```{=latex}\n\\foo\n\n\n```\n\nTwo.\n\n```{=latex}\n\\baz\n\n```\n",
+    ],
+    "empty documents and comments": ["", "Text.\n", "<!-- c -->\n", "Text.\n\n<!-- c -->\n",
+                                     "Text, edited.\n\n<!-- c -->\n"],
+    "last level-1 header": ["Text.\n\n# Refs\n", "Text, edited.\n\n# Refs\n",
+                            "Text, edited.\n\n# Refs\n\nMore.\n", "Text.\n\n# Refs\n\nMore.\n"],
+    "example list numbers": ["(@) one\n(@) two\n\nText.\n\n(@) three\n",
+                             "(@) zero\n\nText 0.\n\n(@) one\n(@) two\n\nText.\n\n(@) three\n"],
+    "full-width figure": ["Text.\n\n![Fig](img.png){#fig:x figure-span=full}\n\nEnd.\n",
+                          "Text.\n\n![Fig 2](img.png){#fig:x figure-span=full}\n\nEnd.\n",
+                          "Text.\n\n![Fig 2](img.png){#fig:x}\n\nEnd.\n"],
+}
+
+
+@pytest.mark.parametrize("copy_figures", [False, True])
+@pytest.mark.parametrize("name", list(SEQUENCES))
+def test_versions_match_plain_conversion(tmp_path, monkeypatch, name, copy_figures):
+    """Each version, converted with the blocks recorded for the previous one,
+    gives the .tex of a conversion without block cache. figure_folders adds a
+    \\graphicspath block at the start (without --copy-figures)."""
+    monkeypatch.chdir(tmp_path)
+    Path("img.png").write_bytes(PNG)
+    kw = dict(build_dir="b", body_only=True, embed_depth=1, figure_folders=["."],
+              copy_figures=copy_figures)
+    previous = None
+    for text in SEQUENCES[name]:
+        Path("ch.md").write_text(text)
+        state = blockcache.BlockCache(previous)
+        build.build_tex("ch.md", "b/ch.tex", block_cache=state, **kw)
+        previous = state.entry
+        build.build_tex("ch.md", "r/ch.tex", **kw)
+        assert Path("b/ch.tex").read_bytes() == Path("r/ch.tex").read_bytes()
