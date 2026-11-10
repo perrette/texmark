@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import re
 import json
 import subprocess
 from dataclasses import dataclass, field
@@ -69,6 +70,9 @@ def _detect_git_root(directory: Path) -> Path | None:
         return None
 
 
+_MD_URL_END = re.compile(r'\.md"', re.IGNORECASE)
+
+
 def _scan_ast_for_embeds(markdown_path: Path) -> list[Path]:
     """Parse a markdown file's body via pandoc AST and return Image URLs ending in .md."""
     text = markdown_path.read_text()
@@ -80,6 +84,11 @@ def _scan_ast_for_embeds(markdown_path: Path) -> list[Path]:
         to="json",
         verify_format=False,
     )
+    # An embed URL ends in ".md" (any case), which pandoc's JSON writer does
+    # not escape: without '.md"' in the AST there is nothing to find, so skip
+    # loading it into panflute.
+    if not _MD_URL_END.search(ast_json):
+        return []
     doc = pf.load(io.StringIO(ast_json))
 
     found: list[Path] = []
