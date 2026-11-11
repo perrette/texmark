@@ -37,10 +37,13 @@ from texmark.logs import logger
 
 LOCK_FILE = '.texmark.lock'
 SNAPSHOT_DIR = '.texmark-snapshot'
-# Inputs or files of their own that the stages must not roll back: the .tex
-# files (written by the markdown conversion) and the precompiled preamble
-# (its record, <stem>-preamble.json, says when it must be rebuilt).
-_NOT_SAVED = ('.tex', '.fmt')
+# Files the snapshot leaves out: the .tex files (inputs, written by the
+# markdown conversion), the precompiled preamble (its record,
+# <stem>-preamble.json, says when it must be rebuilt) and the job PDFs, which
+# the engine rewrites on every pass and no pass reads (latexmk only checks
+# that the PDF exists; after a stopped stage it reruns anyway, since its
+# restored .fdb_latexmk predates the stopped run).
+_NOT_SAVED = ('.tex', '.fmt', '.pdf')
 
 
 # ---------------------------------------------------------------------------
@@ -114,16 +117,20 @@ class BuildLock:
 # Snapshot of the job files
 # ---------------------------------------------------------------------------
 
-def _job_files(build_dir, jobs):
+def _job_files(build_dir, jobs, keep=()):
     """Files in ``build_dir`` written by the LaTeX jobs ``jobs`` (``<job>.*``)
     and every .aux file (the chapter .aux files that \\include writes and
-    xr-hyper reads), except the .tex and .fmt files."""
+    xr-hyper reads), except the .tex, .fmt and .pdf files; the file names in
+    ``keep`` are included anyway."""
     try:
         entries = list(Path(build_dir).iterdir())
     except FileNotFoundError:
         return []
     files = []
     for f in entries:
+        if f.name in keep and f.is_file():
+            files.append(f)
+            continue
         if f.suffix in _NOT_SAVED or f.name.startswith('.') or not f.is_file():
             continue
         if f.suffix == '.aux' or any(f.name.startswith(job + '.') for job in jobs):
@@ -139,22 +146,26 @@ class Snapshot:
     ``restore`` deletes the job files that were not there when the snapshot
     was taken, copies the saved ones back (each through a temporary file
     renamed over the original), and removes the snapshot. ``drop`` removes it.
+
+    ``keep``: file names saved although they are PDFs, i.e. the output PDF
+    when it is the full job's own (the file the viewer shows).
     """
 
     _MANIFEST = '.jobs.json'
 
-    def __init__(self, build_dir, jobs):
+    def __init__(self, build_dir, jobs, keep=()):
         self.build_dir = Path(build_dir)
         self.jobs = list(jobs)
+        self.keep = list(keep)
         self.dir = self.build_dir / SNAPSHOT_DIR
 
     def take(self):
         tmp = self.dir.with_name(SNAPSHOT_DIR + '.tmp')
         shutil.rmtree(tmp, ignore_errors=True)
         tmp.mkdir(parents=True)
-        for f in _job_files(self.build_dir, self.jobs):
+        for f in _job_files(self.build_dir, self.jobs, self.keep):
             shutil.copy2(f, tmp / f.name)
-        (tmp / self._MANIFEST).write_text(json.dumps(self.jobs))
+        (tmp / self._MANIFEST).write_text(json.dumps({'jobs': self.jobs, 'keep': self.keep}))
         shutil.rmtree(self.dir, ignore_errors=True)
         tmp.rename(self.dir)
 
@@ -173,12 +184,13 @@ def restore_snapshot(build_dir):
     snap = build_dir / SNAPSHOT_DIR
     shutil.rmtree(build_dir / (SNAPSHOT_DIR + '.tmp'), ignore_errors=True)
     try:
-        jobs = json.loads((snap / Snapshot._MANIFEST).read_text())
-    except (OSError, ValueError):
+        manifest = json.loads((snap / Snapshot._MANIFEST).read_text())
+        jobs, keep = manifest['jobs'], manifest['keep']
+    except (OSError, ValueError, KeyError, TypeError):
         shutil.rmtree(snap, ignore_errors=True)
         return False
     saved = {f.name for f in snap.iterdir() if f.name != Snapshot._MANIFEST}
-    for f in _job_files(build_dir, jobs):
+    for f in _job_files(build_dir, jobs, keep):
         if f.name not in saved:
             f.unlink(missing_ok=True)
     for name in saved:

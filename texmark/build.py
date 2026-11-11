@@ -787,13 +787,19 @@ def run_job(runner, build_dir, tex_name, engine, backend, draft=False,
     gets its option from the switch after the preamble marker instead of
     from ``pretex``. When the run fails because of the format, it is run
     again without it, forced: latexmk has already recorded the current
-    sources as processed."""
+    sources as processed. A run killed by a signal is not taken for a
+    failure of the format."""
     jobname = jobname or (draft_jobname(tex_name) if draft else Path(tex_name).stem)
     fmt = (_preamble_format.prepare(build_dir, tex_name, engine, backend)
            if preamble_format else None)
     if fmt:
         before = _preamble_format.run_state(build_dir, jobname)
+        signalled = _procs.signalled()
         result = runner(fmt, '', False)
+        if _procs.signalled() > signalled:
+            # Killed from outside (or a broken pipe): not the format's fault.
+            logger.warning("texmark: a LaTeX run was stopped by a signal")
+            return result
         latexmk = backend == 'latexmk' and not single_pass
         if not _preamble_format.run_failed(build_dir, jobname, before, latexmk):
             return result
@@ -1424,11 +1430,15 @@ def build_project(plan):
 
 def _snapshot(plan):
     """Snapshot of the files of the root's jobs (full, draft and part job)
-    and of the companions' jobs (see texmark.watch.Snapshot)."""
+    and of the companions' jobs (see texmark.watch.Snapshot). The output PDF
+    is saved too when it is the full job's own PDF (the default path), so
+    that a stopped full build does not leave the viewer a half-written one."""
     tex = plan.tex_file
     jobs = [Path(tex).stem, draft_jobname(tex), part_jobname(tex)]
     jobs += [p.stem for p in plan.project.companion_files]
-    return _watch.Snapshot(plan.build_dir, jobs)
+    full_pdf = plan.build_dir / f'{Path(tex).stem}.pdf'
+    keep = [full_pdf.name] if Path(plan.pdf_file).resolve() == full_pdf.resolve() else []
+    return _watch.Snapshot(plan.build_dir, jobs, keep)
 
 
 def _changed_chapters(plan, changed):

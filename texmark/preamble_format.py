@@ -54,6 +54,9 @@ _KEY_VERSION = 'texmark-preamble-format 1'
 # Written to the job log by the format's \everyjob code once the preamble
 # has been skipped.
 _START_MESSAGE = '(mylatexformat)Info: start reading document'
+# Lines that pdfTeX writes at the end of a log, after a run that ended
+# (with or without errors) rather than being killed.
+_RUN_ENDED = ('Output written on', 'No pages of output', 'Fatal error occurred')
 
 
 def format_name(tex_name):
@@ -249,7 +252,12 @@ def run_failed(build_dir, jobname, before, latexmk=False):
     file error") writes no log, so a log that was not rewritten although the
     engine ran (latexmk records each engine run in its .fdb_latexmk) is a
     failure. A rewritten log is a failure when it lacks mylatexformat's
-    start message, i.e. the preamble scan did not reach the marker line.
+    start message, i.e. the preamble scan did not reach the marker line,
+    and the run ended (an engine killed half-way leaves a log without
+    either; it says nothing about the format).
+
+    A run whose engine was killed by a signal is not a failure of the
+    format either; run_job checks that first (texmark.procs.signalled).
     """
     log_before, engine_run_before = before
     log_now, engine_run_now = run_state(build_dir, jobname)
@@ -258,7 +266,9 @@ def run_failed(build_dir, jobname, before, latexmk=False):
     if log_now == log_before:
         return not latexmk or engine_run_now != engine_run_before
     log = (Path(build_dir) / f'{jobname}.log').read_text(errors='replace')
-    return 'Fatal format file error' in log or _START_MESSAGE not in log
+    if 'Fatal format file error' in log:
+        return True
+    return _START_MESSAGE not in log and any(end in log for end in _RUN_ENDED)
 
 
 def disable(build_dir, tex_name):

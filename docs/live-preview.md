@@ -57,8 +57,9 @@ it), SIGKILL after 2 seconds if they are still there, and waits until they
 are gone. A LaTeX run stopped half-way leaves `.aux` files with only part of
 the labels and citations, so before each stage texmark saves the files the
 LaTeX jobs write (`.aux` including the chapter `.aux` files, `.bbl`, `.toc`,
-`.log`, `.fdb_latexmk`, the job PDFs; not the `.tex` files or the precompiled
-preamble) to `<build>/.texmark-snapshot/`, and puts them back when the stage
+`.log`, `.fdb_latexmk`; not the `.tex` files, the precompiled preamble or
+the job PDFs, which no LaTeX pass reads, except `<build>/<stem>.pdf` when it
+is the output PDF) to `<build>/.texmark-snapshot/`, and puts them back when the stage
 is stopped. Then stage 1 starts for the new change. A stage of an older change
 never replaces the PDF of a newer one.
 

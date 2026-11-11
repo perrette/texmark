@@ -209,19 +209,24 @@ def test_cancel_stops_process_group(tmp_path):
 
 def test_stage_runner_restores_snapshot_on_interrupt(tmp_path):
     """A stopped stage gets its job files back; a finished stage leaves its
-    own; no snapshot directory is left."""
+    own; no snapshot directory is left. Job PDFs are not saved, except the
+    ones named in ``keep`` (the output PDF when it is the full job's)."""
     build = tmp_path / "build"
     build.mkdir()
     (build / "doc.aux").write_text("complete")
     (build / "ch1.aux").write_text("complete")
     (build / "doc.tex").write_text("tex")
-    snapshot = watch.Snapshot(build, ["doc", "doc-draft"])
+    (build / "doc.pdf").write_text("pdf")
+    (build / "doc-draft.pdf").write_text("draft pdf")
+    snapshot = watch.Snapshot(build, ["doc", "doc-draft"], keep=["doc.pdf"])
 
     def stopped():
         (build / "doc.aux").write_text("partial")
         (build / "ch1.aux").write_text("")
         (build / "doc-draft.log").write_text("new")
         (build / "doc.tex").write_text("tex2")
+        (build / "doc.pdf").write_text("half")
+        (build / "doc-draft.pdf").write_text("half")
         raise procs.Interrupted()
 
     with pytest.raises(procs.Interrupted):
@@ -230,6 +235,8 @@ def test_stage_runner_restores_snapshot_on_interrupt(tmp_path):
     assert (build / "ch1.aux").read_text() == "complete"
     assert not (build / "doc-draft.log").exists()
     assert (build / "doc.tex").read_text() == "tex2"   # not a job file
+    assert (build / "doc.pdf").read_text() == "pdf"    # kept
+    assert (build / "doc-draft.pdf").read_text() == "half"   # not saved
     assert not (build / watch.SNAPSHOT_DIR).exists()
 
     def finished():

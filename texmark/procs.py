@@ -68,6 +68,12 @@ def check():
         raise Interrupted()
 
 
+def signalled():
+    """How many commands of the current thread were ended by a signal
+    (negative return code: killed from outside, or by a broken pipe)."""
+    return getattr(_local, 'signalled', 0)
+
+
 def _group_alive(pgid):
     try:
         os.killpg(pgid, 0)
@@ -134,6 +140,8 @@ def run(cmd, cwd=None, check=False, shell=False, **kwargs):
                 cancel._procs.discard(proc)
     if cancel is not None and cancel.cancelled:
         raise Interrupted()
+    if returncode < 0:
+        _local.signalled = signalled() + 1
     if check and returncode:
         raise subprocess.CalledProcessError(returncode, cmd)
     return subprocess.CompletedProcess(cmd, returncode)

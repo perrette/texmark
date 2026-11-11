@@ -2,10 +2,14 @@
 
 Skips when pandoc, latexmk, pdflatex or mylatexformat is missing.
 """
+import json
 import os
 import shutil
+import signal
 import subprocess
 import sys
+import threading
+import time
 from pathlib import Path
 
 import pytest
@@ -249,6 +253,65 @@ def test_format_run_failure_falls_back_and_is_remembered(tmp_path, monkeypatch, 
     _texmark(monkeypatch, src, "--pdf", "-d", build)
     out = caplog.text
     assert "-fmt=" not in out
+
+
+KILL_DOC = DOC + """
+```{=latex}
+\\IfFileExists{kill.flag}{\\pdfresettimer\\loop\\ifnum\\pdfelapsedtime<1966080 \\repeat}{}
+```
+"""
+
+
+def _kill_pdflatex_in(build, flag, delay):
+    """SIGKILL the first pdflatex running in ``build`` (found through
+    /proc/<pid>/cwd), then remove ``flag``."""
+    target = str(build.resolve())
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline:
+        for entry in Path("/proc").iterdir():
+            try:
+                if (entry.name.isdigit() and os.readlink(entry / "cwd") == target
+                        and (entry / "comm").read_text().strip() == "pdflatex"):
+                    time.sleep(delay)
+                    os.kill(int(entry.name), signal.SIGKILL)
+                    flag.unlink()
+                    return
+            except OSError:
+                pass
+        time.sleep(0.02)
+
+
+@pytest.mark.parametrize("args, job, delay", [
+    (["-b", "latexmk"], "doc", 0.5),
+    (["-b", "raw"], "doc", 0.5),
+    # a single pass (stage 1), the run whose log is checked right after the kill
+    (["--progressive", "--draft"], "doc-draft", 0.5),
+    # killed at once, before it writes its log
+    (["--progressive", "--draft"], "doc-draft", 0),
+])
+def test_killed_run_is_not_a_format_failure(tmp_path, monkeypatch, args, job, delay):
+    """A pdflatex run killed from outside (SIGKILL) during a build with the
+    format does not disable the format: its record stays ok and the next
+    build uses it."""
+    src, build = _setup(tmp_path, monkeypatch, KILL_DOC)
+    _texmark(monkeypatch, src, "--pdf", "-d", build, *args)
+    assert _used_format(build, job)
+
+    flag = build / "kill.flag"
+    flag.write_text("")
+    src.write_text(KILL_DOC.replace("See Section", "KILLED See Section"))
+    killer = threading.Thread(target=_kill_pdflatex_in, args=(build, flag, delay))
+    killer.start()
+    _texmark(monkeypatch, src, "--pdf", "-d", build, *args)
+    killer.join()
+    assert not flag.exists()   # the run was killed
+    state = json.loads((build / "doc-preamble.json").read_text())
+    assert state["status"] == "ok"
+
+    src.write_text(KILL_DOC.replace("See Section", "AFTERKILL See Section"))
+    _texmark(monkeypatch, src, "--pdf", "-d", build, *args)
+    assert _used_format(build, job)
+    assert "AFTERKILL" in (build / "doc.tex").read_text()
 
 
 def test_format_build_failure_falls_back(tmp_path, monkeypatch, caplog):
