@@ -1819,6 +1819,13 @@ references, and the versions of texmark and pandoc; they are recorded
 in <code>&lt;build&gt;/.texmark-cache/</code>. Files that use custom filters
 (<code>--filters</code>, <code>filters_module</code>, or filter options in <code>pandoc_args</code>) are
 always converted. <code>--no-cache</code> converts every file.</p>
+<p>When only the text of an embedded file changed, the conversion reuses
+the LaTeX of its unchanged paragraphs from the previous run, and
+converts only the paragraphs (and lists, quotes, footnotes, figure
+captions, tables...) that were edited. Edits to headers, to display
+equations and the paragraphs next to them, or to the YAML front
+matter, and adding, removing or replacing an image, convert the whole
+file. The result is the same as a full conversion.</p>
 <h2 id="companions-main-paper-supplementary-information">Companions — main paper + supplementary information<a class="headerlink" href="#companions-main-paper-supplementary-information" title="Permanent link">&para;</a></h2>
 <p>Companions are separate documents that compile to separate PDFs, with
 cross-document references between them. Declare companions in the root
