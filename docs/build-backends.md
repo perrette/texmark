@@ -96,7 +96,10 @@ texmark doc.md --pdf --progressive --watch
 ```
 
 The stages run one after the other, so the PDF with figures comes later than
-with a plain build. Use `--progressive --draft` to stop after stage 2.
+with a plain build. Use `--progressive --draft` to stop after stage 2. In
+watch mode, stages 2 and 3 run in the background and a new change stops
+them; after a change to chapters only, stage 1 typesets those chapters only
+(see [Live preview](live-preview.md)).
 
 With [companion documents](multi-file.md), stages 1 and 2 compile the root
 document only; stage 3 compiles every document as a plain build does. With

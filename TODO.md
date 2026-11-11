@@ -67,21 +67,13 @@ Questions to settle first:
 
 ## Build speed
 
-`--draft`, `--progressive` and the precompiled preamble are implemented.
-Left open:
+`--draft`, `--progressive`, the precompiled preamble, and interruptible
+staged `--watch` builds (build-directory lock, .aux snapshot and rollback,
+chapter-only first pass) are implemented. Left open:
 
-- **Superseding a running build.** In `--watch` mode a change saved during a
-  rebuild waits until that rebuild (all progressive stages) has finished.
-  Stopping the running stages on a new change would show the next draft
-  sooner, but needs the two items below so that a stopped LaTeX run leaves
-  the build directory usable.
-- **Build-directory lock.** Two texmark processes on the same build directory
-  (a `--watch` and a one-off build, or an editor's build task) write the same
-  .aux/.log files. A lock file taken for the whole build would serialise them.
-- **Aux snapshot and rollback.** An engine pass stopped half-way leaves .aux
-  files with part of the labels and citations, and the next single-pass draft
-  shows them as ??. Saving the job's .aux/.bbl/... before each stage and
-  restoring them when a stage did not finish would avoid that.
+- **Interrupting the markdown conversion.** In `--watch` mode a change saved
+  while the markdown is converted to LaTeX is picked up once the conversion
+  has finished; only the LaTeX stages are stopped.
 - **Draft jobs with companion documents.** `--draft` is ignored with
   companions because xr-hyper reads each peer's `<stem>.aux`. The crossref
   filter could point `\externaldocument` at the draft job's .aux in draft

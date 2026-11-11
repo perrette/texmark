@@ -36,7 +36,7 @@ def _run_watch(md_path: Path, build_dir: Path, monkeypatch) -> list[Path]:
     ])
     captured: dict = {}
 
-    def fake_watch_loop(do_build, paths, interval=0.5):
+    def fake_watch_loop(do_build, paths, **kwargs):
         captured["paths"] = list(paths)
 
     with patch("texmark.build.watch_loop", side_effect=fake_watch_loop), \
