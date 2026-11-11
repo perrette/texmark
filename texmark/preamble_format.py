@@ -44,6 +44,7 @@ import json
 import subprocess
 from pathlib import Path
 
+from texmark import procs
 from texmark.logs import logger
 
 PREAMBLE_END = r'\csname endofdump\endcsname'
@@ -196,8 +197,8 @@ def prepare(build_dir, tex_name, engine, backend):
            f'-jobname={name}', f'&{engine}', 'mylatexformat.ltx', tex_name]
     logger.info(' '.join(cmd))
     try:
-        result = subprocess.run(cmd, cwd=build_dir, check=False,
-                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        result = procs.run(cmd, cwd=build_dir, check=False,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         ok = result.returncode == 0
     except OSError:
         ok = False

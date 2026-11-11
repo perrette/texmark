@@ -13,7 +13,7 @@ import json
 import os
 import re
 import shutil
-import subprocess
+import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -35,6 +35,9 @@ from texmark.filters.figures import expand_figstar_sentinels
 from texmark import journals as _journals
 from texmark import blockcache as _blockcache
 from texmark import preamble_format as _preamble_format
+from texmark import procs as _procs
+from texmark import watch as _watch
+from texmark.watch import Stage, watch_loop
 from texmark import texcache as _texcache
 from texmark.project import (Project, resolve_project, load_markdown, parse_markdown,
                              _scan_ast_for_embeds)
@@ -86,8 +89,10 @@ rootpath = Path(texmark.__file__).resolve().parent
 
 
 def run(cmd, shell=False, check=True, **kwargs):
+    """Run a command in its own process group, so that it can be stopped
+    with the processes it starts (see texmark.procs)."""
     logger.info(cmd if shell else ' '.join(str(c) for c in cmd))
-    return subprocess.run(cmd, shell=shell, check=check, **kwargs)
+    return _procs.run(cmd, shell=shell, check=check, **kwargs)
 
 
 def sync_tree(src, dst):
@@ -485,6 +490,13 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
         template_vars['endofdump'] = (
             _preamble_format.PREAMBLE_END + '\n'
             + _preamble_format.draft_switch(draft_jobname(output_tex)))
+        # Book-family templates render {{ includeonly }} after the marker;
+        # the part job of a watch session reads its own \includeonly from a
+        # file named there (see part_switch).
+        if journal_template in BOOK_FAMILY_TEMPLATES:
+            template_vars['includeonly'] = '\n'.join(
+                line for line in (template_vars.get('includeonly'),
+                                  part_switch(output_tex)) if line)
         output_text = master_template.render(body=body, **template_vars)
 
     with open(output_tex, "w") as f:
@@ -545,6 +557,45 @@ DRAFT_PRETEX = r'\PassOptionsToPackage{draft}{graphicx}'
 
 def draft_jobname(input_tex):
     return Path(input_tex).stem + '-draft'
+
+
+# Part job: in a watch session, when only chapters changed, the first stage
+# typesets these chapters only, as the draft job <stem>-part-draft. It reads
+# the same .tex (and precompiled preamble) as the other jobs; the line
+# written by part_switch after the preamble marker makes it read
+# <stem>-part-setup.tex (write_part_setup), which holds its \includeonly,
+# turns figures into boxes and typesets the reference list into a discarded
+# box. Page numbers and references of the other chapters come from their
+# .aux files, written by the last draft or full build.
+def part_jobname(input_tex):
+    return Path(input_tex).stem + '-part-draft'
+
+
+def _part_setup_file(input_tex):
+    return Path(input_tex).stem + '-part-setup.tex'
+
+
+def part_switch(input_tex):
+    """TeX line that makes the part job read its setup file. Guarded like
+    draft_switch, so that it does nothing under engines without \\pdfstrcmp."""
+    return (r'\ifdefined\pdfstrcmp\ifnum\pdfstrcmp{\jobname}{'
+            + part_jobname(input_tex) + r'}=0 \InputIfFileExists{'
+            + _part_setup_file(input_tex) + r'}{}{}\fi\fi')
+
+
+def write_part_setup(input_tex, build_dir, chapters):
+    """Write the part job's setup file for the chapter stems ``chapters``.
+
+    The reference list (``\\bibliography``) is typeset into a box that is
+    never output: ``\\bibitem`` writes the citations to the .aux immediately,
+    so they stay defined, and no pages are spent on it. A biblatex
+    ``\\printbibliography`` is typeset as usual."""
+    text = ('\\includeonly{' + ','.join(chapters) + '}\n'
+            r'\ifcsname KV@Gin@draft\endcsname\setkeys{Gin}{draft}\fi' '\n'
+            r'\def\texmarkpartbibliography#1{\setbox0=\vbox{\texmarkbibliography{#1}}}' '\n'
+            r'\AtBeginDocument{\let\texmarkbibliography\bibliography'
+            r'\let\bibliography\texmarkpartbibliography}' '\n')
+    (Path(build_dir) / _part_setup_file(input_tex)).write_text(text)
 
 
 def _draft_marker(build_dir, input_tex):
@@ -704,28 +755,32 @@ def publish_pdf(src, dst):
         raise
 
 
-def publish_job_pdf(input_tex, output_pdf, build_dir, draft=False):
-    """Publish the PDF of the full job (or of the draft job) to ``output_pdf``.
+def publish_job_pdf(input_tex, output_pdf, build_dir, draft=False, jobname=None):
+    """Publish the PDF of the full job (or of the draft job, or of the job
+    ``jobname``) to ``output_pdf``.
 
     The job PDF stays in ``build_dir``: latexmk checks for it, and without
     it reruns the engine on every build even when nothing changed.
     """
     build_dir = Path(build_dir)
     full_pdf = build_dir / f'{Path(input_tex).stem}.pdf'
-    job_pdf = build_dir / f'{draft_jobname(input_tex)}.pdf' if draft else full_pdf
+    if jobname is None and draft:
+        jobname = draft_jobname(input_tex)
+    job_pdf = build_dir / f'{jobname}.pdf' if jobname else full_pdf
     output_pdf = Path(output_pdf)
     if output_pdf.resolve() == job_pdf.resolve():
         return
-    if draft and output_pdf.resolve() == full_pdf.resolve():
+    if job_pdf != full_pdf and output_pdf.resolve() == full_pdf.resolve():
         _draft_marker(build_dir, input_tex).touch()
     publish_pdf(job_pdf, output_pdf)
 
 
 def run_job(runner, build_dir, tex_name, engine, backend, draft=False,
-            preamble_format=True, single_pass=False):
+            preamble_format=True, single_pass=False, jobname=None):
     """Run one job (the full job, or the draft job when ``draft``) through
     ``runner(fmt, pretex, force)``, which calls run_driver, or engine_pass
-    when ``single_pass``.
+    when ``single_pass``. ``jobname``: the job's name when it is another
+    draft job (the part job, see compile_stages).
 
     With ``preamble_format``, the job starts from the precompiled preamble
     when one can be made (see texmark.preamble_format); the draft job then
@@ -733,7 +788,7 @@ def run_job(runner, build_dir, tex_name, engine, backend, draft=False,
     from ``pretex``. When the run fails because of the format, it is run
     again without it, forced: latexmk has already recorded the current
     sources as processed."""
-    jobname = draft_jobname(tex_name) if draft else Path(tex_name).stem
+    jobname = jobname or (draft_jobname(tex_name) if draft else Path(tex_name).stem)
     fmt = (_preamble_format.prepare(build_dir, tex_name, engine, backend)
            if preamble_format else None)
     if fmt:
@@ -750,7 +805,7 @@ def run_job(runner, build_dir, tex_name, engine, backend, draft=False,
 def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
                 bib_file='references.bib', resource_path='', backend='latexmk',
                 biblatex=False, rewrite_unicode=None, draft=False,
-                preamble_format=True):
+                preamble_format=True, publish=True):
     """
     Step 2: Compile LaTeX source into PDF.
 
@@ -774,6 +829,9 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
 
     preamble_format: start the engine passes from a precompiled preamble
     when possible (pdflatex with latexmk or raw; see run_job).
+
+    publish: copy the job PDF to ``output_pdf`` (else the caller does it,
+    with publish_job_pdf).
     """
     build_dir = Path(build_dir)
     prepare_build_dir(input_tex, build_dir, bib_file, resource_path,
@@ -794,7 +852,8 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
                 build_dir, tex_name, engine, backend,
                 preamble_format=preamble_format)
         marker.unlink(missing_ok=True)
-    publish_job_pdf(input_tex, output_pdf, build_dir, draft=draft)
+    if publish:
+        publish_job_pdf(input_tex, output_pdf, build_dir, draft=draft)
 
 
 MAX_PASSES = 4
@@ -817,42 +876,6 @@ def _aux_files_snapshot(project, build_dir):
         except FileNotFoundError:
             snapshot[doc.stem] = b""
     return snapshot
-
-
-def watch_loop(do_build, paths, interval=0.5):
-    """Rebuild whenever any of `paths` changes mtime. Loops until Ctrl-C.
-
-    Callers are expected to have run an initial build already, so we prime
-    mtimes here and only trigger do_build on subsequent changes.
-    """
-    paths = [Path(p) for p in paths if p]
-    last = {}
-    for p in paths:
-        try:
-            last[p] = p.stat().st_mtime
-        except FileNotFoundError:
-            pass
-    logger.info(f"texmark: watching {len(paths)} path(s); Ctrl-C to stop.")
-    try:
-        while True:
-            time.sleep(interval)
-            changed = False
-            for p in paths:
-                try:
-                    mt = p.stat().st_mtime
-                except FileNotFoundError:
-                    continue
-                if last.get(p) != mt:
-                    last[p] = mt
-                    changed = True
-            if changed:
-                try:
-                    do_build()
-                    logger.info("texmark: build OK; watching for next change.")
-                except Exception as e:
-                    logger.error(f"texmark: build failed: {e}")
-    except KeyboardInterrupt:
-        logger.info("texmark: stopped watching.")
 
 
 # ---------------------------------------------------------------------------
@@ -919,7 +942,9 @@ def _build_parser():
     parser.add_argument('-w', '--watch', action='store_true',
                         help='Rebuild whenever the input markdown, bibliography, or template '
                              'changes. Combine with an auto-reloading PDF viewer (zathura, '
-                             'evince, okular) for live preview. Implies --pdf.')
+                             'evince, okular) for live preview. Implies --pdf. The LaTeX runs '
+                             'happen in the background and a new change stops them; '
+                             'recommended with --progressive (docs/live-preview.md).')
     parser.add_argument('-d', '--build', default='build', help='build directory')
     parser.add_argument('--bib', help='bibliography file')
     parser.add_argument('--tex', help='LaTeX output filename')
@@ -960,7 +985,8 @@ def _build_parser():
                              'draft job (see --draft), reusing the previous references; (2) the '
                              'draft job with references and bibliography resolved; (3) unless '
                              '--draft is given, the full build with figures. Companion documents '
-                             'are compiled in stage 3 only. YAML key: progressive.')
+                             'are compiled in stage 3 only. With --watch, stage 1 after a change to '
+                             'chapters only typesets those chapters. YAML key: progressive.')
     parser.add_argument('--packages', nargs='*', help='custom latex packages to include')
     parser.add_argument('--no-cache', action='store_true',
                         help='Convert every embedded document (chapter) again, instead of '
@@ -1092,23 +1118,27 @@ def _check_draft_options(plan, backend, draft, progressive):
     return draft, progressive
 
 
-def _compile_documents(plan, targets, engine, backend, rewrite_unicode, draft=False):
+def _compile_documents(plan, targets, engine, backend, rewrite_unicode, draft=False,
+                       publish=True):
     """Compile every (tex, pdf, bib, resource_path, biblatex) target.
 
     Companions need multi-pass coordination: xr-hyper resolves cross-doc
     refs by reading peer .aux files, so each pass may change another doc's
     aux until they all stabilise. With no companions there is nothing to
     coordinate — single pass.
+
+    publish: publish the root document's PDF (else the caller does);
+    companion PDFs are always published.
     """
     use_format = _use_preamble_format(plan)
     if plan.project.companion_files:
         prev_snapshot = None
         for _pass_idx in range(1, MAX_PASSES + 1):
-            for in_tex, out_pdf, bib, rp, bl in targets:
+            for i, (in_tex, out_pdf, bib, rp, bl) in enumerate(targets):
                 compile_pdf(in_tex, out_pdf, engine=engine, build_dir=plan.args.build,
                             bib_file=bib, resource_path=rp, backend=backend,
                             biblatex=bl, rewrite_unicode=rewrite_unicode,
-                            preamble_format=use_format)
+                            preamble_format=use_format, publish=publish or i > 0)
             cur_snapshot = _aux_files_snapshot(plan.project, plan.build_dir)
             if prev_snapshot is not None and cur_snapshot == prev_snapshot:
                 break
@@ -1123,7 +1153,7 @@ def _compile_documents(plan, targets, engine, backend, rewrite_unicode, draft=Fa
         compile_pdf(in_tex, out_pdf, engine=engine, build_dir=plan.args.build,
                     bib_file=bib, resource_path=rp, backend=backend,
                     biblatex=bl, rewrite_unicode=rewrite_unicode, draft=draft,
-                    preamble_format=use_format)
+                    preamble_format=use_format, publish=publish)
 
 
 def _mtime(path):
@@ -1138,87 +1168,142 @@ def _mtime(path):
 _SEED_SUFFIXES = ('.aux', '.bbl', '.toc', '.lof', '.lot', '.out')
 
 
+def _seed_job(build_dir, src_job, dst_job):
+    """Copy the .aux/.bbl/... of the job ``src_job`` to the job ``dst_job``."""
+    for suffix in _SEED_SUFFIXES:
+        src = Path(build_dir) / f'{src_job}{suffix}'
+        if src.exists():
+            shutil.copy2(src, Path(build_dir) / f'{dst_job}{suffix}')
+
+
 def _seed_draft_job(build_dir, input_tex):
     """When the draft job has never run but the full job has, start the
     draft job from the full job's .aux/.bbl/..., so that its first single
     pass already shows the existing references."""
-    build_dir = Path(build_dir)
-    stem, job = Path(input_tex).stem, draft_jobname(input_tex)
-    if (build_dir / f'{job}.aux').exists():
-        return
-    for suffix in _SEED_SUFFIXES:
-        src = build_dir / f'{stem}{suffix}'
-        if src.exists():
-            shutil.copy2(src, build_dir / f'{job}{suffix}')
+    if not (Path(build_dir) / f'{draft_jobname(input_tex)}.aux').exists():
+        _seed_job(build_dir, Path(input_tex).stem, draft_jobname(input_tex))
 
 
-def _compile_progressive(plan, targets, engine, backend, rewrite_unicode,
-                         draft=False, t0=None):
-    """Compile the root document in stages, publishing the PDF after each:
+def compile_stages(plan, conv, chapters=()):
+    """The stages (texmark.watch.Stage) that compile the converted project
+    ``conv``. Without --progressive, a single stage: the usual build (draft
+    job with --draft). With --progressive, the root document in stages, each
+    publishing the PDF:
 
     1. one engine pass on the draft job: the .aux/.bbl of its previous run
-       are reused, so only labels and citations added since show as ??;
+       are reused, so only labels and citations added since show as ??.
+       When ``chapters`` (stems of \\include'd chapters, the only files that
+       changed; see watch_project) is given, the part job typesets only
+       those chapters instead (see part_jobname);
     2. the backend to completion on the draft job (bibtex and further
-       passes where needed), published only if the PDF changed;
-    3. unless ``draft``, the full build with figures (with companions, the
+       passes where needed), published only if the PDF changed (always
+       after a part job);
+    3. unless --draft, the full build with figures (with companions, the
        usual multi-pass loop over all documents).
 
     Companion documents are compiled in stage 3 only.
     """
-    t0 = time.monotonic() if t0 is None else t0
+    targets = conv.targets
+    engine, backend, rewrite_unicode = conv.engine, conv.backend, conv.rewrite_unicode
+    draft, progressive = _check_draft_options(plan, backend, conv.draft, conv.progressive)
     in_tex, out_pdf, bib, rp, bl = targets[0]
     build_dir = plan.build_dir
     tex_name = Path(in_tex).name
     job = draft_jobname(in_tex)
     job_pdf = build_dir / f'{job}.pdf'
-
-    def written(what):
-        logger.info(f"texmark: {what} written: {out_pdf} "
-                    f"({time.monotonic() - t0:.1f} s)")
-
-    prepare_build_dir(in_tex, build_dir, bib, rp, engine, rewrite_unicode)
-    _seed_draft_job(build_dir, in_tex)
-
-    # Stage 1. On a LaTeX error, report it and go on, as the full build
-    # does (latexmk -f, raw backend reruns): stage 2 shows the current state.
-    before = _mtime(job_pdf)
     use_format = _use_preamble_format(plan)
-    if not run_job(lambda fmt, pretex, _force: engine_pass(
-                       tex_name, build_dir, engine, jobname=job, pretex=pretex, fmt=fmt),
-                   build_dir, tex_name, engine, backend, draft=True,
-                   preamble_format=use_format, single_pass=True):
-        errors = latex_errors(build_dir / f'{job}.log')
-        if errors:
-            logger.warning(f"texmark: LaTeX errors in the draft pass:\n{errors}")
-    if _mtime(job_pdf) not in (None, before):
-        publish_job_pdf(in_tex, out_pdf, build_dir, draft=True)
-        written("draft PDF (1 pass)")
-    else:
+
+    def publisher(jobname=None, draft=False):
+        return lambda: publish_job_pdf(in_tex, out_pdf, build_dir, draft=draft,
+                                       jobname=jobname)
+
+    if not progressive:
+        def build():
+            _compile_documents(plan, targets, engine, backend, rewrite_unicode,
+                               draft=draft, publish=False)
+            return publisher(draft=draft)
+        return [Stage('draft PDF' if draft else 'PDF', build)]
+
+    def one_pass(jobname):
+        # On a LaTeX error, report it and go on, as the full build does
+        # (latexmk -f, raw backend reruns): stage 2 shows the current state.
+        pdf = build_dir / f'{jobname}.pdf'
+        before = _mtime(pdf)
+        if not run_job(lambda fmt, pretex, _force: engine_pass(
+                           tex_name, build_dir, engine, jobname=jobname,
+                           pretex=pretex, fmt=fmt),
+                       build_dir, tex_name, engine, backend, draft=True,
+                       preamble_format=use_format, single_pass=True,
+                       jobname=jobname):
+            errors = latex_errors(build_dir / f'{jobname}.log')
+            if errors:
+                logger.warning(f"texmark: LaTeX errors in the draft pass:\n{errors}")
+        if _mtime(pdf) not in (None, before):
+            return publisher(jobname)
         logger.warning("texmark: the draft pass wrote no PDF")
+        return None
 
-    # Stage 2.
-    before = _mtime(job_pdf)
-    run_job(lambda fmt, pretex, force: run_driver(
-                backend, tex_name, build_dir, engine, bl,
-                jobname=job, pretex=pretex, fmt=fmt, force=force),
-            build_dir, tex_name, engine, backend, draft=True,
-            preamble_format=use_format)
-    if _mtime(job_pdf) not in (None, before):
-        publish_job_pdf(in_tex, out_pdf, build_dir, draft=True)
-        written("draft PDF (references resolved)")
-    else:
+    def draft_pass():
+        prepare_build_dir(in_tex, build_dir, bib, rp, engine, rewrite_unicode)
+        _seed_draft_job(build_dir, in_tex)
+        return one_pass(job)
+
+    def part_pass():
+        # The part job starts from the main .aux/.bbl/... of the last draft
+        # build (labels and citations outside the chapters, contents lines).
+        prepare_build_dir(in_tex, build_dir, bib, rp, engine, rewrite_unicode)
+        _seed_draft_job(build_dir, in_tex)
+        part = part_jobname(in_tex)
+        _seed_job(build_dir, job, part)
+        write_part_setup(in_tex, build_dir, chapters)
+        return one_pass(part)
+
+    def references():
+        before = _mtime(job_pdf)
+        run_job(lambda fmt, pretex, force: run_driver(
+                    backend, tex_name, build_dir, engine, bl,
+                    jobname=job, pretex=pretex, fmt=fmt, force=force),
+                build_dir, tex_name, engine, backend, draft=True,
+                preamble_format=use_format)
+        now = _mtime(job_pdf)
+        if now is not None and (part or now != before):
+            return publisher(draft=True)
         logger.info("texmark: draft PDF unchanged after the reference passes")
+        return None
 
-    # Stage 3.
-    if draft:
-        return
-    _compile_documents(plan, targets, engine, backend, rewrite_unicode)
-    written("PDF with figures")
+    def figures():
+        _compile_documents(plan, targets, engine, backend, rewrite_unicode,
+                           publish=False)
+        return publisher()
+
+    # The part job's switch needs \pdfstrcmp (pdflatex).
+    part = bool(chapters) and engine == 'pdflatex'
+    if part:
+        stages = [Stage(f"draft PDF of {', '.join(chapters)} (1 pass)", part_pass)]
+    else:
+        stages = [Stage('draft PDF (1 pass)', draft_pass)]
+    stages.append(Stage('draft PDF (references resolved)', references))
+    if not draft:
+        stages.append(Stage('PDF with figures', figures))
+    return stages
 
 
-def build_project(plan):
-    """One full build of the plan: embeds, master, companions, PDFs."""
-    t0 = time.monotonic()
+@dataclass
+class Converted:
+    """What ``convert_project`` returns: the root's metadata, the compile
+    targets (empty without --pdf) and the build options of this build."""
+    metadata: dict
+    targets: list
+    engine: str
+    backend: str
+    rewrite_unicode: object
+    draft: bool
+    progressive: bool
+
+
+def convert_project(plan):
+    """Markdown to LaTeX: embeds, master, companions. Returns a Converted.
+    Without --pdf, also stages the template resources and bibliographies."""
     args = plan.args
     engine, backend, rewrite_unicode, draft, progressive = _resolve_build_options(plan)
 
@@ -1311,14 +1396,8 @@ def build_project(plan):
                 str(c_meta.get('resource_path') or ''),
                 False,
             ))
-        draft, progressive = _check_draft_options(plan, backend, draft, progressive)
-        if progressive:
-            _compile_progressive(plan, targets, engine, backend, rewrite_unicode,
-                                 draft=draft, t0=t0)
-        else:
-            _compile_documents(plan, targets, engine, backend, rewrite_unicode,
-                               draft=draft)
     else:
+        targets = []
         # tex-only build: stage the template resources (.cls, .sty, .bst)
         # and the bibliographies anyway, so that the generated .tex can be
         # compiled by other means in the build directory (compile_pdf does
@@ -1329,7 +1408,85 @@ def build_project(plan):
             stage_bibliography(meta.get('bibliography'), plan.build_dir,
                                engine, rewrite_unicode)
 
-    return root_metadata
+    return Converted(root_metadata, targets, engine, backend, rewrite_unicode,
+                     draft, progressive)
+
+
+def build_project(plan):
+    """One full build of the plan: embeds, master, companions, PDFs."""
+    t0 = time.monotonic()
+    conv = convert_project(plan)
+    if conv.targets:
+        _watch.run_stages(compile_stages(plan, conv), _snapshot(plan), t0,
+                          plan.pdf_file)
+    return conv.metadata
+
+
+def _snapshot(plan):
+    """Snapshot of the files of the root's jobs (full, draft and part job)
+    and of the companions' jobs (see texmark.watch.Snapshot)."""
+    tex = plan.tex_file
+    jobs = [Path(tex).stem, draft_jobname(tex), part_jobname(tex)]
+    jobs += [p.stem for p in plan.project.companion_files]
+    return _watch.Snapshot(plan.build_dir, jobs)
+
+
+def _changed_chapters(plan, changed):
+    """The stems of the chapters that ``changed`` (a set of paths) consists
+    of, when the part job can typeset them alone: each changed file is an
+    \\include'd chapter of the master .tex (and in the --only list, if any),
+    and the .aux files of the last build are there. Else an empty list."""
+    if not changed:
+        return []
+    embedded = {p.resolve(): p.stem for p in plan.project.embedded_files}
+    stems = [embedded.get(Path(p).resolve()) for p in changed]
+    if None in stems:
+        return []
+    try:
+        tex = Path(plan.tex_file).read_text(errors='replace')
+    except FileNotFoundError:
+        return []
+    included = re.findall(r'^\\include\{([^}]*)\}', tex, re.M)
+    only = re.match(r'\\includeonly\{([^}]*)\}', plan.includeonly or '')
+    if only:
+        included = [s for s in included if s in only.group(1).split(',')]
+    if not set(stems) <= set(included):
+        return []
+    build_dir = plan.build_dir
+    root = Path(plan.tex_file).stem
+    if not any((build_dir / f'{job}.aux').exists() for job in (draft_jobname(root), root)):
+        return []
+    if not all((build_dir / f'{s}.aux').exists() for s in included):
+        return []
+    return [s for s in included if s in stems]
+
+
+def watch_project(plan, interval=0.5, stop=None, worker=None):
+    """Build, then rebuild on every change of the sources until Ctrl+C
+    (or until the threading.Event ``stop`` is set).
+
+    The markdown conversion runs in this thread; the LaTeX stages run in the
+    background (texmark.watch.Worker), so that a new change stops them.
+    """
+    worker = worker or _watch.Worker()
+    snapshot = _snapshot(plan)
+
+    def rebuild(changed=None):
+        t0 = time.monotonic()
+        worker.cancel()
+        conv = convert_project(plan)
+        if conv.targets:
+            stages = compile_stages(plan, conv, _changed_chapters(plan, changed))
+            worker.start(stages, snapshot, t0, plan.pdf_file)
+        return conv
+
+    try:
+        conv = rebuild()
+        watch_loop(rebuild, _collect_watch_paths(plan, conv.metadata),
+                   interval=interval, stop=stop)
+    finally:
+        with _watch.signals_ignored():
+            worker.cancel()
 
 
 def _collect_watch_paths(plan, metadata):
@@ -1374,13 +1531,22 @@ def main():
             "auto-detected from the markdown and (with --copy-figures) bundled "
             "into <build>/figures/.")
 
-    plan = plan_project(args)
-
-    if args.watch:
-        metadata = build_project(plan)
-        watch_loop(lambda: build_project(plan), _collect_watch_paths(plan, metadata))
-    else:
-        build_project(plan)
+    # SIGTERM/SIGHUP stop texmark like Ctrl+C: the LaTeX tools run in their
+    # own process groups, which only texmark's cleanup stops.
+    _watch.stop_on_signals()
+    try:
+        with _watch.BuildLock(args.build, watch=args.watch):
+            if _watch.restore_snapshot(args.build):
+                logger.info("texmark: restored the LaTeX files saved before a build "
+                            "that did not finish")
+            plan = plan_project(args)
+            if args.watch:
+                watch_project(plan)
+            else:
+                build_project(plan)
+    except _watch.BuildDirBusy as e:
+        logger.error(str(e))
+        sys.exit(1)
 
 
 if __name__ == '__main__':
