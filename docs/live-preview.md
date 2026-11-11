@@ -63,6 +63,16 @@ is the output PDF) to `<build>/.texmark-snapshot/`, and puts them back when the 
 is stopped. Then stage 1 starts for the new change. A stage of an older change
 never replaces the PDF of a newer one.
 
+Before every LaTeX pass and latexmk run (in any build, not only `--watch`),
+texmark also checks the `.aux` files in the build directory: braces
+balanced, a complete last line, a chapter `.aux` ending with the closing of
+its `\@setckpt{<chapter>}{...}`, and a main `.aux` ending with
+`\gdef \@abspage@last{<n>}` when it has that line. An `.aux` that fails (left
+by a run killed from outside, for example) is restored from the snapshot
+when there is a good copy there, and deleted otherwise. If a run still stops
+with "File ended while scanning use of ..." or "File ended within \read" on
+an `.aux`, that file is deleted and the run is repeated once.
+
 A change saved while the markdown is being converted to LaTeX is picked up
 when the conversion has finished.
 

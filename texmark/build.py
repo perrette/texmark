@@ -33,6 +33,7 @@ from texmark.filters import embed as _filters_embed
 from texmark.filters import crossref as _filters_crossref
 from texmark.filters.figures import expand_figstar_sentinels
 from texmark import journals as _journals
+from texmark import auxfiles as _auxfiles
 from texmark import blockcache as _blockcache
 from texmark import preamble_format as _preamble_format
 from texmark import procs as _procs
@@ -646,10 +647,31 @@ def _engine_cmd(engine, tex_name, jobname=None, pretex='', fmt=None):
 def engine_pass(tex_name, build_dir, engine='pdflatex', jobname=None, pretex='',
                 fmt=None):
     """One engine pass. Returns True when the engine exited without error.
-    ``fmt``: format file to start from (see texmark.preamble_format)."""
+    ``fmt``: format file to start from (see texmark.preamble_format).
+
+    Incomplete .aux files are restored or deleted first, and the pass is run
+    once more when it failed on an .aux that ended too early (see
+    texmark.auxfiles)."""
     cmd = _engine_cmd(engine, tex_name, jobname, pretex, fmt)
-    result = run(cmd, cwd=build_dir, check=False)
-    return getattr(result, 'returncode', 0) == 0
+    job = jobname or Path(tex_name).stem
+    for attempt in range(2):
+        _auxfiles.check_aux_files(build_dir)
+        result = run(cmd, cwd=build_dir, check=False)
+        ok = getattr(result, 'returncode', 0) == 0
+        if ok or attempt or not _delete_runaway_aux(build_dir, job):
+            return ok
+    return ok
+
+
+def _delete_runaway_aux(build_dir, job):
+    """Delete the .aux files on which the last run of ``job`` failed with a
+    runaway-argument error. Returns True when there were any."""
+    files = _auxfiles.runaway_aux(Path(build_dir) / f'{job}.log')
+    for f in files:
+        f.unlink(missing_ok=True)
+        logger.info(f"texmark: the LaTeX run stopped on the incomplete {f}; "
+                    "deleted it and running again")
+    return bool(files)
 
 
 def latex_errors(log_file, context=2):
@@ -703,7 +725,12 @@ def run_latexmk(tex_name, build_dir, engine='pdflatex', jobname=None, pretex='',
     if fmt:
         cmd.append(f'-{engine}={engine} -fmt={fmt} %O %S')
     cmd.append(tex_name)
+    _auxfiles.check_aux_files(build_dir)
     run(cmd, cwd=build_dir, check=False)
+    if _delete_runaway_aux(build_dir, job):
+        if '-g' not in cmd:
+            cmd.insert(cmd.index('-f') + 1, '-g')
+        run(cmd, cwd=build_dir, check=False)
 
 
 def run_raw(tex_name, build_dir, engine='pdflatex', biblatex=False,
