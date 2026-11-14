@@ -43,6 +43,7 @@ Full documentation lives at **<https://perrette.github.io/texmark/>**:
 - Guides: [equations](https://perrette.github.io/texmark/equations/),
   [multi-file projects](https://perrette.github.io/texmark/multi-file/),
   [custom preamble](https://perrette.github.io/texmark/preamble/),
+  [track changes](https://perrette.github.io/texmark/track-changes/),
   [encoding](https://perrette.github.io/texmark/encoding/),
   [figures](https://perrette.github.io/texmark/figures/),
   [build backends](https://perrette.github.io/texmark/build-backends/),

@@ -45,6 +45,8 @@ chapter-style: veelo                  # optional: memoir only
 classicthesis-options: "parts"        # optional: classicthesis only
 # Custom LaTeX preamble (see Custom preamble page)
 preamble: macros.tex                  # optional: file path or inline block scalar
+# Track changes (see Track changes page)
+changes: auto                         # optional: auto, true, false
 # Build options (see Build backends page; the CLI flags override them)
 engine: pdflatex                      # optional: pdflatex, xelatex, lualatex
 backend: latexmk                      # optional: latexmk, raw, tectonic
@@ -54,8 +56,9 @@ build_progressive: false              # optional: staged PDF builds (same as --p
 build_preamble_format: true           # optional: false disables the precompiled preamble (same as --no-preamble-format)
 ```
 
-See the [Figure paths](figures.md), [Multi-file projects](multi-file.md), and
-[Custom preamble](preamble.md) pages for the fields grouped above.
+See the [Figure paths](figures.md), [Multi-file projects](multi-file.md),
+[Custom preamble](preamble.md) and [Track changes](track-changes.md) pages for
+the fields grouped above.
 
 ### Author roles
 

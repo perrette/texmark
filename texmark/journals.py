@@ -48,6 +48,7 @@ from texmark.filters.embed import embed_filter
 from texmark.filters.crossref import crossref_filter
 from texmark.filters.equations import equations_filter
 from texmark.filters.images import strip_leading_slash, resolve_image_paths
+from texmark.filters.changes import track_changes
 from texmark.filters.figures import (
     tag_figures,
     extract_table_identifier,
@@ -61,6 +62,7 @@ basic_filters = [
     crossref_filter,
     equations_filter,
     strip_leading_slash,
+    track_changes,
     resolve_image_paths,
     extract_table_identifier,
     stringify_captions,

@@ -53,6 +53,16 @@ Questions to settle first:
   statement can only come from the YAML front matter, not from a
   `# Data availability` section.
 
+## Track changes
+
+CriticMarkup marks are rendered with the `changes` package (see
+docs/track-changes.md). Left open:
+
+- **beamer** was not checked with track changes.
+- **Marks across paragraphs.** A mark ends at a blank line, as in the
+  CriticMarkup specification; adding a section with several paragraphs takes
+  one mark per paragraph.
+
 ## Author roles (issue #2, done)
 
 `corresponding` and `equalcontrib` per-author keys are implemented. Left open:

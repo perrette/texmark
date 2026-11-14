@@ -18,6 +18,7 @@ pytestmark = pytest.mark.skipif(not pandoc_available(), reason="pandoc not avail
 # references, leading-slash links, figures, tables with citations, sections.
 FILTER_SAMPLE = r"""---
 figure-span: column
+changes: true
 ---
 
 # Abstract
@@ -59,7 +60,10 @@ $$
 
 : A caption with $x$ and [@smith2020] {#tbl:t1 width=50%}
 
-A footnote.[^1]
+A footnote.[^1] Track [added @smith2020 and @eq:one]{.added comment="why"},
+[old[^2]]{.deleted} and ~~gone~~.
+
+[^2]: A note in a deletion.
 
 [^1]: Note with [a link](/somewhere) and @eq:one.
 
@@ -104,7 +108,7 @@ def test_plan_groups_basic_chain():
     steps = chain.plan([download_images.action] + journals.get_filter_chain("science"))
     assert _names(steps) == [
         ["action", "embed_filter"],
-        ["CrossrefFilter", "EquationsFilter", "strip_leading_slash"],
+        ["CrossrefFilter", "EquationsFilter", "strip_leading_slash", "track_changes"],
         ["ResolveImagePathsFilter", "extract_table_identifier", "stringify_captions",
          "tag_figures", "apply_figure_defaults", "table_to_latex"],
         ["force_cite"],

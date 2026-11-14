@@ -64,6 +64,7 @@ from texmark.filters.figures import (
     tag_figures,
 )
 from texmark.filters.images import resolve_image_paths, strip_leading_slash
+from texmark.filters.changes import track_changes
 from texmark.filters.tabular import table_to_latex
 
 
@@ -95,6 +96,9 @@ WALK_GROUPS = (
         (crossref_filter, (pf.Link,)),
         (equations_filter, (pf.Para, pf.Plain, pf.Cite, pf.Link)),
         (strip_leading_slash, (pf.Link,)),
+        (track_changes, (pf.Span, pf.Strikeout, pf.RawInline, pf.Para, pf.Plain,
+                          pf.Header, pf.ListItem, pf.BulletList, pf.OrderedList,
+                          pf.BlockQuote)),
     ),
     (
         (resolve_image_paths, (pf.Image,)),

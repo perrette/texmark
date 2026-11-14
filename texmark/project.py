@@ -14,6 +14,8 @@ import frontmatter
 import panflute as pf
 import pypandoc
 
+from texmark import criticmarkup as _criticmarkup
+
 
 @dataclass
 class Project:
@@ -85,13 +87,20 @@ def parse_markdown(text: str) -> str:
     Callers that modify the document load their own copy (``pf.load``).
     """
     reader_args = frontmatter.loads(text).metadata.get("pandoc_args") or []
-    return pypandoc.convert_text(
+    text, marks = _criticmarkup.rewrite_marks(text)
+    ast = pypandoc.convert_text(
         text,
         format="markdown+footnotes",
         to="json",
         extra_args=list(reader_args),
         verify_format=False,
     )
+    if marks:
+        # Marks in code, math or raw text (not rewritten as spans by pandoc).
+        doc = json.loads(ast)
+        _criticmarkup.restore_code(doc['blocks'], marks)
+        ast = json.dumps(doc)
+    return ast
 
 
 def _scan_ast_for_embeds(markdown_path: Path) -> list[Path]:

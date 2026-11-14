@@ -71,6 +71,7 @@ nav:
       - Figures: figures.md
       - Tables: tables.md
       - Cross-references: cross-reference.md
+      - Track changes: track-changes.md
       - Multi-file projects: multi-file.md
       - Custom preamble: preamble.md
       - Encoding (Unicode & HTML): encoding.md

@@ -22,6 +22,8 @@ import frontmatter
 import jinja2
 import panflute as pf
 from texmark import chain as _chain
+from texmark import criticmarkup as _criticmarkup
+from texmark.filters import changes as _changes
 import pypandoc
 
 import texmark
@@ -151,6 +153,36 @@ def bib_files(value):
     if isinstance(value, (list, tuple)):
         return [str(v) for v in value if v]
     return [str(value)]
+
+
+def _resolve_changes(value, texts):
+    """Resolve the ``changes`` YAML option: ``auto`` (the default) is on when
+    one of ``texts`` (the master file and its embedded chapters) holds a
+    CriticMarkup mark, ``true``/``on`` is on, ``false``/``off`` is off
+    (the text with the changes accepted). Returns a bool."""
+    if isinstance(value, str):
+        v = value.strip().lower()
+        if v in ('auto', ''):
+            return any(_criticmarkup.found(t) for t in texts)
+        return v in ('true', 'on', 'yes')
+    return bool(value)
+
+
+# GFM strike-out (``~~text~~``), not a fence.
+_STRIKEOUT = re.compile(r'(?<!~)~~(?!~)')
+
+
+def _project_marks(plan):
+    """``(changes, strikeout)`` for the master document and its embedded
+    chapters, which all share the master's preamble: the ``changes`` option
+    of the master, resolved over all the files, and whether any file may
+    use strike-out. Read again on every build, so that a mark added while
+    watching is seen."""
+    text = Path(plan.primary_input).read_text()
+    texts = [text] + [Path(p).read_text() for p in plan.project.embedded_files]
+    value = load_markdown(text).metadata.get('changes', 'auto')
+    return (_resolve_changes(value, texts),
+            any(_STRIKEOUT.search(t) for t in texts))
 
 
 def _resolve_rewrite_unicode(value, engine: str) -> bool:
@@ -323,12 +355,20 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
               companion_stems=None, embed_stems=None, own_stem=None,
               figure_manifest_accumulate=False, embed_depth=0,
               includeonly='', extra_includes=None, engine=None,
-              rewrite_unicode=None, block_cache=None):
+              rewrite_unicode=None, block_cache=None, changes=None,
+              strikeout=None):
     # 1. Read the front matter and resolve effective metadata.
     text = open(input_md).read()
     metadata = load_markdown(text).metadata
 
     journal_template = _resolve_journal_template(metadata, journal_template)
+    # Track changes: a chapter takes the master's value (one preamble); a
+    # standalone document resolves its own.
+    if changes is None:
+        changes = _resolve_changes(metadata.get('changes', 'auto'), [text])
+    if strikeout is None:
+        strikeout = bool(_STRIKEOUT.search(text))
+    metadata['changes'] = changes
     metadata.setdefault('longtable', False)
     metadata.setdefault('packages', []).extend(packages or [])
 
@@ -385,7 +425,7 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     # article-class templates. Template-facing (Jinja), hence top-level
     # rather than part of the filter context.
     metadata['includeonly'] = includeonly or ''
-    metadata['user_preamble'] = _resolve_user_preamble(
+    metadata['user_preamble'] = _changes.changes_preamble(changes, strikeout) + _resolve_user_preamble(
         metadata, Path(input_md).resolve().parent)
 
     if not template:
@@ -424,7 +464,7 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
         doc = pf.load(io.StringIO(parse_markdown(text) if ast is None else json.dumps(ast)))
         _set_yaml_metadata(doc, {key: metadata[key] for key in (
             'journal', 'longtable', 'packages', CONTEXT_METADATA_KEY,
-            'includeonly', 'user_preamble')})
+            'includeonly', 'user_preamble', 'changes')})
         # What --bibliography sets on the pandoc command line: a MetaString
         # per file (not markdown), overriding the YAML value.
         bibs = [pf.MetaString(f) for f in bib_files(bib_file)]
@@ -1339,6 +1379,7 @@ def convert_project(plan):
     Without --pdf, also stages the template resources and bibliographies."""
     args = plan.args
     engine, backend, rewrite_unicode, draft, progressive = _resolve_build_options(plan)
+    changes, strikeout = _project_marks(plan)
 
     # Body-only builds for each embedded chapter, written as
     # `<build>/<stem>.tex` so the master's `\input{<stem>}` resolves at
@@ -1362,7 +1403,8 @@ def convert_project(plan):
                   own_stem=embed_path.stem,
                   figure_manifest_accumulate=plan.manifest_accumulate,
                   embed_depth=1,
-                  engine=engine, rewrite_unicode=rewrite_unicode)
+                  engine=engine, rewrite_unicode=rewrite_unicode,
+                  changes=changes, strikeout=strikeout)
 
     # Build the master .tex for the root.
     root_metadata = build_tex(
@@ -1380,6 +1422,7 @@ def convert_project(plan):
         includeonly=plan.includeonly,
         extra_includes=plan.extra_chapter_stems,
         engine=engine, rewrite_unicode=rewrite_unicode,
+        changes=changes, strikeout=strikeout,
     )
 
     # Build each companion's standalone .tex. Each companion gets the

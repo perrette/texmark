@@ -1215,3 +1215,87 @@ class TestUnresolvedFigureWarning:
             _run_filter(ResolveImagePathsFilter(), doc)
         assert any("/figures/fig.png" in r.message and "not found" in r.message
                    for r in caplog.records)
+
+
+# ---- track_changes --------------------------------------------------------
+
+from texmark.filters.changes import track_changes
+
+
+def test_track_changes_other_spans_left_alone():
+    doc = pf.Doc(pf.Para(pf.Span(pf.Str('x'), classes=['smallcaps'])), metadata={'changes': True})
+    doc.walk(track_changes)
+    assert type(doc.content[0].content[0]).__name__ == 'Span'
+
+
+def test_track_changes_comment_attribute():
+    doc = pf.Doc(pf.Para(pf.Span(pf.Str('new'), classes=['added'], attributes={'comment': 'why'})),
+                 metadata={'changes': True})
+    doc.walk(track_changes)
+    assert pf.stringify(doc.content[0]).strip() == '\\chadded[comment={why}]{new}'
+
+
+def test_track_changes_strikeout_and_html_tags_with_changes_on():
+    para = pf.Para(pf.Strikeout(pf.Str('old')), pf.Space,
+                   pf.RawInline('<ins>', format='html'), pf.Str('new'), pf.RawInline('</ins>', format='html'))
+    doc = pf.Doc(para, metadata={'changes': True})
+    doc.walk(track_changes)
+    assert pf.stringify(doc.content[0]).strip() == '\\chdeleted{old} \\chadded{new}'
+    doc = pf.Doc(pf.Para(pf.Strikeout(pf.Str('old'))))
+    doc.walk(track_changes)
+    assert pf.stringify(doc.content[0]).strip() == '\\sout{old}'
+
+
+def _changes_doc(*inlines, changes=True):
+    doc = pf.Doc(pf.Para(*inlines), metadata={'changes': changes})
+    doc.walk(track_changes)
+    return doc
+
+
+def test_track_changes_changes_off_gives_accepted_text():
+    doc = _changes_doc(pf.Span(pf.Str('new'), classes=['added']), pf.Space,
+                       pf.Span(pf.Str('old'), classes=['deleted']), pf.Space,
+                       pf.Span(pf.Str('hi'), classes=['highlight']), pf.Space,
+                       pf.Span(pf.Str('note'), classes=['comment']), changes=False)
+    assert [type(e).__name__ for e in doc.content[0].content] == [
+        'Str', 'Space', 'Space', 'Str', 'Space']
+    assert pf.stringify(doc.content[0]).split() == ['new', 'hi']
+
+
+def test_track_changes_attribute_values_escaped():
+    doc = _changes_doc(pf.Span(pf.Str('x'), classes=['added'],
+                               attributes={'comment': 'fig_1 at 50% & #2'}))
+    assert pf.stringify(doc.content[0]).strip() == (
+        '\\chadded[comment={fig\\_1 at 50\\% \\& \\#2}]{x}')
+
+
+def test_track_changes_protects_citations_and_moves_footnotes():
+    cite = pf.Cite(pf.Str('@k'), citations=[pf.Citation('k')])
+    note = pf.Note(pf.Para(pf.Str('fn')))
+    doc = _changes_doc(pf.Span(pf.Str('a'), pf.Space, cite, note, classes=['deleted']))
+    kinds = [type(e).__name__ for e in doc.content[0].content]
+    assert kinds == ['RawInline', 'Str', 'Space', 'RawInline', 'Cite', 'RawInline',
+                     'RawInline', 'Note']
+    raws = [e.text for e in doc.content[0].content if isinstance(e, pf.RawInline)]
+    assert raws == ['\\chdeleted{', '\\mbox{\\protect', '}', '}']
+
+
+def test_track_changes_off_removes_blocks_left_empty():
+    """A heading, list item or paragraph holding only a deletion goes; the
+    other blocks, including genuinely empty ones, stay."""
+    deleted = lambda text: pf.Span(pf.Str(text), classes=['deleted'])
+    doc = pf.Doc(
+        pf.Header(deleted('Old'), level=2),
+        pf.Header(level=2),
+        pf.BulletList(pf.ListItem(pf.Plain(pf.Str('kept'))),
+                      pf.ListItem(pf.Plain(deleted('gone')))),
+        pf.BulletList(pf.ListItem(pf.Plain(deleted('all')))),
+        pf.Para(pf.Str('a'), pf.Space, deleted('b')),
+        pf.Para(deleted('c'), pf.Space, pf.Span(pf.Str('d'), classes=['comment'])),
+        metadata={'changes': False})
+    doc.walk(track_changes)
+    kinds = [type(b).__name__ for b in doc.content]
+    assert kinds == ['Header', 'BulletList', 'Para']
+    assert len(doc.content[0].content) == 0  # the empty heading of the source
+    assert len(doc.content[1].content) == 1
+    assert pf.stringify(doc.content[2]).strip() == 'a'
