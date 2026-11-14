@@ -1299,3 +1299,42 @@ def test_track_changes_off_removes_blocks_left_empty():
     assert len(doc.content[0].content) == 0  # the empty heading of the source
     assert len(doc.content[1].content) == 1
     assert pf.stringify(doc.content[2]).strip() == 'a'
+
+
+# ---- table cell line breaks, citations in cells, journal aliases ----------
+
+def _md_table_latex(markdown, template="default"):
+    import json, io
+    import pypandoc
+    from texmark.filters.tabular import table_to_latex
+    doc = pf.load(io.StringIO(pypandoc.convert_text(markdown, 'json', format='markdown')))
+    doc.metadata['journal'] = pf.MetaMap(template=pf.MetaString(template))
+    table = next(b for b in doc.content if isinstance(b, pf.Table))
+    return table_to_latex(table, doc).text
+
+
+def test_table_cell_backslash_is_a_line_break():
+    latex = _md_table_latex(
+        "| Projec-\\\\tions | B |\n|---|---|\n"
+        "| GLS,\\\\ error model | plain |\n| a \\\\ b | `x\\\\y` |\n\n: Cap a\\\\b\n")
+    multi = r"\begin{tabular}[t]{@{}l@{}}"
+    assert multi + "Projec-\\\\\ntions\\end{tabular} & B" in latex
+    assert multi + "GLS,\\\\\nerror model\\end{tabular} & plain" in latex
+    assert multi + "a\\\\\nb\\end{tabular}" in latex
+    # Code and the caption keep their backslashes.
+    assert r"\texttt{x\textbackslash{}\textbackslash{}y}" in latex
+    assert r"\caption{Cap a\textbackslash b}" in latex
+
+
+def test_table_cells_without_breaks_unchanged():
+    latex = _md_table_latex("| A | B |\n|---|---|\n| one two | $x$ |\n")
+    assert "@{}l@{}" not in latex
+    assert "one two & \\(x\\) \\\\" in latex
+
+
+def test_table_cells_use_the_journal_citation_commands():
+    md = "| A |\n|---|\n| [@k] and @j |\n"
+    assert r"\cite{k} and \cite{j}" in _md_table_latex(md, "science")
+    assert r"\cite{k} and \citeA{j}" in _md_table_latex(md, "agu")
+    assert r"\citep{k} and \citet{j}" in _md_table_latex(md, "default")
+

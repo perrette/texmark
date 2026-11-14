@@ -32,6 +32,58 @@ def _batch_convert_cells(cell_contents):
     return [part.strip() for part in latex.split(_CELL_MARKER)]
 
 
+def _split_breaks(inlines):
+    """``(inlines, broken)``: the inline list with each backslash of the text
+    (``\\\\`` in the markdown, which pandoc reads as an escaped backslash) made
+    a ``LineBreak``, the spaces around a line break dropped, and whether the
+    list holds a line break (new, or one pandoc read itself)."""
+    out = []
+    for elem in inlines:
+        if isinstance(elem, pf.Str) and '\\' in elem.text:
+            for i, part in enumerate(elem.text.split('\\')):
+                if i:
+                    out.append(pf.LineBreak())
+                if part:
+                    out.append(pf.Str(part))
+        else:
+            out.append(elem)
+    cleaned = []
+    for i, elem in enumerate(out):
+        if isinstance(elem, (pf.Space, pf.SoftBreak)) and (
+                (cleaned and isinstance(cleaned[-1], pf.LineBreak))
+                or (i + 1 < len(out) and isinstance(out[i + 1], pf.LineBreak))):
+            continue
+        cleaned.append(elem)
+    return cleaned, any(isinstance(e, pf.LineBreak) for e in cleaned)
+
+
+def _cell_breaks(blocks):
+    """Apply ``_split_breaks`` to the paragraphs of a cell (in place);
+    whether the cell has a line break."""
+    broken = False
+    for block in blocks:
+        if isinstance(block, (pf.Plain, pf.Para)):
+            content, b = _split_breaks(list(block.content))
+            block.content = content
+            broken |= b
+    return broken
+
+
+def _multiline(latex):
+    """A cell with line breaks as a one-column tabular, so that the lines
+    stack in the cell (what ``\\makecell`` does, without the package)."""
+    return '\\begin{tabular}[t]{@{}l@{}}' + latex + '\\end{tabular}'
+
+
+def _cite_filter(doc):
+    """The journal's citation filter (e.g. ``\\cite`` for science), or None.
+    It runs after this filter in the chain, too late for the cells, which
+    are rendered here: apply it to them first."""
+    from texmark import journals  # journals imports this module
+    name = journals.canonical_template(journal_template(doc))
+    return journals.JOURNALS.get(name, {}).get('cite')
+
+
 def stringify_cell(cell):
     """Convert a single ``pf.TableCell``'s content to LaTeX.
 
@@ -84,6 +136,9 @@ def table_to_latex(elem, doc):
     # Collect every cell's content in document order so one pandoc call can
     # render them all. The slice indices below walk through the result in
     # the same order — header rows, then each body's rows.
+    #
+    # A backslash in the text of a cell (``\\\\`` in the markdown) is a line
+    # break in that cell.
     cells_in_order = []
     for header_row in header_rows:
         for cell in header_row.content:
@@ -92,7 +147,14 @@ def table_to_latex(elem, doc):
         for row in body.content:
             for cell in row.content:
                 cells_in_order.append(cell.content)
+    cite = _cite_filter(doc)
+    if cite is not None:
+        for content in cells_in_order:
+            for block in content:
+                block.walk(cite, doc)
+    broken = [_cell_breaks(content) for content in cells_in_order]
     rendered = _batch_convert_cells(cells_in_order)
+    rendered = [_multiline(r) if b else r for r, b in zip(rendered, broken)]
 
     cursor = 0
     header_grid = []

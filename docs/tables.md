@@ -42,6 +42,27 @@ pandoc no longer treats it as the table's caption, and the label is lost.
 Inline markup works inside the caption: math (`$...$`), emphasis, and citations
 are rendered rather than flattened to plain text.
 
+## Line breaks in a cell
+
+`\\` in a cell starts a new line in that cell:
+
+```markdown
+| Paper | Constraints | Statistics |
+|---|---|---|
+| P1 [@rahmstorf2011] | total | GLS,\\ error model |
+| P2 [@perrette2013] | global\\ total | Monte Carlo |
+```
+
+A cell with line breaks is written as a one-column `tabular` nested in the
+cell, top-aligned with the other cells of the row (what the `makecell`
+package does, without loading it). Cells without `\\` are unchanged. This
+also works in header cells (`Projec-\\tions`).
+
+Pandoc reads `\\` as an escaped backslash, so in a table cell a literal
+backslash is no longer possible in plain text; write it in code
+(`` `\` ``) instead. Backslashes in math and code are left alone, but `\\`
+inside math (`$a \\ b$`) ends the table row in LaTeX: do not use it in a cell.
+
 ## Referencing a table
 
 Reference a labelled table with `@tbl:gulf` or `[#](#tbl:gulf)` (both produce
