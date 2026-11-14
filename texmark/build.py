@@ -214,6 +214,8 @@ def _resolve_journal_template(metadata, journal_template):
         journal_template = metadata['journal'].get('template', 'default')
         if not journal_template:
             journal_template = "default"
+    # An alias (``agu``) names the template directory of its journal.
+    journal_template = _journals.canonical_template(journal_template)
     metadata.setdefault('journal', {})['template'] = journal_template
     return journal_template
 
@@ -1126,9 +1128,8 @@ def plan_project(args) -> ProjectPlan:
     # The root's effective journal template decides whether --only applies:
     # \includeonly requires \include, which only book-family templates emit.
     root_yaml_meta = load_markdown(open(primary_input).read()).metadata
-    root_template = (args.journal_template
-                     or root_yaml_meta['journal'].get('template')
-                     or 'default')
+    root_template = _journals.canonical_template(
+        args.journal_template or root_yaml_meta['journal'].get('template') or 'default')
 
     includeonly = ''
     if args.only:
@@ -1595,7 +1596,8 @@ def _collect_watch_paths(plan, metadata):
         comp_meta = load_markdown(comp_path.read_text()).metadata
         for comp_bib in bib_files(comp_meta.get('bibliography')):
             watch_paths.append(Path(comp_path).parent / comp_bib)
-        comp_jt = comp_meta.get('journal', {}).get('template') or 'default'
+        comp_jt = _journals.canonical_template(
+            comp_meta.get('journal', {}).get('template') or 'default')
         watch_paths.append(rootpath / f'templates/{comp_jt}/template.tex')
 
     # Deduplicate preserving first-occurrence order, dropping None/empty.

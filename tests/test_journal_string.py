@@ -90,3 +90,22 @@ def test_journal_filter_standalone_with_string_journal(journal):
         assert r"\textbf{A caption}." in latex  # science caption munger ran
     if journal == "book":
         assert doc.get_metadata("dedication")  # book front-matter section lifted
+
+
+def test_journal_alias_uses_the_journal_template(tmp_path):
+    """``journal: agu`` builds with the agujournal template directory."""
+    from texmark.build import build_tex
+    md = tmp_path / "doc.md"
+    md.write_text("---\ntitle: T\njournal: agu\n---\n\nText.\n")
+    out = tmp_path / "build" / "doc.tex"
+    build_tex(str(md), str(out), build_dir=str(tmp_path / "build"))
+    assert "agujournal2019" in out.read_text()
+
+
+def test_canonical_template():
+    from texmark.journals import canonical_template
+    assert canonical_template("agu") == "agujournal"
+    assert canonical_template("jclim") == "ametsoc"
+    assert canonical_template("slides") == "beamer"
+    assert canonical_template("agujournal") == "agujournal"
+    assert canonical_template("unknown") == "unknown"

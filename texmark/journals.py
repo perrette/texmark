@@ -431,6 +431,17 @@ filters['memoir'] = lambda: book_chain([Filter(prepare=_surface_chapter_style)])
 filters['classicthesis'] = lambda: book_chain([Filter(prepare=_surface_classicthesis_options)])
 
 
+def canonical_template(name):
+    """The template name an alias stands for (``agu`` -> ``agujournal``,
+    ``slides`` -> ``beamer``); other names are returned unchanged."""
+    for key, config in JOURNALS.items():
+        if name in config.get('aliases', []):
+            return key
+    if name in ('slides', 'presentation'):
+        return 'beamer'
+    return name
+
+
 def get_filter_chain(template):
     """Resolve a template name to a fresh filter chain.
 
