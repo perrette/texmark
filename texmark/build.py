@@ -925,6 +925,13 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
                 build_dir, tex_name, engine, backend,
                 preamble_format=preamble_format)
         marker.unlink(missing_ok=True)
+    # latexmk -f and the raw backend go on after a LaTeX error and usually
+    # still write a PDF, which is published: report the errors.
+    job = draft_jobname(input_tex) if draft else Path(input_tex).stem
+    errors = latex_errors(build_dir / f'{job}.log')
+    if errors:
+        logger.warning(f"texmark: LaTeX errors, the PDF may be incomplete "
+                       f"(see {build_dir / job}.log):\n{errors}")
     if publish:
         publish_job_pdf(input_tex, output_pdf, build_dir, draft=draft)
 

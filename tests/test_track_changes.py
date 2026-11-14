@@ -99,3 +99,9 @@ def test_strikeout_without_changes_is_sout(tmp_path):
     assert "\\sout{old}" in tex and "normalem]{ulem}" in tex
     assert "{changes}" not in tex
 
+
+def test_tight_lists_defined(tmp_path):
+    tex = _build(tmp_path, "- a\n- b\n")
+    assert "\\tightlist" in tex
+    assert "\\providecommand{\\tightlist}" in tex
+
