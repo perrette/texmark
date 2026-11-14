@@ -596,6 +596,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#line-breaks-in-a-cell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Line breaks in a cell
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#referencing-a-table" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -641,6 +652,34 @@
     
   
     Cross-references
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../track-changes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Track changes
   
 
     
@@ -1416,6 +1455,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#line-breaks-in-a-cell" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Line breaks in a cell
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#referencing-a-table" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1492,6 +1542,21 @@ becomes <code>\caption{A caption for my table}</code> and <code>\label{tbl:gulf}
 pandoc no longer treats it as the table's caption, and the label is lost.</p>
 <p>Inline markup works inside the caption: math (<code>$...$</code>), emphasis, and citations
 are rendered rather than flattened to plain text.</p>
+<h2 id="line-breaks-in-a-cell">Line breaks in a cell<a class="headerlink" href="#line-breaks-in-a-cell" title="Permanent link">&para;</a></h2>
+<p><code>\\</code> in a cell starts a new line in that cell:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>| Paper | Constraints | Statistics |
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>|---|---|---|
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>| P1 [@rahmstorf2011] | total | GLS,\\ error model |
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>| P2 [@perrette2013] | global\\ total | Monte Carlo |
+</code></pre></div>
+<p>A cell with line breaks is written as a one-column <code>tabular</code> nested in the
+cell, top-aligned with the other cells of the row (what the <code>makecell</code>
+package does, without loading it). Cells without <code>\\</code> are unchanged. This
+also works in header cells (<code>Projec-\\tions</code>).</p>
+<p>Pandoc reads <code>\\</code> as an escaped backslash, so in a table cell a literal
+backslash is no longer possible in plain text; write it in code
+(<code>`\`</code>) instead. Backslashes in math and code are left alone, but <code>\\</code>
+inside math (<code>$a \\ b$</code>) ends the table row in LaTeX: do not use it in a cell.</p>
 <h2 id="referencing-a-table">Referencing a table<a class="headerlink" href="#referencing-a-table" title="Permanent link">&para;</a></h2>
 <p>Reference a labelled table with <code>@tbl:gulf</code> or <code>[#](#tbl:gulf)</code> (both produce
 <code>\ref{tbl:gulf}</code>, a bare number — write the word "Table" yourself). Note the
@@ -1500,7 +1565,7 @@ two forms and when to use each.</p>
 <h2 id="other-attributes-in-the-trailer">Other attributes in the trailer<a class="headerlink" href="#other-attributes-in-the-trailer" title="Permanent link">&para;</a></h2>
 <p>The same trailer can carry classes and key=value attributes alongside (or
 instead of) the identifier, separated by spaces:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>:A caption for my table {#tbl:gulf .narrow width=50%}
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>:A caption for my table {#tbl:gulf .narrow width=50%}
 </code></pre></div>
 <p><code>#tbl:gulf</code> sets the label, <code>.narrow</code> adds a class, and <code>width=50%</code> sets an
 attribute.</p>

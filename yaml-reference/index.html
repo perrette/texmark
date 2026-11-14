@@ -568,6 +568,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../track-changes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Track changes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../multi-file/" class="md-nav__link">
         
   
@@ -1606,16 +1634,19 @@
 <a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a><span class="nt">classicthesis-options</span><span class="p">:</span><span class="w"> </span><span class="s">"parts"</span><span class="w">        </span><span class="c1"># optional: classicthesis only</span>
 <a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a><span class="c1"># Custom LaTeX preamble (see Custom preamble page)</span>
 <a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a><span class="nt">preamble</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">macros.tex</span><span class="w">                  </span><span class="c1"># optional: file path or inline block scalar</span>
-<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a><span class="c1"># Build options (see Build backends page; the CLI flags override them)</span>
-<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a><span class="nt">engine</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pdflatex</span><span class="w">                      </span><span class="c1"># optional: pdflatex, xelatex, lualatex</span>
-<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a><span class="nt">backend</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">latexmk</span><span class="w">                      </span><span class="c1"># optional: latexmk, raw, tectonic</span>
-<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a><span class="nt">rewrite_unicode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span><span class="w">                 </span><span class="c1"># optional: auto, on, off</span>
-<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a><span class="nt">build_draft</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">                    </span><span class="c1"># optional: figures as boxes (same as --draft)</span>
-<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a><span class="nt">build_progressive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">              </span><span class="c1"># optional: staged PDF builds (same as --progressive)</span>
-<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a><span class="nt">build_preamble_format</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">           </span><span class="c1"># optional: false disables the precompiled preamble (same as --no-preamble-format)</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a><span class="c1"># Track changes (see Track changes page)</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a><span class="nt">changes</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span><span class="w">                         </span><span class="c1"># optional: auto, true, false</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a><span class="c1"># Build options (see Build backends page; the CLI flags override them)</span>
+<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a><span class="nt">engine</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pdflatex</span><span class="w">                      </span><span class="c1"># optional: pdflatex, xelatex, lualatex</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a><span class="nt">backend</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">latexmk</span><span class="w">                      </span><span class="c1"># optional: latexmk, raw, tectonic</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a><span class="nt">rewrite_unicode</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">auto</span><span class="w">                 </span><span class="c1"># optional: auto, on, off</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a><span class="nt">build_draft</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">                    </span><span class="c1"># optional: figures as boxes (same as --draft)</span>
+<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a><span class="nt">build_progressive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">              </span><span class="c1"># optional: staged PDF builds (same as --progressive)</span>
+<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a><span class="nt">build_preamble_format</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">           </span><span class="c1"># optional: false disables the precompiled preamble (same as --no-preamble-format)</span>
 </code></pre></div>
-<p>See the <a href="../figures/">Figure paths</a>, <a href="../multi-file/">Multi-file projects</a>, and
-<a href="../preamble/">Custom preamble</a> pages for the fields grouped above.</p>
+<p>See the <a href="../figures/">Figure paths</a>, <a href="../multi-file/">Multi-file projects</a>,
+<a href="../preamble/">Custom preamble</a> and <a href="../track-changes/">Track changes</a> pages for
+the fields grouped above.</p>
 <h3 id="author-roles">Author roles<a class="headerlink" href="#author-roles" title="Permanent link">&para;</a></h3>
 <p>Two optional per-author keys:</p>
 <ul>
