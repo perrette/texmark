@@ -425,7 +425,11 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
     # article-class templates. Template-facing (Jinja), hence top-level
     # rather than part of the filter context.
     metadata['includeonly'] = includeonly or ''
-    metadata['user_preamble'] = _changes.changes_preamble(changes, strikeout) + _resolve_user_preamble(
+    # \tightlist: written by pandoc for compact lists, defined by pandoc's
+    # own template but not by the texmark templates.
+    metadata['user_preamble'] = (
+        '\\providecommand{\\tightlist}{\\setlength{\\itemsep}{0pt}\\setlength{\\parskip}{0pt}}\n'
+        + _changes.changes_preamble(changes, strikeout)) + _resolve_user_preamble(
         metadata, Path(input_md).resolve().parent)
 
     if not template:

@@ -105,3 +105,17 @@ def test_tight_lists_defined(tmp_path):
     assert "\\tightlist" in tex
     assert "\\providecommand{\\tightlist}" in tex
 
+
+def test_latex_errors_reported(tmp_path, caplog):
+    from texmark.build import compile_pdf
+    import shutil
+    if not shutil.which("latexmk"):
+        pytest.skip("latexmk not available")
+    tex = tmp_path / "doc.tex"
+    tex.write_text("\\documentclass{article}\\begin{document}\\undefinedmacro x\\end{document}\n")
+    with caplog.at_level("WARNING"):
+        compile_pdf(str(tex), str(tmp_path / "out.pdf"), build_dir=str(tmp_path),
+                    bib_file='', preamble_format=False)
+    assert any("LaTeX errors" in r.message and "Undefined control sequence" in r.message
+               for r in caplog.records)
+    assert (tmp_path / "out.pdf").exists()
