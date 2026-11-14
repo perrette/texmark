@@ -84,12 +84,17 @@ generated `.tex` has a line after the preamble that makes the job
 writes with the `\includeonly{...}` of the changed chapters. The page
 numbers, chapter numbers and references of the other chapters come from
 their `.aux` files, written by the previous build, so the pages are numbered
-as in the whole document. The part job starts from the draft job's `.aux` and
-`.bbl` (citations, contents lines), and typesets the reference list
-(`\bibliography`) into a box that is never output, so it takes no pages
-(citations stay defined; a biblatex `\printbibliography` is typeset as
-usual). The stage is announced as `draft PDF of <chapter> (1 pass)`, and the
-viewer shows these chapters until stage 2 publishes the whole document.
+as in the whole document. The other chapters are blank pages, as many as
+they had in the previous build (see `--keep-pages` in
+[Multi-file projects](multi-file.md)), so the PDF has the same pages as the
+whole document and the viewer stays on its page. The part job starts from
+the draft job's `.aux` and `.bbl` (citations, contents lines), and typesets
+the reference list of the master document (`\bibliography` after the
+chapters) into a box that is never output, so it takes no pages (citations
+stay defined; a biblatex `\printbibliography`, or a `\bibliography` inside a
+chapter, is typeset as usual). The stage is announced as `draft PDF of
+<chapter> (1 pass)`, and the viewer shows these chapters until stage 2
+publishes the whole document.
 
 This needs pdflatex. With `--only`, it applies to the chapters in the
 `--only` list; changes to other files (the root, the bibliography, a

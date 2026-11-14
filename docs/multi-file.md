@@ -81,6 +81,22 @@ typeset — useful when editing a single chapter in a large thesis.
 `--only` is a no-op outside book-family templates (a warning is emitted
 and the flag is ignored).
 
+The excluded chapters take no pages, so the PDF is shorter than the whole
+document, and a PDF viewer that reloads it loses its place. With
+`--keep-pages`, each excluded chapter is replaced by as many blank pages as it
+had in the last build (from its `.aux`), so the PDF has the same pages as the
+whole document, with the selected chapters in their place:
+
+```
+texmark thesis.md --pdf --only chapters/methods.md --keep-pages
+texmark thesis.md --pdf --only chapters/methods.md --keep-pages chapters/intro.md,chapters/methods.md,chapters/results.md
+```
+
+Without a value, all excluded chapters keep their pages. With a list, only
+these do: give the chapters of the document the PDF should match, when
+that document itself leaves some chapters out (a synopsis built with
+`--only`, for instance).
+
 ## Build pipeline for embeds
 
 When embedded files are present:

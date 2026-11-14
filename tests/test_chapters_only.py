@@ -163,3 +163,60 @@ def test_single_file_unaffected(tmp_path, monkeypatch):
     main()
     out = (build_dir / "doc.tex").read_text()
     assert "\\includeonly" not in out
+
+
+# --------------------------------------------------------------------------
+# --keep-pages: excluded chapters as blank pages
+# --------------------------------------------------------------------------
+
+def _three_chapters(tmp_path):
+    src = tmp_path / "src"
+    src.mkdir()
+    _write(src / "root.md", "---\ntitle: T\njournal: book\nchapters: [a.md, b.md, c.md]\n---\n")
+    for c in "abc":
+        paras = "\n\n".join(f"Para {i} of {c}. " + "Text " * 120 for i in range(12))
+        _write(src / f"{c}.md", f"# Chapter {c}\n\n{paras}\n")
+    return src
+
+
+def _pdf_pages(pdf):
+    import re
+    import subprocess
+    info = subprocess.run(["pdfinfo", str(pdf)], capture_output=True, text=True).stdout
+    return int(re.search(r"^Pages:\s+(\d+)", info, re.M).group(1))
+
+
+def _run(monkeypatch, src, build_dir, *extra):
+    monkeypatch.setattr(sys, "argv", ["texmark", str(src / "root.md"), "-d", str(build_dir),
+                                      "--pdf", "--no-preamble-format", *extra])
+    main()
+
+
+def test_keep_pages_tex(tmp_path, monkeypatch):
+    src = _three_chapters(tmp_path)
+    build_dir = tmp_path / "build"
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(sys, "argv", ["texmark", str(src / "root.md"), "-d", str(build_dir),
+                                      "--only", "b.md", "--keep-pages", "a.md,b.md"])
+    main()
+    tex = (build_dir / "root.tex").read_text()
+    assert "\\includeonly{b}\n\\makeatletter\n\\@ifundefined{AddToHook}" in tex
+    assert "\\AddToHook{include/a/excluded}{\\texmark@pad}" in tex
+    assert "include/c/excluded" not in tex
+
+
+@pytest.mark.skipif(not (__import__("shutil").which("latexmk") and __import__("shutil").which("pdfinfo")),
+                    reason="latexmk or pdfinfo not available")
+def test_keep_pages_pdf_has_the_pages_of_the_full_build(tmp_path, monkeypatch):
+    src = _three_chapters(tmp_path)
+    build_dir = tmp_path / "build"
+    monkeypatch.chdir(tmp_path)
+    _run(monkeypatch, src, build_dir, "-o", str(tmp_path / "full.pdf"))
+    _run(monkeypatch, src, build_dir, "--only", "b.md", "-o", str(tmp_path / "only.pdf"))
+    _run(monkeypatch, src, build_dir, "--only", "b.md", "--keep-pages",
+         "-o", str(tmp_path / "keep.pdf"))
+    _run(monkeypatch, src, build_dir, "--only", "b.md", "--keep-pages", "a.md,b.md",
+         "-o", str(tmp_path / "keep-ab.pdf"))
+    full, only = _pdf_pages(tmp_path / "full.pdf"), _pdf_pages(tmp_path / "only.pdf")
+    keep, keep_ab = _pdf_pages(tmp_path / "keep.pdf"), _pdf_pages(tmp_path / "keep-ab.pdf")
+    assert only < keep_ab < keep == full

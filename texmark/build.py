@@ -632,18 +632,52 @@ def part_switch(input_tex):
             + _part_setup_file(input_tex) + r'}{}{}\fi\fi')
 
 
-def write_part_setup(input_tex, build_dir, chapters):
+# With \includeonly, the excluded chapters keep their place as blank pages,
+# as many as they had in the last build (the page counter that LaTeX restores
+# from the chapter's .aux, in the include/excluded hook), so that the PDF has
+# the same pages as the full one and a viewer stays on the same page.
+def keep_pages(chapters=None):
+    """The preamble lines that keep the pages of the excluded chapters, of
+    all of them, or of the chapter stems ``chapters`` only (the chapters of
+    the document whose pages the PDF should have). Defined once: a second
+    call in the same preamble does nothing."""
+    if chapters:
+        hooks = ''.join(r'\AddToHook{include/' + c + r'/excluded}{\texmark@pad}' '\n'
+                        for c in chapters)
+    else:
+        hooks = r'\AddToHook{include/excluded}{\texmark@pad}' '\n'
+    return (
+        r'\makeatletter' '\n'
+        r'\@ifundefined{AddToHook}{}{\@ifundefined{texmark@lastpage}{%' '\n'
+        r'\newcount\texmark@lastpage' '\n'
+        r'\def\texmark@pad{\ifnum\c@page>\texmark@page\relax' '\n'
+        r'  \global\texmark@lastpage=\c@page \global\c@page=\texmark@page\relax' '\n'
+        r'  \loop\ifnum\c@page<\texmark@lastpage \null\thispagestyle{empty}\clearpage\repeat\fi}' '\n'
+        r'\AddToHook{cmd/include/before}{\clearpage\xdef\texmark@page{\the\c@page}}' '\n'
+        + hooks +
+        r'}{}}' '\n'
+        r'\makeatother' '\n')
+
+
+def write_part_setup(input_tex, build_dir, chapters, keep=None):
     """Write the part job's setup file for the chapter stems ``chapters``.
 
-    The reference list (``\\bibliography``) is typeset into a box that is
-    never output: ``\\bibitem`` writes the citations to the .aux immediately,
-    so they stay defined, and no pages are spent on it. A biblatex
-    ``\\printbibliography`` is typeset as usual."""
+    The reference list (``\\bibliography``) of the master document, outside
+    the chapters, is typeset into a box that is never output: ``\\bibitem``
+    writes the citations to the .aux immediately, so they stay defined, and
+    no pages are spent on it. One inside a chapter is typeset as usual, so
+    that the chapter keeps its pages. A biblatex
+    ``\\printbibliography`` is typeset as usual. The other chapters (those
+    of ``keep``, or all) are blank pages (``keep_pages``)."""
     text = ('\\includeonly{' + ','.join(chapters) + '}\n'
             r'\ifcsname KV@Gin@draft\endcsname\setkeys{Gin}{draft}\fi' '\n'
-            r'\def\texmarkpartbibliography#1{\setbox0=\vbox{\texmarkbibliography{#1}}}' '\n'
+            r'\makeatletter' '\n'
+            r'\def\texmarkpartbibliography#1{\ifx\@auxout\@partaux\texmarkbibliography{#1}'
+            r'\else\setbox0=\vbox{\texmarkbibliography{#1}}\fi}' '\n'
+            r'\makeatother' '\n'
             r'\AtBeginDocument{\let\texmarkbibliography\bibliography'
-            r'\let\bibliography\texmarkpartbibliography}' '\n')
+            r'\let\bibliography\texmarkpartbibliography}' '\n'
+            + keep_pages(keep))
     (Path(build_dir) / _part_setup_file(input_tex)).write_text(text)
 
 
@@ -1062,6 +1096,13 @@ def _build_parser():
                              'instead of recompiling them. Meaningful only for book-family '
                              'templates (article-class lacks \\include); ignored with a warning '
                              'otherwise.')
+    parser.add_argument('--keep-pages', nargs='?', const='', default=None, metavar='CHAPTERS',
+                        help='With --only: the excluded chapters keep their place as blank pages, '
+                             'as many as in the last build, so that the PDF has the same pages as '
+                             'the full document and a PDF viewer stays on the same page. '
+                             'Optionally a comma-separated list of the chapters to keep '
+                             '(e.g. those of the full document); default: all. The chapter-only '
+                             'stage of --watch does this for the chapters of its --only list.')
     parser.add_argument('--draft', action='store_true', default=None,
                         help='Compile with figures replaced by boxes of the same size (graphicx '
                              'draft option), so the layout is that of the full build but faster. '
@@ -1139,6 +1180,10 @@ def plan_project(args) -> ProjectPlan:
         if only_stems:
             if root_template in BOOK_FAMILY_TEMPLATES:
                 includeonly = '\\includeonly{' + ','.join(only_stems) + '}'
+                keep = getattr(args, 'keep_pages', None)
+                if keep is not None:
+                    keep = [Path(item.strip()).stem for item in keep.split(',') if item.strip()]
+                    includeonly += '\n' + keep_pages(keep)
             else:
                 logger.warning(
                     "texmark: --only is meaningful only for book-family templates; ignoring."
@@ -1342,7 +1387,9 @@ def compile_stages(plan, conv, chapters=()):
         _seed_draft_job(build_dir, in_tex)
         part = part_jobname(in_tex)
         _seed_job(build_dir, job, part)
-        write_part_setup(in_tex, build_dir, chapters)
+        only = re.match(r'\\includeonly\{([^}]*)\}', plan.includeonly or '')
+        write_part_setup(in_tex, build_dir, chapters,
+                         keep=only.group(1).split(',') if only else None)
         return one_pass(part)
 
     def references():
