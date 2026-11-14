@@ -1827,6 +1827,18 @@ reads them for cross-references), but only the listed chapters are
 typeset — useful when editing a single chapter in a large thesis.</p>
 <p><code>--only</code> is a no-op outside book-family templates (a warning is emitted
 and the flag is ignored).</p>
+<p>The excluded chapters take no pages, so the PDF is shorter than the whole
+document, and a PDF viewer that reloads it loses its place. With
+<code>--keep-pages</code>, each excluded chapter is replaced by as many blank pages as it
+had in the last build (from its <code>.aux</code>), so the PDF has the same pages as the
+whole document, with the selected chapters in their place:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>texmark thesis.md --pdf --only chapters/methods.md --keep-pages
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>texmark thesis.md --pdf --only chapters/methods.md --keep-pages chapters/intro.md,chapters/methods.md,chapters/results.md
+</code></pre></div>
+<p>Without a value, all excluded chapters keep their pages. With a list, only
+these do: give the chapters of the document the PDF should match, when
+that document itself leaves some chapters out (a synopsis built with
+<code>--only</code>, for instance).</p>
 <h2 id="build-pipeline-for-embeds">Build pipeline for embeds<a class="headerlink" href="#build-pipeline-for-embeds" title="Permanent link">&para;</a></h2>
 <p>When embedded files are present:</p>
 <ol>
@@ -1858,8 +1870,8 @@ file. The result is the same as a full conversion.</p>
 <p>Companions are separate documents that compile to separate PDFs, with
 cross-document references between them. Declare companions in the root
 file's YAML:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">companions</span><span class="p">:</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">si.md</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">companions</span><span class="p">:</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">si.md</span>
 </code></pre></div>
 <p>The companion file is its own first-class document with its own
 front-matter (template, bibliography, etc.). Companions are <strong>not</strong>
@@ -1867,7 +1879,7 @@ embeds — they are never <code>\input</code>-ed or <code>\include</code>-ed int
 <h3 id="cross-document-links">Cross-document links<a class="headerlink" href="#cross-document-links" title="Permanent link">&para;</a></h3>
 <p>Use standard markdown links with a <code>#label</code> anchor to reference a label
 in another document:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>As shown in [<span class="nt">Fig.~S1</span>](<span class="na">si.md#fig:noise</span>), the signal is clear.
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>As shown in [<span class="nt">Fig.~S1</span>](<span class="na">si.md#fig:noise</span>), the signal is clear.
 </code></pre></div>
 <p>texmark rewrites this to <code>\ref{si:fig:noise}</code> using xr-hyper's
 <code>\externaldocument[si:]{si}</code> machinery. The mapping uses the companion
@@ -1905,14 +1917,14 @@ hyperref handles external PDF links.</p>
 <h3 id="prefix-and-per-counter-overrides"><code>prefix:</code> and per-counter overrides<a class="headerlink" href="#prefix-and-per-counter-overrides" title="Permanent link">&para;</a></h3>
 <p>Give a companion document independent figure/table numbering (e.g. S1,
 S2, …) by declaring a <code>prefix:</code> in its own YAML:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># si.md front-matter</span>
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nt">prefix</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">S</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># si.md front-matter</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nt">prefix</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">S</span>
 </code></pre></div>
 <p>This injects <code>\renewcommand{\thefigure}{S\arabic{figure}}</code> (and
 equivalents for table, equation, section) into the companion's preamble.</p>
 <p>Override a single counter while keeping the umbrella prefix for others:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">prefix</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">S</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nt">equation-prefix</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SE</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">prefix</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">S</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nt">equation-prefix</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">SE</span>
 </code></pre></div>
 <p>Available per-counter keys: <code>figure-prefix</code>, <code>table-prefix</code>,
 <code>equation-prefix</code>, <code>section-prefix</code>. A per-counter key overrides
@@ -1948,32 +1960,32 @@ companions. Resolution precedence:</p>
 <p>All embedded chapters and companions share the same project root, so
 <code>![](/images/fig.png)</code> in any chapter always resolves to the same file.</p>
 <h2 id="example-project-layout">Example project layout<a class="headerlink" href="#example-project-layout" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>thesis/
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>├── thesis.md          # root: declares chapters: and companions:
-<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>├── si.md              # companion with its own template + bibliography
-<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>├── chapters/
-<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>│   ├── intro.md
-<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>│   ├── methods.md
-<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>│   └── results.md
-<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>├── references.bib
-<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>└── images/
-<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    └── fig1.png
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>thesis/
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>├── thesis.md          # root: declares chapters: and companions:
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>├── si.md              # companion with its own template + bibliography
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>├── chapters/
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>│   ├── intro.md
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>│   ├── methods.md
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>│   └── results.md
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>├── references.bib
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>└── images/
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>    └── fig1.png
 </code></pre></div>
 <p>Root <code>thesis.md</code> front-matter:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s">"My</span><span class="nv"> </span><span class="s">Thesis"</span>
-<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="nt">journal</span><span class="p">:</span>
-<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nt">template</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">book</span>
-<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="nt">bibliography</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">references.bib</span>
-<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="nt">chapters</span><span class="p">:</span>
-<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chapters/intro.md</span>
-<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chapters/methods.md</span>
-<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chapters/results.md</span>
-<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="nt">companions</span><span class="p">:</span>
-<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">si.md</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">title</span><span class="p">:</span><span class="w"> </span><span class="s">"My</span><span class="nv"> </span><span class="s">Thesis"</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nt">journal</span><span class="p">:</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">  </span><span class="nt">template</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">book</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="nt">bibliography</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">references.bib</span>
+<a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="nt">chapters</span><span class="p">:</span>
+<a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chapters/intro.md</span>
+<a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chapters/methods.md</span>
+<a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">chapters/results.md</span>
+<a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="nt">companions</span><span class="p">:</span>
+<a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">si.md</span>
 </code></pre></div>
 <p>Build:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>texmark thesis.md --pdf
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>texmark thesis.md --pdf --only chapters/methods.md   # quick chapter edit
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>texmark thesis.md --pdf
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>texmark thesis.md --pdf --only chapters/methods.md   # quick chapter edit
 </code></pre></div>
 
 
