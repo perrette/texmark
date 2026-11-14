@@ -469,8 +469,10 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
         # (the block cache converts some of the blocks only).
         doc = pf.load(io.StringIO(parse_markdown(text) if ast is None else json.dumps(ast)))
         _set_yaml_metadata(doc, {key: metadata[key] for key in (
-            'journal', 'longtable', 'packages', CONTEXT_METADATA_KEY,
-            'includeonly', 'user_preamble', 'changes')})
+            'journal', 'longtable', 'packages', CONTEXT_METADATA_KEY, 'changes')})
+        # includeonly and user_preamble are raw LaTeX for the Jinja template
+        # only: pandoc would read them as markdown (newlines become spaces,
+        # ``\@`` becomes ``@``), and the result would replace them below.
         # What --bibliography sets on the pandoc command line: a MetaString
         # per file (not markdown), overriding the YAML value.
         bibs = [pf.MetaString(f) for f in bib_files(bib_file)]

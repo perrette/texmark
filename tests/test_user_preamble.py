@@ -106,3 +106,15 @@ def test_preamble_placed_between_xr_setup_and_externals(tmp_path, _subprocess_fi
         "\\csname endofdump\\endcsname", "\\externaldocument")]
     assert -1 not in positions, positions
     assert positions == sorted(positions), positions
+
+
+def test_user_preamble_reaches_the_template_unchanged(tmp_path):
+    """Raw LaTeX in the preamble keeps its lines and ``\\@`` (it is not read
+    as markdown on the way to the template)."""
+    from texmark.build import build_tex
+    md = tmp_path / "doc.md"
+    md.write_text("---\ntitle: T\npreamble: |\n  \\makeatletter\n  \\def\\x@y{1}\n"
+                  "  \\makeatother\n---\n\nText.\n")
+    out = tmp_path / "build" / "doc.tex"
+    build_tex(str(md), str(out), build_dir=str(tmp_path / "build"))
+    assert "\\makeatletter\n\\def\\x@y{1}\n\\makeatother" in out.read_text()
