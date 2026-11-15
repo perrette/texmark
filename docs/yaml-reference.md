@@ -110,9 +110,9 @@ publication-ready layout of the document class. See
 
 ### build_progressive
 
-`build_progressive: true` (or `--progressive`) publishes the PDF in stages: a draft
-after one LaTeX pass, the draft with references resolved, then the full
-build. See [Progressive builds](build-backends.md#progressive-builds).
+`build_progressive: true` (or `--progressive`) publishes the PDF in two stages: a
+draft after one LaTeX pass, then the full build with figures, started from the
+draft's references (with `--draft`: the draft with references resolved). See [Progressive builds](build-backends.md#progressive-builds).
 
 ### build_preamble_format
 

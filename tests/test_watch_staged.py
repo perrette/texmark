@@ -305,7 +305,7 @@ def test_lock_refuses_build_while_watching(tmp_path, monkeypatch, caplog):
 
 @needs_latex
 def test_interrupt_figures_stage_restores_aux(tmp_path, monkeypatch):
-    """A change during stage 3 stops it (no LaTeX process left from it), puts
+    """A change during stage 2 (figures) stops it (no LaTeX process left from it), puts
     back the .aux files it had emptied (ch2.aux, open while it was stopped),
     and the next draft pass shows every reference."""
     src = make_book(tmp_path)
@@ -366,7 +366,7 @@ def test_rapid_changes_publish_in_order(tmp_path, monkeypatch):
 def test_chapter_edit_typesets_that_chapter_first(tmp_path, monkeypatch, caplog):
     """Editing one chapter: stage 1 is the part job with that chapter only,
     numbered as in the full document (pages, references, citations), and
-    without the reference list; stages 2 and 3 publish the whole document."""
+    without the reference list; stage 2 publishes the whole document."""
     import logging
     src = make_book(tmp_path)
     build = tmp_path / "build"
@@ -379,11 +379,11 @@ def test_chapter_edit_typesets_that_chapter_first(tmp_path, monkeypatch, caplog)
         caplog.clear()
         with caplog.at_level(logging.INFO, logger="texmark"):
             edit(src / "ch2.md", chapter(2, extra="EDITED words.\n\n", slow=True))
-            assert wait_for(lambda: len(published) >= 3, 120)
+            assert wait_for(lambda: len(published) >= 2, 120)
             assert w.idle()
 
     jobs = [job for job, _ in published]
-    assert jobs == ["root-part-draft", "root-draft", "root"]
+    assert jobs == ["root-part-draft", "root"]
     part = published[0][1]
     assert "MARKER2" in part and "EDITED" in part
     assert "MARKER1" not in part and "MARKER3" not in part
@@ -418,7 +418,7 @@ def test_draft_watch_has_no_figures_stage(tmp_path, monkeypatch):
 @needs_latex
 @pytest.mark.parametrize("sig", [signal.SIGINT, signal.SIGTERM, signal.SIGHUP])
 def test_signal_stops_watch_cleanly(tmp_path, sig):
-    """Ctrl+C (or SIGTERM/SIGHUP) during stage 3: texmark exits, no LaTeX
+    """Ctrl+C (or SIGTERM/SIGHUP) during stage 2: texmark exits, no LaTeX
     process is left, the emptied ch2.aux is restored and the lock released."""
     src = make_book(tmp_path)
     build = tmp_path / "build"

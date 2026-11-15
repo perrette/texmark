@@ -26,11 +26,11 @@ built in stages, each of which replaces the output PDF
    (`chapters:` or `![](chapter.md)` in the root, which LaTeX `\include`s),
    this pass typesets only those chapters, as the job `<stem>-part-draft`
    (see below).
-2. The draft job with references and bibliography resolved (latexmk: bibtex
-   and further passes where needed).
-3. The full build with figures. Skipped with `--draft`.
+2. The full build with figures, started from the draft job's `.aux` and
+   `.bbl` (latexmk: usually bibtex and one pass). With `--draft`, the draft
+   job with references and bibliography resolved instead.
 
-Stages 2 and 3 run in the background while texmark keeps watching the
+Stage 2 runs in the background while texmark keeps watching the
 sources. Each published PDF is announced with the time since the change
 was seen (here an edit to the first chapter of an 83-page thesis synopsis;
 the part job typesets 24 pages):

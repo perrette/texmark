@@ -68,7 +68,7 @@ Limitations:
 texmark doc.md --pdf --progressive
 ```
 
-`--progressive` (YAML `build_progressive: true`) writes the PDF in three stages and
+`--progressive` (YAML `build_progressive: true`) writes the PDF in two stages and
 replaces the output PDF after each one, so a viewer that reloads on change
 shows a first version early:
 
@@ -76,11 +76,17 @@ shows a first version early:
    draft build are reused, so the existing references and citations are
    right; only labels and citations added since then show as `??`. Printed
    as `draft PDF (1 pass) written: <output>`.
-2. The backend to completion on the draft job: bibtex/biber and further
-   passes where needed. The PDF is published again only if it changed.
-   Printed as `draft PDF (references resolved) written: <output>`.
-3. The full build with figures (`PDF with figures written: <output>`).
-   Skipped when `--draft` is also given.
+2. The full build with figures (`PDF with figures written: <output>`). It
+   starts from the `.aux`, `.bbl`, `.toc`, ... of the draft job, which has
+   the same layout (the boxes have the size of the figures), so the backend
+   usually needs bibtex/biber and one pass. Its files are then copied back to
+   the draft job, for the next stage 1.
+   With `--draft`, this stage is instead the backend to completion on the
+   draft job (bibtex/biber and further passes where needed), published only
+   if the PDF changed: `draft PDF (references resolved) written: <output>`.
+
+A pass with figures costs about the same as a draft pass, unless figures are
+slow to embed: see [PNGs that pdflatex decodes](figures.md#pngs-that-pdflatex-decodes).
 
 Each line also gives the time since the build started. On a LaTeX error in
 stage 1 texmark prints the error lines and continues with stage 2, as the
@@ -95,14 +101,13 @@ This is the recommended loop while writing, combined with `--watch` (see
 texmark doc.md --pdf --progressive --watch
 ```
 
-The stages run one after the other, so the PDF with figures comes later than
-with a plain build. Use `--progressive --draft` to stop after stage 2. In
-watch mode, stages 2 and 3 run in the background and a new change stops
-them; after a change to chapters only, stage 1 typesets those chapters only
-(see [Live preview](live-preview.md)).
+Use `--progressive --draft` for a PDF without figures. In watch mode, stage
+2 runs in the background and a new change stops it; after a change to
+chapters only, stage 1 typesets those chapters only (see
+[Live preview](live-preview.md)).
 
-With [companion documents](multi-file.md), stages 1 and 2 compile the root
-document only; stage 3 compiles every document as a plain build does. With
+With [companion documents](multi-file.md), stage 1 compiles the root document
+only; stage 2 compiles every document as a plain build does. With
 the `tectonic` backend, `--progressive` is ignored with a warning.
 
 ## Precompiled preamble

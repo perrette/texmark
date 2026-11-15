@@ -182,7 +182,7 @@ def test_single_input_no_companions_is_single_pass(tmp_path, monkeypatch):
 
 
 def test_progressive_with_companions_draft_stages_root_only(tmp_path, monkeypatch):
-    """--progressive with companions: stages 1-2 run on the root's draft job
+    """--progressive with companions: stage 1 runs on the root's draft job
     only, then the usual multi-pass loop compiles every document with figures."""
     src = _copy_companions_fixture(tmp_path)
     build_dir = tmp_path / "build"
@@ -209,6 +209,5 @@ def test_progressive_with_companions_draft_stages_root_only(tmp_path, monkeypatc
          patch("texmark.build.compile_pdf", side_effect=fake_compile):
         build_main()
 
-    assert events[:2] == [("pass", "main.tex", "main-draft"),
-                          ("driver", "main.tex", "main-draft")]
-    assert events[2:] == [("compile", "main.tex", False), ("compile", "si.tex", False)] * 2
+    assert events[:1] == [("pass", "main.tex", "main-draft")]
+    assert events[1:] == [("compile", "main.tex", False), ("compile", "si.tex", False)] * 2

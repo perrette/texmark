@@ -218,8 +218,9 @@ def _record_publishes(monkeypatch, build):
 
 @needs_latexmk
 def test_progressive_stages(tmp_path, monkeypatch, caplog):
-    """--progressive publishes the one-pass draft (new label unresolved), the
-    resolved draft, then the full build, in that order."""
+    """--progressive publishes the one-pass draft (new label unresolved),
+    then the full build, started from the draft job's .aux; the full job's
+    files are copied back to the draft job."""
     import logging
     monkeypatch.chdir(tmp_path)
     src = _write_fig_doc(tmp_path)
@@ -233,12 +234,12 @@ def test_progressive_stages(tmp_path, monkeypatch, caplog):
     with caplog.at_level(logging.INFO, logger="texmark"):
         _texmark(monkeypatch, src, "--pdf", "--progressive", "-d", build, "-o", out)
 
-    assert published == [("doc-draft", True), ("doc-draft", False), ("doc", False)]
+    assert published == [("doc-draft", True), ("doc", False)]
     stages = [r.getMessage().split(" written")[0] for r in caplog.records
               if " written: " in r.getMessage()]
     assert stages == ["texmark: draft PDF (1 pass)",
-                      "texmark: draft PDF (references resolved)",
                       "texmark: PDF with figures"]
+    assert (build / "doc-draft.aux").read_bytes() == (build / "doc.aux").read_bytes()
     assert out.read_bytes() == (build / "doc.pdf").read_bytes()
     assert _embeds_figure(build, "doc")
     assert not _embeds_figure(build, "doc-draft")

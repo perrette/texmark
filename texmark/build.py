@@ -1110,12 +1110,13 @@ def _build_parser():
                              'the PDF is still written to the --output path. Not supported with '
                              'the tectonic backend or with companion documents. YAML key: draft.')
     parser.add_argument('--progressive', action='store_true', default=None,
-                        help='With --pdf, publish the PDF in stages: (1) one LaTeX pass of the '
-                             'draft job (see --draft), reusing the previous references; (2) the '
-                             'draft job with references and bibliography resolved; (3) unless '
-                             '--draft is given, the full build with figures. Companion documents '
-                             'are compiled in stage 3 only. With --watch, stage 1 after a change to '
-                             'chapters only typesets those chapters. YAML key: progressive.')
+                        help='With --pdf, publish the PDF in two stages: (1) one LaTeX pass of '
+                             'the draft job (see --draft), reusing the previous references; (2) the '
+                             'full build with figures, started from the .aux/.bbl of the draft job '
+                             '(with --draft: the draft job with references and bibliography '
+                             'resolved). Companion documents are compiled in stage 2 only. With '
+                             '--watch, stage 1 after a change to chapters only typesets those '
+                             'chapters. YAML key: build_progressive.')
     parser.add_argument('--packages', nargs='*', help='custom latex packages to include')
     parser.add_argument('--no-cache', action='store_true',
                         help='Convert every embedded document (chapter) again, instead of '
@@ -1295,9 +1296,10 @@ def _mtime(path):
         return None
 
 
-# Files of the full job that the draft job can start from: the layout is
-# the same, so their labels, citations and contents lines are valid for it.
-_SEED_SUFFIXES = ('.aux', '.bbl', '.toc', '.lof', '.lot', '.out')
+# Files of a job that the other job (full or draft) can start from: the
+# layout is the same, so their labels, citations and contents lines are
+# valid for it (.loc, .soc: lists of the changes package).
+_SEED_SUFFIXES = ('.aux', '.bbl', '.toc', '.lof', '.lot', '.out', '.loc', '.soc')
 
 
 def _seed_job(build_dir, src_job, dst_job):
@@ -1327,13 +1329,14 @@ def compile_stages(plan, conv, chapters=()):
        When ``chapters`` (stems of \\include'd chapters, the only files that
        changed; see watch_project) is given, the part job typesets only
        those chapters instead (see part_jobname);
-    2. the backend to completion on the draft job (bibtex and further
-       passes where needed), published only if the PDF changed (always
-       after a part job);
-    3. unless --draft, the full build with figures (with companions, the
-       usual multi-pass loop over all documents).
-
-    Companion documents are compiled in stage 3 only.
+    2. with --draft, the backend to completion on the draft job (bibtex
+       and further passes where needed), published only if the PDF changed
+       (always after a part job). Otherwise the full build with figures
+       (with companions, the usual multi-pass loop over all documents),
+       started from the .aux/.bbl/... of the draft job, which has the same
+       layout: the backend usually needs bibtex and one pass. Its files are
+       then copied back to the draft job, for the next stage 1.
+    Companion documents are compiled in the full build only.
     """
     targets = conv.targets
     engine, backend, rewrite_unicode = conv.engine, conv.backend, conv.rewrite_unicode
@@ -1406,8 +1409,11 @@ def compile_stages(plan, conv, chapters=()):
         return None
 
     def figures():
+        full = Path(in_tex).stem
+        _seed_job(build_dir, job, full)
         _compile_documents(plan, targets, engine, backend, rewrite_unicode,
                            publish=False)
+        _seed_job(build_dir, full, job)
         return publisher()
 
     # The part job's switch needs \pdfstrcmp (pdflatex).
@@ -1416,8 +1422,9 @@ def compile_stages(plan, conv, chapters=()):
         stages = [Stage(f"draft PDF of {', '.join(chapters)} (1 pass)", part_pass)]
     else:
         stages = [Stage('draft PDF (1 pass)', draft_pass)]
-    stages.append(Stage('draft PDF (references resolved)', references))
-    if not draft:
+    if draft:
+        stages.append(Stage('draft PDF (references resolved)', references))
+    else:
         stages.append(Stage('PDF with figures', figures))
     return stages
 
