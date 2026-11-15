@@ -14,6 +14,7 @@ from pathlib import Path
 import panflute as pf
 
 from texmark.context import BuildContext
+from texmark.figcache import fast_figure
 from texmark.logs import logger
 
 
@@ -54,6 +55,12 @@ class ResolveImagePathsFilter:
     document no longer references is removed. ``figure_folders`` is
     ignored in this mode.
 
+    In both modes, a PNG that pdflatex would decode on every pass (alpha
+    channel, interlacing) is replaced by its lossless converted copy from
+    ``<build_dir>/.texmark-cache/figures/`` when there is one (see
+    ``texmark.figcache``): copied into the bundle in place of the original,
+    or referenced directly otherwise.
+
     Inputs come from the ``BuildContext`` (the ``texmark`` metadata key,
     populated by ``build_tex``): ``build_dir``, ``source_dir``,
     ``copy_figures``, ``figure_folders``, ``project_root``.
@@ -85,7 +92,8 @@ class ResolveImagePathsFilter:
         # threads the resolved value through metadata so this filter never
         # has to detect anything itself.
         self.project_root = Path(".")
-        # original-url -> bundle-relative path written into the .tex
+        # original-url -> bundle-relative path written into the .tex (in
+        # the default mode, only for figures replaced by a converted copy)
         self.url_map = {}
         # basenames of files we put under <build_dir>/figures/ this run
         self.copied = set()
@@ -154,6 +162,8 @@ class ResolveImagePathsFilter:
         return h.hexdigest()[:length]
 
     def _copy_into_bundle(self, src, safe_name):
+        # the lossless copy that pdflatex embeds faster, if any (texmark.figcache)
+        src = fast_figure(src, self.build_dir) or src
         dst = self.build_dir / self.BUNDLE_SUBDIR / safe_name
         dst.parent.mkdir(parents=True, exist_ok=True)
         # Match sync_tree's size+mtime quick-check so rebuilds don't
@@ -283,6 +293,13 @@ class ResolveImagePathsFilter:
         if candidate is None:
             # Build-dir-relative (texmark-download-images output) or missing
             # (already warned). Either way, leave the URL unchanged.
+            return
+
+        fast = fast_figure(candidate, self.build_dir)
+        if fast is not None:
+            # Recorded so that the texcache checks the converted copy is
+            # still there before it reuses the .tex that points to it.
+            elem.url = self.url_map[url] = os.path.relpath(fast, self.build_dir)
             return
 
         short = self._short_url_via_folder(candidate)

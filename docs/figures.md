@@ -71,3 +71,22 @@ directory; the files stay where they are on disk. Two flags change that:
 
 Remote (`http(s)://`) URLs are always downloaded into
 `<build>/figures/<hash>/<basename>`, regardless of these flags.
+
+## PNGs that pdflatex decodes
+
+pdflatex copies the compressed data of a PNG into the PDF as it is, unless the
+PNG has an alpha channel, more than 8 bits per sample, or interlacing: such a
+PNG is decoded and compressed again on every pass (about 0.5 s per pass for a
+large screenshot). When [Pillow](https://pypi.org/project/pillow/) is
+installed, texmark replaces these PNGs by a converted copy when the conversion
+loses nothing:
+
+- an alpha channel that is 255 everywhere (screenshots, most plots saved with
+  `matplotlib`) is dropped;
+- an interlaced PNG is written without interlacing.
+
+PNGs with real transparency and 16-bit PNGs are used as they are. The
+converted copies are kept in `<build>/.texmark-cache/figures/<hash>/`, keyed by
+the contents of the original, which is never modified. With `--copy-figures`,
+the converted copy is the one bundled in `<build>/figures/`, under the
+original name. Without Pillow, texmark prints a warning for each such PNG.
