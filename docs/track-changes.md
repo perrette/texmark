@@ -5,6 +5,9 @@ for edits and comments, and typesets it with the LaTeX
 [`changes`](https://ctan.org/pkg/changes) package: added text in colour,
 deleted text struck out, comments numbered in the text.
 
+To see the edits highlighted in VS Code and accept or reject them, see
+[Editor setup](editor.md#track-changes-kaicrit).
+
 ## Notation
 
 | Markdown | Meaning | LaTeX |

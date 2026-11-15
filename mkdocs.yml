@@ -77,6 +77,7 @@ nav:
       - Encoding (Unicode & HTML): encoding.md
       - Build backends and engines: build-backends.md
       - Live preview: live-preview.md
+      - Editor setup (VS Code): editor.md
       - Custom LaTeX templates: custom-templates.md
   - Reference:
       - YAML reference: yaml-reference.md

@@ -12,6 +12,8 @@ okular, GNOME Papers). The output PDF is written to a temporary file next to
 it and renamed over the previous one, so a viewer never reads a half-written
 file.
 
+For running it from VS Code, see [Editor setup](editor.md).
+
 ## What happens on a save
 
 The markdown is converted to LaTeX (chapters whose source did not change keep
