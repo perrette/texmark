@@ -589,6 +589,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#pngs-that-pdflatex-decodes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PNGs that pdflatex decodes
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -809,6 +820,34 @@
     
   
     Live preview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../editor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Editor setup (VS Code)
   
 
     
@@ -1465,6 +1504,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#pngs-that-pdflatex-decodes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PNGs that pdflatex decodes
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1559,6 +1609,23 @@ directory; the files stay where they are on disk. Two flags change that:</p>
 </ul>
 <p>Remote (<code>http(s)://</code>) URLs are always downloaded into
 <code>&lt;build&gt;/figures/&lt;hash&gt;/&lt;basename&gt;</code>, regardless of these flags.</p>
+<h2 id="pngs-that-pdflatex-decodes">PNGs that pdflatex decodes<a class="headerlink" href="#pngs-that-pdflatex-decodes" title="Permanent link">&para;</a></h2>
+<p>pdflatex copies the compressed data of a PNG into the PDF as it is, unless the
+PNG has an alpha channel, more than 8 bits per sample, or interlacing: such a
+PNG is decoded and compressed again on every pass (about 0.5 s per pass for a
+large screenshot). When <a href="https://pypi.org/project/pillow/">Pillow</a> is
+installed, texmark replaces these PNGs by a converted copy when the conversion
+loses nothing:</p>
+<ul>
+<li>an alpha channel that is 255 everywhere (screenshots, most plots saved with
+  <code>matplotlib</code>) is dropped;</li>
+<li>an interlaced PNG is written without interlacing.</li>
+</ul>
+<p>PNGs with real transparency and 16-bit PNGs are used as they are. The
+converted copies are kept in <code>&lt;build&gt;/.texmark-cache/figures/&lt;hash&gt;/</code>, keyed by
+the contents of the original, which is never modified. With <code>--copy-figures</code>,
+the converted copy is the one bundled in <code>&lt;build&gt;/figures/</code>, under the
+original name. Without Pillow, texmark prints a warning for each such PNG.</p>
 
 
 

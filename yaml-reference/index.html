@@ -736,6 +736,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../editor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Editor setup (VS Code)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../custom-templates/" class="md-nav__link">
         
   
@@ -1693,9 +1721,9 @@ unrelated to <code>journal.draft</code>, which selects the submission or
 publication-ready layout of the document class. See
 <a href="../build-backends/#draft-builds">Draft builds</a>.</p>
 <h3 id="build_progressive">build_progressive<a class="headerlink" href="#build_progressive" title="Permanent link">&para;</a></h3>
-<p><code>build_progressive: true</code> (or <code>--progressive</code>) publishes the PDF in stages: a draft
-after one LaTeX pass, the draft with references resolved, then the full
-build. See <a href="../build-backends/#progressive-builds">Progressive builds</a>.</p>
+<p><code>build_progressive: true</code> (or <code>--progressive</code>) publishes the PDF in two stages: a
+draft after one LaTeX pass, then the full build with figures, started from the
+draft's references (with <code>--draft</code>: the draft with references resolved). See <a href="../build-backends/#progressive-builds">Progressive builds</a>.</p>
 <h3 id="build_preamble_format">build_preamble_format<a class="headerlink" href="#build_preamble_format" title="Permanent link">&para;</a></h3>
 <p><code>build_preamble_format: false</code> (or <code>--no-preamble-format</code>) compiles without
 the precompiled preamble that pdflatex builds use by default. See

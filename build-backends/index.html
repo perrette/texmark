@@ -818,6 +818,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../editor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Editor setup (VS Code)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../custom-templates/" class="md-nav__link">
         
   
@@ -1541,7 +1569,7 @@ preamble when the job name is <code>&lt;stem&gt;-draft</code>.</p>
 <h2 id="progressive-builds">Progressive builds<a class="headerlink" href="#progressive-builds" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>texmark<span class="w"> </span>doc.md<span class="w"> </span>--pdf<span class="w"> </span>--progressive
 </code></pre></div>
-<p><code>--progressive</code> (YAML <code>build_progressive: true</code>) writes the PDF in three stages and
+<p><code>--progressive</code> (YAML <code>build_progressive: true</code>) writes the PDF in two stages and
 replaces the output PDF after each one, so a viewer that reloads on change
 shows a first version early:</p>
 <ol>
@@ -1549,12 +1577,17 @@ shows a first version early:</p>
    draft build are reused, so the existing references and citations are
    right; only labels and citations added since then show as <code>??</code>. Printed
    as <code>draft PDF (1 pass) written: &lt;output&gt;</code>.</li>
-<li>The backend to completion on the draft job: bibtex/biber and further
-   passes where needed. The PDF is published again only if it changed.
-   Printed as <code>draft PDF (references resolved) written: &lt;output&gt;</code>.</li>
-<li>The full build with figures (<code>PDF with figures written: &lt;output&gt;</code>).
-   Skipped when <code>--draft</code> is also given.</li>
+<li>The full build with figures (<code>PDF with figures written: &lt;output&gt;</code>). It
+   starts from the <code>.aux</code>, <code>.bbl</code>, <code>.toc</code>, ... of the draft job, which has
+   the same layout (the boxes have the size of the figures), so the backend
+   usually needs bibtex/biber and one pass. Its files are then copied back to
+   the draft job, for the next stage 1.
+   With <code>--draft</code>, this stage is instead the backend to completion on the
+   draft job (bibtex/biber and further passes where needed), published only
+   if the PDF changed: <code>draft PDF (references resolved) written: &lt;output&gt;</code>.</li>
 </ol>
+<p>A pass with figures costs about the same as a draft pass, unless figures are
+slow to embed: see <a href="../figures/#pngs-that-pdflatex-decodes">PNGs that pdflatex decodes</a>.</p>
 <p>Each line also gives the time since the build started. On a LaTeX error in
 stage 1 texmark prints the error lines and continues with stage 2, as the
 full build continues past errors. The first draft build in a build directory
@@ -1564,13 +1597,12 @@ that already has a full build starts from the full job's <code>.aux</code>, <cod
 <a href="../live-preview/">Live preview</a>):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>texmark<span class="w"> </span>doc.md<span class="w"> </span>--pdf<span class="w"> </span>--progressive<span class="w"> </span>--watch
 </code></pre></div>
-<p>The stages run one after the other, so the PDF with figures comes later than
-with a plain build. Use <code>--progressive --draft</code> to stop after stage 2. In
-watch mode, stages 2 and 3 run in the background and a new change stops
-them; after a change to chapters only, stage 1 typesets those chapters only
-(see <a href="../live-preview/">Live preview</a>).</p>
-<p>With <a href="../multi-file/">companion documents</a>, stages 1 and 2 compile the root
-document only; stage 3 compiles every document as a plain build does. With
+<p>Use <code>--progressive --draft</code> for a PDF without figures. In watch mode, stage
+2 runs in the background and a new change stops it; after a change to
+chapters only, stage 1 typesets those chapters only (see
+<a href="../live-preview/">Live preview</a>).</p>
+<p>With <a href="../multi-file/">companion documents</a>, stage 1 compiles the root document
+only; stage 2 compiles every document as a plain build does. With
 the <code>tectonic</code> backend, <code>--progressive</code> is ignored with a warning.</p>
 <h2 id="precompiled-preamble">Precompiled preamble<a class="headerlink" href="#precompiled-preamble" title="Permanent link">&para;</a></h2>
 <p>With pdflatex and the <code>latexmk</code> or <code>raw</code> backend, texmark dumps the preamble

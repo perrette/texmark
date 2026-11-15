@@ -16,7 +16,7 @@
         <link rel="prev" href="../build-backends/">
       
       
-        <link rel="next" href="../custom-templates/">
+        <link rel="next" href="../editor/">
       
       
         
@@ -851,6 +851,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../editor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Editor setup (VS Code)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../custom-templates/" class="md-nav__link">
         
   
@@ -1544,6 +1572,7 @@ with a PDF viewer that reloads the file when it changes (zathura, evince,
 okular, GNOME Papers). The output PDF is written to a temporary file next to
 it and renamed over the previous one, so a viewer never reads a half-written
 file.</p>
+<p>For running it from VS Code, see <a href="../editor/">Editor setup</a>.</p>
 <h2 id="what-happens-on-a-save">What happens on a save<a class="headerlink" href="#what-happens-on-a-save" title="Permanent link">&para;</a></h2>
 <p>The markdown is converted to LaTeX (chapters whose source did not change keep
 their <code>.tex</code>, see <a href="../multi-file/">Multi-file projects</a>), then the PDF is
@@ -1557,11 +1586,11 @@ built in stages, each of which replaces the output PDF
    (<code>chapters:</code> or <code>![](chapter.md)</code> in the root, which LaTeX <code>\include</code>s),
    this pass typesets only those chapters, as the job <code>&lt;stem&gt;-part-draft</code>
    (see below).</li>
-<li>The draft job with references and bibliography resolved (latexmk: bibtex
-   and further passes where needed).</li>
-<li>The full build with figures. Skipped with <code>--draft</code>.</li>
+<li>The full build with figures, started from the draft job's <code>.aux</code> and
+   <code>.bbl</code> (latexmk: usually bibtex and one pass). With <code>--draft</code>, the draft
+   job with references and bibliography resolved instead.</li>
 </ol>
-<p>Stages 2 and 3 run in the background while texmark keeps watching the
+<p>Stage 2 runs in the background while texmark keeps watching the
 sources. Each published PDF is announced with the time since the change
 was seen (here an edit to the first chapter of an 83-page thesis synopsis;
 the part job typesets 24 pages):</p>
