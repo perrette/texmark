@@ -820,6 +820,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#markdown-preview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Markdown preview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommending-the-extensions-in-a-project" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommending the extensions in a project
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#building-and-viewing-the-pdf" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1461,6 +1483,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#markdown-preview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Markdown preview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#recommending-the-extensions-in-a-project" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommending the extensions in a project
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#building-and-viewing-the-pdf" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1520,6 +1564,9 @@ matter of their own. Name the bibliography in the workspace settings
 </code></pre></div>
 <p>The <code>[markdown]</code> part shows the completion list while typing and leaves out
 the words of the document from it.</p>
+<p>Pandoc Citer also completes the labels of figures, tables, equations and
+sections (<code>@fig:…</code>, <code>@tbl:…</code>, <code>@eq:…</code>, <code>@sec:…</code>), taken from the <code>{#…}</code>
+attributes of the current file.</p>
 <h2 id="track-changes-kaicrit">Track changes: kaicrit<a class="headerlink" href="#track-changes-kaicrit" title="Permanent link">&para;</a></h2>
 <p><a href="https://kaijen.github.io/kaicrit/latest/">kaicrit</a> highlights the
 <a href="../track-changes/">CriticMarkup</a> edits in the editor (deletions, additions,
@@ -1533,13 +1580,50 @@ one by one or all at once, and renders them in the Markdown preview
 hovering over it, from a row of links above each change
 (<code>"kaicrit.edit.changeActions": "codeLens"</code>), or with <code>Alt+A</code> / <code>Alt+R</code>
 with the cursor inside it.</p>
+<p>With <strong>Track Changes</strong> on (<code>Alt+K Alt+T</code>, the button in the editor title
+bar, or the status bar item), edits are recorded as CriticMarkup: deleted
+text is wrapped in <code>{-- … --}</code>, typed text in <code>{++ … ++}</code>, and a replaced
+selection becomes <code>{~~ old ~&gt; new ~~}</code>. The state is per file.</p>
 <p>Without such an extension, VS Code's own Markdown highlighting reads
 <code>~~ ... ~~</code> as strikethrough and shows the whole of a substitution
 <code>{~~ old ~&gt; new ~~}</code> struck out, new text included. With kaicrit, the old
 text is shown as deleted and the new text as added.</p>
+<h2 id="markdown-preview">Markdown preview<a class="headerlink" href="#markdown-preview" title="Permanent link">&para;</a></h2>
+<p><code>Ctrl+K V</code> opens VS Code's Markdown preview next to the editor. It renders
+equations (KaTeX) and images, follows the editor when scrolling, and, with
+kaicrit installed, shows the CriticMarkup edits. Without further extensions,
+texmark's own syntax is shown as plain text.</p>
+<p><a href="https://github.com/perrette/texmark-vscode">texmark for VS Code</a> adds
+texmark's syntax to this preview: <code>{#fig:…}</code> attributes are shown as small
+tags, <code>@fig:…</code> references link to their label, and citations are marked.
+References are not numbered, since the numbers exist only in the PDF. It is
+installed from a <code>.vsix</code> file built from its repository:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/perrette/texmark-vscode
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="nb">cd</span><span class="w"> </span>texmark-vscode
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>npm<span class="w"> </span>install
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>npm<span class="w"> </span>run<span class="w"> </span>package
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>code<span class="w"> </span>--install-extension<span class="w"> </span>texmark-&lt;version&gt;.vsix
+</code></pre></div>
+<p>Without this extension, the preview's math rendering reads a label written
+on the same line as the closing <code>$$</code> (<code>$$ x = y $$ {#eq:foo}</code>) as part of
+the equation and runs on to the next <code>$$</code>, so the rest of the file is not
+rendered. Writing the label as a paragraph of its own after the equation
+avoids this; texmark reads both forms:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>$$ x = y $$
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>{#eq:foo}
+</code></pre></div>
+<h2 id="recommending-the-extensions-in-a-project">Recommending the extensions in a project<a class="headerlink" href="#recommending-the-extensions-in-a-project" title="Permanent link">&para;</a></h2>
+<p>A <code>.vscode/extensions.json</code> file in the project makes VS Code offer to
+install the extensions when the folder is opened. kaicrit is not on the
+Marketplace, so only Pandoc Citer can be listed:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">"recommendations"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"notZaki.pandocciter"</span><span class="p">]</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="p">}</span>
+</code></pre></div>
 <h2 id="building-and-viewing-the-pdf">Building and viewing the PDF<a class="headerlink" href="#building-and-viewing-the-pdf" title="Permanent link">&para;</a></h2>
 <p>Run the <a href="../live-preview/">live preview</a> in the integrated terminal:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>texmark<span class="w"> </span>main.md<span class="w"> </span>--pdf<span class="w"> </span>--watch<span class="w"> </span>--progressive
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>texmark<span class="w"> </span>main.md<span class="w"> </span>--pdf<span class="w"> </span>--watch<span class="w"> </span>--progressive
 </code></pre></div>
 <p>Every save (<code>Ctrl+S</code>) rebuilds the PDF. Open the PDF in a viewer that reloads
 the file when it changes; the author uses GNOME Papers, next to the editor
