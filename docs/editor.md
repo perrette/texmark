@@ -32,7 +32,8 @@ the words of the document from it.
 
 Pandoc Citer also completes the labels of figures, tables, equations and
 sections (`@fig:…`, `@tbl:…`, `@eq:…`, `@sec:…`), taken from the `{#…}`
-attributes of the current file.
+attributes of the current file (and of other files, with the
+[patched build](#patched-builds)).
 
 ## Track changes: kaicrit
 
@@ -93,6 +94,50 @@ avoids this; texmark reads both forms:
 $$ x = y $$
 
 {#eq:foo}
+```
+
+## Patched builds
+
+The author uses patched builds of Pandoc Citer and kaicrit. The fixes are
+proposed upstream and are not yet in a release. Each fork has a
+`local-build` branch with all of them:
+
+**Pandoc Citer**
+([perrette/PandocCiter](https://github.com/perrette/PandocCiter/tree/local-build)):
+
+- Labels with `-`, `.` or `:` (`{#fig:sat-vs-sst}`) are completed in full,
+  not cut at the first `-`
+  ([#64](https://github.com/notZaki/PandocCiter/pull/64)).
+- Choosing a label after `@fig:` replaces what was typed, instead of
+  producing `@fig:fig:sat`
+  ([#65](https://github.com/notZaki/PandocCiter/pull/65)).
+- A new setting, `PandocCiter.CrossRefFiles`, lists glob patterns of
+  files whose labels are also offered, so that a chapter can refer to a
+  figure of another chapter
+  ([#66](https://github.com/notZaki/PandocCiter/pull/66)). In a
+  multi-file project:
+
+    ```json
+    "PandocCiter.CrossRefFiles": ["*.md"]
+    ```
+
+**kaicrit**
+([perrette/kaicrit](https://github.com/perrette/kaicrit/tree/local-build)):
+
+- With Track Changes on, typing records one `{++ … ++}` addition for the
+  whole word, with the cursor staying at the end, instead of one addition
+  per character ([#87](https://github.com/kaijen/kaicrit/pull/87)).
+- The Track Changes button in the editor title bar shows whether it is on
+  or off ([#88](https://github.com/kaijen/kaicrit/pull/88)).
+
+Each is built and installed like this (shown for Pandoc Citer):
+
+```bash
+git clone -b local-build https://github.com/perrette/PandocCiter
+cd PandocCiter
+npm install
+npx @vscode/vsce package
+code --install-extension pandocciter-<version>.vsix
 ```
 
 ## Recommending the extensions in a project
