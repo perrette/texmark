@@ -831,6 +831,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#patched-builds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Patched builds
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#recommending-the-extensions-in-a-project" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1494,6 +1505,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#patched-builds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Patched builds
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#recommending-the-extensions-in-a-project" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1566,7 +1588,8 @@ matter of their own. Name the bibliography in the workspace settings
 the words of the document from it.</p>
 <p>Pandoc Citer also completes the labels of figures, tables, equations and
 sections (<code>@fig:…</code>, <code>@tbl:…</code>, <code>@eq:…</code>, <code>@sec:…</code>), taken from the <code>{#…}</code>
-attributes of the current file.</p>
+attributes of the current file (and of other files, with the
+<a href="#patched-builds">patched build</a>).</p>
 <h2 id="track-changes-kaicrit">Track changes: kaicrit<a class="headerlink" href="#track-changes-kaicrit" title="Permanent link">&para;</a></h2>
 <p><a href="https://kaijen.github.io/kaicrit/latest/">kaicrit</a> highlights the
 <a href="../track-changes/">CriticMarkup</a> edits in the editor (deletions, additions,
@@ -1613,17 +1636,56 @@ avoids this; texmark reads both forms:</p>
 <a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
 <a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>{#eq:foo}
 </code></pre></div>
+<h2 id="patched-builds">Patched builds<a class="headerlink" href="#patched-builds" title="Permanent link">&para;</a></h2>
+<p>The author uses patched builds of Pandoc Citer and kaicrit. The fixes are
+proposed upstream and are not yet in a release. Each fork has a
+<code>local-build</code> branch with all of them:</p>
+<p><strong>Pandoc Citer</strong>
+(<a href="https://github.com/perrette/PandocCiter/tree/local-build">perrette/PandocCiter</a>):</p>
+<ul>
+<li>Labels with <code>-</code>, <code>.</code> or <code>:</code> (<code>{#fig:sat-vs-sst}</code>) are completed in full,
+  not cut at the first <code>-</code>
+  (<a href="https://github.com/notZaki/PandocCiter/pull/64">#64</a>).</li>
+<li>Choosing a label after <code>@fig:</code> replaces what was typed, instead of
+  producing <code>@fig:fig:sat</code>
+  (<a href="https://github.com/notZaki/PandocCiter/pull/65">#65</a>).</li>
+<li>
+<p>A new setting, <code>PandocCiter.CrossRefFiles</code>, lists glob patterns of
+  files whose labels are also offered, so that a chapter can refer to a
+  figure of another chapter
+  (<a href="https://github.com/notZaki/PandocCiter/pull/66">#66</a>). In a
+  multi-file project:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nt">"PandocCiter.CrossRefFiles"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"*.md"</span><span class="p">]</span>
+</code></pre></div>
+</li>
+</ul>
+<p><strong>kaicrit</strong>
+(<a href="https://github.com/perrette/kaicrit/tree/local-build">perrette/kaicrit</a>):</p>
+<ul>
+<li>With Track Changes on, typing records one <code>{++ … ++}</code> addition for the
+  whole word, with the cursor staying at the end, instead of one addition
+  per character (<a href="https://github.com/kaijen/kaicrit/pull/87">#87</a>).</li>
+<li>The Track Changes button in the editor title bar shows whether it is on
+  or off (<a href="https://github.com/kaijen/kaicrit/pull/88">#88</a>).</li>
+</ul>
+<p>Each is built and installed like this (shown for Pandoc Citer):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>git<span class="w"> </span>clone<span class="w"> </span>-b<span class="w"> </span>local-build<span class="w"> </span>https://github.com/perrette/PandocCiter
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nb">cd</span><span class="w"> </span>PandocCiter
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>npm<span class="w"> </span>install
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>npx<span class="w"> </span>@vscode/vsce<span class="w"> </span>package
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>code<span class="w"> </span>--install-extension<span class="w"> </span>pandocciter-&lt;version&gt;.vsix
+</code></pre></div>
 <h2 id="recommending-the-extensions-in-a-project">Recommending the extensions in a project<a class="headerlink" href="#recommending-the-extensions-in-a-project" title="Permanent link">&para;</a></h2>
 <p>A <code>.vscode/extensions.json</code> file in the project makes VS Code offer to
 install the extensions when the folder is opened. kaicrit is not on the
 Marketplace, so only Pandoc Citer can be listed:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">"recommendations"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"notZaki.pandocciter"</span><span class="p">]</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="p">}</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">"recommendations"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="s2">"notZaki.pandocciter"</span><span class="p">]</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="p">}</span>
 </code></pre></div>
 <h2 id="building-and-viewing-the-pdf">Building and viewing the PDF<a class="headerlink" href="#building-and-viewing-the-pdf" title="Permanent link">&para;</a></h2>
 <p>Run the <a href="../live-preview/">live preview</a> in the integrated terminal:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>texmark<span class="w"> </span>main.md<span class="w"> </span>--pdf<span class="w"> </span>--watch<span class="w"> </span>--progressive
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>texmark<span class="w"> </span>main.md<span class="w"> </span>--pdf<span class="w"> </span>--watch<span class="w"> </span>--progressive
 </code></pre></div>
 <p>Every save (<code>Ctrl+S</code>) rebuilds the PDF. Open the PDF in a viewer that reloads
 the file when it changes; the author uses GNOME Papers, next to the editor
