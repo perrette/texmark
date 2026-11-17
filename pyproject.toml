@@ -79,7 +79,7 @@ Changelog     = "https://github.com/perrette/texmark/commits/main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["texmark"]
+include = ["texmark*"]
 
 [tool.setuptools.package-data]
 texmark = ["templates/**/*"]
