@@ -1,6 +1,10 @@
 # Design notes: source ↔ PDF synchronisation (SyncTeX for Markdown)
 
-Status: steps 1–4 implemented (SyncTeX output, lighter map, `texmark sync`, `--wrap=preserve`); the block-level map (3b) is not. Written for the agent that implements it in
+Status: steps 1–4 implemented (SyncTeX output, lighter map, `texmark sync`,
+`--wrap=preserve`). The block-level map (3b) is not planned: the lighter map
+with word matching finds the exact line for most lines (153 of 167 typeset
+lines of the thesis chapters round-trip exactly). Step 5 (Evince/Papers helper,
+VS Code commands) is on hold. Written for the agent that implements it in
 texmark; the consumers are papers-write, VS Code (texmark-vscode) and GNOME
 Papers/Evince.
 
