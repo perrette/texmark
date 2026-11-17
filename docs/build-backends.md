@@ -194,6 +194,28 @@ out of the body (an abstract section) has no `.tex` line and is not listed.
 The format and its use by editors are described in
 [the design notes](synctex-design.md).
 
+`texmark sync` does forward and backward search with these two files and the
+`synctex` command, and prints JSON (for editors and viewers):
+
+```
+texmark sync forward  intro.md:42 [--pdf build/thesis.pdf]
+{"page": 5, "x": 72.0, "y": 260.9, "width": 451.3, "height": 9.6}
+
+texmark sync backward --pdf build/thesis.pdf 5 100 270
+{"file": "/abs/intro.md", "line": 42, "column": null}
+```
+
+Coordinates are PDF points with the origin at the top left of the page, as
+`synctex` gives them; `forward` prints a list when the line has several
+places. Without `--pdf`, `forward` takes the most recent PDF whose map lists
+the file, in the file's folder or a folder above it (up to the git root),
+directly or in a `build*` folder. Between two headings, the line is the one
+whose words match best. On an error (no map or SyncTeX file, a map that does
+not match the PDF, a file not in the PDF) the exit status is 1 and the output
+is `{"error": "...", "code": "..."}`. The same functions are in Python:
+`texmark.sync.forward(source, line, pdf=None)` and
+`texmark.sync.backward(pdf, page, x, y)`.
+
 > **Unicode and HTML in bibliographies / body text** — texmark transparently
 > rewrites non-ASCII Unicode and CrossRef-style HTML markup
 > (`<i>δ</i><sup>18</sup>O`) into LaTeX commands at build time, so pdflatex

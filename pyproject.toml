@@ -85,7 +85,7 @@ include = ["texmark"]
 texmark = ["templates/**/*"]
 
 [project.scripts]
-texmark = "texmark.build:main"
+texmark = "texmark.cli:main"
 texmark-journal = "texmark.filters.__main__:main"
 texmark-download-images = "texmark.filters.download_images:main"
 texmark-embed = "texmark.filters.embed:main"

@@ -1777,6 +1777,11 @@ def _collect_watch_paths(plan, metadata):
 
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] == 'sync' and not os.path.exists('sync'):
+        # An install whose `texmark` script still points here (texmark.cli
+        # does this without importing the build).
+        from texmark.sync import main as sync_main
+        sys.exit(sync_main(sys.argv[2:]))
     from texmark.logs import setup_console_logging
     setup_console_logging()
     args = _build_parser().parse_args()
