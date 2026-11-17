@@ -5,7 +5,7 @@ journal:
 bibliography: refs.bib
 chapters:
   - intro.md
-  - results.md
+  - résultats.md
 ---
 
 <!--

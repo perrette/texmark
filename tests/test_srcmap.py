@@ -92,18 +92,18 @@ def test_units_and_sections(tmp_path, monkeypatch):
     assert m["generated"].endswith("Z")
 
     units = {Path(u["md"]).name: u for u in m["units"]}
-    assert list(units) == ["thesis.md", "intro.md", "results.md"]
+    assert list(units) == ["thesis.md", "intro.md", "résultats.md"]
     for u in m["units"]:
         assert u["md"] == os.path.realpath(u["md"]) and u["md"].startswith(str(real.resolve()))
         assert u["tex"] == os.path.realpath(u["tex"])
 
     root = units["thesis.md"]
-    assert root["line"][0] == _line(real / "thesis.md", "  - results.md") + 2  # after the closing ---
+    assert root["line"][0] == _line(real / "thesis.md", "  - résultats.md") + 2  # after the closing ---
     assert root["sections"] == []  # the heading in the HTML comment is not one
     tex = (real / "build" / "thesis.tex").read_text().splitlines()
     first, last = root["texline"]
     assert "\\include{intro}" in tex[first - 1:last]
-    assert "\\include{results}" in tex[first - 1:last]
+    assert "\\include{résultats}" in tex[first - 1:last]
 
     intro = units["intro.md"]
     assert intro["tex"] == str((real / "build" / "intro.tex").resolve())
@@ -117,7 +117,7 @@ def test_units_and_sections(tmp_path, monkeypatch):
     for s, cmd in zip(intro["sections"], ["\\chapter", "\\section", "\\chapter"]):
         assert itex[s["texline"] - 1].startswith(cmd + "{" + s["title"])
 
-    res = units["results.md"]
+    res = units["résultats.md"]
     assert [s["title"] for s in res["sections"]] == ["Résultats", "Discussion des résultats"]
 
 

@@ -49,6 +49,15 @@ except ImportError:  # pragma: no cover - exercised only when dep is absent
 
 
 _NON_ASCII_RE = re.compile(r'[^\x00-\x7F]')
+# Commands whose argument is a file name (or a list of them): their
+# non-ASCII characters are left as they are, since ``\'e`` in a file name is
+# no longer the file (``\include{r\'esultats}`` fails). pdflatex reads UTF-8
+# file names. One level of nested braces, for \graphicspath{{a/}{b/}}.
+_FILE_ARG_RE = re.compile(
+    r'\\(?:include|input|includeonly|InputIfFileExists|IfFileExists|includegraphics'
+    r'|includepdf|includesvg|lstinputlisting|verbatiminput|externaldocument'
+    r'|bibliography|addbibresource|graphicspath)\*?\s*(?:\[[^\]]*\]\s*)?'
+    r'\{(?:[^{}]|\{[^{}]*\})*\}')
 _ENTRY_RE = re.compile(r'^[ \t]*@\w+\s*\{\s*([^,\s}]+)', re.MULTILINE)
 
 
@@ -187,8 +196,11 @@ def rewrite_text(text: str) -> tuple[str, list[tuple[int, int, str | None]]]:
 
     out_parts: list[str] = []
     unmapped: list[tuple[int, int, str | None]] = []
+    file_args = [(f.start(), f.end()) for f in _FILE_ARG_RE.finditer(text)]
     last = 0
     for m in _NON_ASCII_RE.finditer(text):
+        if any(a <= m.start() < b for a, b in file_args):
+            continue
         out_parts.append(text[last:m.start()])
         char = m.group(0)
         cp = ord(char)

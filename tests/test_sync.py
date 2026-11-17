@@ -54,7 +54,7 @@ SAMPLES = {
                  "lines in the source", "A first list item", "A second list item",
                  "A third list item", "# a comment in code", "==========",
                  "Text under a setext"],
-    "results.md": ["# Résultats", "![A figure caption.]", "The figure above",
+    "résultats.md": ["# Résultats", "![A figure caption.]", "The figure above",
                    "E = m c^2", "$$ {#eq:energy}", "A paragraph after the equation",
                    "two lines of source", "## Discussion des résultats",
                    "The last paragraph"],
@@ -79,7 +79,7 @@ def test_forward_then_backward(built, name):
 
 def test_headings_exact(built):
     pdf = built / "build" / "thesis.pdf"
-    md = built / "results.md"
+    md = built / "résultats.md"
     for text in ("# Résultats", "## Discussion des résultats"):
         line = _line(md, text)
         place = sync.forward(md, line, pdf=pdf)[0]

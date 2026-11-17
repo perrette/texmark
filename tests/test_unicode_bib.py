@@ -353,3 +353,20 @@ def test_build_tex_auto_lualatex_default_skips(tmp_path: Path):
     content = out.read_text(encoding="utf-8")
     assert "δ" in content
     assert r"\ensuremath{\delta}" not in content
+
+
+@pytest.mark.parametrize("cmd", [
+    r"\include{résultats}",
+    r"\input{chapitre-é}",
+    r"\includeonly{intro,résultats}",
+    r"\includegraphics[width=0.5\linewidth]{../figures/carte-été.png}",
+    r"\graphicspath{{figurés/}{autres/}}",
+    r"\externaldocument{annexé}",
+])
+def test_file_name_arguments_kept(cmd):
+    """File names keep their characters: pdflatex reads UTF-8 file names,
+    and \\'e in one is no longer the file's name. Text around is rewritten."""
+    out, unmapped = rewrite_text(f"Été {cmd} été")
+    assert cmd in out
+    assert out.startswith(r"\'Et") and out.endswith(r"\'et\'e")
+    assert unmapped == []
