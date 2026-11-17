@@ -96,7 +96,7 @@ def test_output_pdf_replaced_atomically(tmp_path, monkeypatch):
     _texmark(monkeypatch, src, "--pdf", "-d", build, "-o", out)
     assert out.stat().st_ino != inode
     assert out.read_bytes() == (build / "doc.pdf").read_bytes()
-    assert sorted(p.name for p in out_dir.iterdir()) == ["paper.pdf", "paper.synctex.gz"]
+    assert sorted(p.name for p in out_dir.iterdir()) == ["paper.pdf", "paper.srcmap.json", "paper.synctex.gz"]
 
 
 FIG_DOC = """---

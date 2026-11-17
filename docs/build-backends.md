@@ -165,6 +165,35 @@ the `synctex` command use it for forward and backward search between the
 `.tex` files and the PDF. `--no-synctex` (YAML: `build_synctex: false`)
 turns it off and removes the published SyncTeX file.
 
+SyncTeX knows the `.tex` files, not the Markdown. texmark also publishes a
+source map next to the PDF, `<pdf-stem>.srcmap.json`, written after the
+SyncTeX file and before the PDF. For each Markdown file the PDF typesets (the
+root document and the chapters, or those of `--only`) it gives the file's
+line range, the range of `.tex` lines it became, and the Markdown and `.tex`
+line of each heading:
+
+```json
+{
+  "version": 1,
+  "pdf": "thesis.pdf",
+  "pdf_size": 1234567,
+  "generated": "2026-11-17T12:00:00Z",
+  "build": "sha256:…",
+  "units": [
+    {"md": "/abs/introduction.md", "line": [5, 410],
+     "tex": "/abs/build/introduction.tex", "texline": [1, 380],
+     "sections": [{"title": "Introduction", "line": 5, "texline": 1}]}
+  ]
+}
+```
+
+Paths are absolute, with symlinks resolved. `build` is the sha256 of the PDF
+the map was published with, and `pdf_size` its size: a map that does not
+match the PDF next to it is out of date. A heading that the template moves
+out of the body (an abstract section) has no `.tex` line and is not listed.
+The format and its use by editors are described in
+[the design notes](synctex-design.md).
+
 > **Unicode and HTML in bibliographies / body text** — texmark transparently
 > rewrites non-ASCII Unicode and CrossRef-style HTML markup
 > (`<i>δ</i><sup>18</sup>O`) into LaTeX commands at build time, so pdflatex

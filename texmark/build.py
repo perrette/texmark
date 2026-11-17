@@ -15,7 +15,7 @@ import re
 import shutil
 import sys
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import frontmatter
@@ -42,6 +42,7 @@ from texmark import procs as _procs
 from texmark import watch as _watch
 from texmark.watch import Stage, watch_loop
 from texmark import texcache as _texcache
+from texmark import srcmap as _srcmap
 from texmark.project import (Project, resolve_project, load_markdown, parse_markdown,
                              _scan_ast_for_embeds)
 
@@ -548,6 +549,13 @@ def build_tex(input_md, output_tex, template='', bib_file='', build_dir='build',
                                   part_switch(output_tex)) if line)
         output_text = master_template.render(body=body, **template_vars)
 
+    # The TeX lines of the body, for the source map (texmark.srcmap); the
+    # Unicode rewrite below replaces characters, not lines.
+    start = output_text.find(body) if body.strip() else -1
+    if start >= 0:
+        first = output_text.count('\n', 0, start) + 1
+        metadata['_body_lines'] = [first, first + body.rstrip('\n').count('\n')]
+
     with open(output_tex, "w") as f:
         f.write(output_text)
 
@@ -887,7 +895,7 @@ def synctex_file(pdf):
 
 
 def publish_job_pdf(input_tex, output_pdf, build_dir, draft=False, jobname=None,
-                    synctex=True):
+                    synctex=True, units=None):
     """Publish the PDF of the full job (or of the draft job, or of the job
     ``jobname``) to ``output_pdf``.
 
@@ -898,6 +906,10 @@ def publish_job_pdf(input_tex, output_pdf, build_dir, draft=False, jobname=None,
     same stem, before the PDF: a viewer that sees the new PDF also finds its
     SyncTeX file. When there is none (or with ``synctex`` False), an older
     one there is deleted, so that it does not describe another PDF.
+
+    ``units``: the units of the source map (texmark.srcmap), written as
+    ``<output-stem>.srcmap.json`` after the SyncTeX file and before the PDF,
+    with the PDF's hash and size. None: no map (an older one is deleted).
     """
     build_dir = Path(build_dir)
     full_pdf = build_dir / f'{Path(input_tex).stem}.pdf'
@@ -908,7 +920,15 @@ def publish_job_pdf(input_tex, output_pdf, build_dir, draft=False, jobname=None,
     if not synctex:
         job_synctex.unlink(missing_ok=True)
     output_pdf = Path(output_pdf)
+
+    def publish_map():
+        if units is not None and job_pdf.exists():
+            _srcmap.write_map(_srcmap.map_file(output_pdf), job_pdf, output_pdf.name, units)
+        else:
+            _srcmap.map_file(output_pdf).unlink(missing_ok=True)
+
     if output_pdf.resolve() == job_pdf.resolve():
+        publish_map()
         return
     if job_pdf != full_pdf and output_pdf.resolve() == full_pdf.resolve():
         _draft_marker(build_dir, input_tex).touch()
@@ -916,6 +936,7 @@ def publish_job_pdf(input_tex, output_pdf, build_dir, draft=False, jobname=None,
         publish_file(job_synctex, synctex_file(output_pdf))
     else:
         synctex_file(output_pdf).unlink(missing_ok=True)
+    publish_map()
     publish_pdf(job_pdf, output_pdf)
 
 
@@ -955,7 +976,7 @@ def run_job(runner, build_dir, tex_name, engine, backend, draft=False,
 def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
                 bib_file='references.bib', resource_path='', backend='latexmk',
                 biblatex=False, rewrite_unicode=None, draft=False,
-                preamble_format=True, publish=True, synctex=True):
+                preamble_format=True, publish=True, synctex=True, units=None):
     """
     Step 2: Compile LaTeX source into PDF.
 
@@ -985,6 +1006,9 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
 
     synctex: write the SyncTeX file, published next to ``output_pdf``
     (see publish_job_pdf).
+
+    units: the units of the source map published with the PDF (see
+    publish_job_pdf).
     """
     build_dir = Path(build_dir)
     prepare_build_dir(input_tex, build_dir, bib_file, resource_path,
@@ -1013,7 +1037,8 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
         logger.warning(f"texmark: LaTeX errors, the PDF may be incomplete "
                        f"(see {build_dir / job}.log):\n{errors}")
     if publish:
-        publish_job_pdf(input_tex, output_pdf, build_dir, draft=draft, synctex=synctex)
+        publish_job_pdf(input_tex, output_pdf, build_dir, draft=draft, synctex=synctex,
+                        units=units)
 
 
 MAX_PASSES = 4
@@ -1303,7 +1328,7 @@ def _check_draft_options(plan, backend, draft, progressive):
 
 
 def _compile_documents(plan, targets, engine, backend, rewrite_unicode, draft=False,
-                       publish=True):
+                       publish=True, units=None):
     """Compile every (tex, pdf, bib, resource_path, biblatex) target.
 
     Companions need multi-pass coordination: xr-hyper resolves cross-doc
@@ -1312,8 +1337,10 @@ def _compile_documents(plan, targets, engine, backend, rewrite_unicode, draft=Fa
     coordinate — single pass.
 
     publish: publish the root document's PDF (else the caller does);
-    companion PDFs are always published.
+    companion PDFs are always published. units: the source map units of
+    each target, by its .tex (see publish_job_pdf).
     """
+    units = units or {}
     use_format = _use_preamble_format(plan)
     synctex = _use_synctex(plan)
     if plan.project.companion_files:
@@ -1324,7 +1351,7 @@ def _compile_documents(plan, targets, engine, backend, rewrite_unicode, draft=Fa
                             bib_file=bib, resource_path=rp, backend=backend,
                             biblatex=bl, rewrite_unicode=rewrite_unicode,
                             preamble_format=use_format, publish=publish or i > 0,
-                            synctex=synctex)
+                            synctex=synctex, units=units.get(str(in_tex)))
             cur_snapshot = _aux_files_snapshot(plan.project, plan.build_dir)
             if prev_snapshot is not None and cur_snapshot == prev_snapshot:
                 break
@@ -1339,7 +1366,8 @@ def _compile_documents(plan, targets, engine, backend, rewrite_unicode, draft=Fa
         compile_pdf(in_tex, out_pdf, engine=engine, build_dir=plan.args.build,
                     bib_file=bib, resource_path=rp, backend=backend,
                     biblatex=bl, rewrite_unicode=rewrite_unicode, draft=draft,
-                    preamble_format=use_format, publish=publish, synctex=synctex)
+                    preamble_format=use_format, publish=publish, synctex=synctex,
+                    units=units.get(str(in_tex)))
 
 
 def _mtime(path):
@@ -1402,14 +1430,16 @@ def compile_stages(plan, conv, chapters=()):
     use_format = _use_preamble_format(plan)
     synctex = _use_synctex(plan)
 
+    root_units = conv.units.get(str(in_tex))
+
     def publisher(jobname=None, draft=False):
         return lambda: publish_job_pdf(in_tex, out_pdf, build_dir, draft=draft,
-                                       jobname=jobname, synctex=synctex)
+                                       jobname=jobname, synctex=synctex, units=root_units)
 
     if not progressive:
         def build():
             _compile_documents(plan, targets, engine, backend, rewrite_unicode,
-                               draft=draft, publish=False)
+                               draft=draft, publish=False, units=conv.units)
             return publisher(draft=draft)
         return [Stage('draft PDF' if draft else 'PDF', build)]
 
@@ -1467,7 +1497,7 @@ def compile_stages(plan, conv, chapters=()):
         full = Path(in_tex).stem
         _seed_job(build_dir, job, full)
         _compile_documents(plan, targets, engine, backend, rewrite_unicode,
-                           publish=False)
+                           publish=False, units=conv.units)
         _seed_job(build_dir, full, job)
         return publisher()
 
@@ -1495,6 +1525,27 @@ class Converted:
     rewrite_unicode: object
     draft: bool
     progressive: bool
+    # Source map units (texmark.srcmap) of each target, by its .tex.
+    units: dict = field(default_factory=dict)
+
+
+def _source_units(plan, root_metadata, companion_builds):
+    """The source map units of each compile target, by its .tex: the root
+    and the chapters it typesets (all, or those of --only), and each
+    companion."""
+    cache = plan.build_dir / _srcmap.CACHE_DIR
+    only = re.match(r'\\includeonly\{([^}]*)\}', plan.includeonly or '')
+    typeset = set(only.group(1).split(',')) if only else None
+    root = [_srcmap.unit(plan.primary_input, plan.tex_file,
+                         root_metadata.get('_body_lines'), cache)]
+    for path in plan.project.embedded_files:
+        if typeset is None or path.stem in typeset:
+            root.append(_srcmap.unit(path, plan.build_dir / f'{path.stem}.tex', None, cache))
+    units = {str(plan.tex_file): [u for u in root if u]}
+    for comp_path, comp_tex, _pdf, comp_meta in companion_builds:
+        u = _srcmap.unit(comp_path, comp_tex, comp_meta.get('_body_lines'), cache)
+        units[str(comp_tex)] = [u] if u else []
+    return units
 
 
 def convert_project(plan):
@@ -1607,8 +1658,9 @@ def convert_project(plan):
             stage_bibliography(meta.get('bibliography'), plan.build_dir,
                                engine, rewrite_unicode)
 
+    units = _source_units(plan, root_metadata, companion_builds) if targets else {}
     return Converted(root_metadata, targets, engine, backend, rewrite_unicode,
-                     draft, progressive)
+                     draft, progressive, units)
 
 
 def build_project(plan):

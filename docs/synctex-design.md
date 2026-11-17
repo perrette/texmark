@@ -1,6 +1,6 @@
 # Design notes: source ↔ PDF synchronisation (SyncTeX for Markdown)
 
-Status: step 1 implemented; step 2 (lighter map) in progress. Written for the agent that implements it in
+Status: steps 1 and 2 (SyncTeX output, lighter map) implemented. Written for the agent that implements it in
 texmark; the consumers are papers-write, VS Code (texmark-vscode) and GNOME
 Papers/Evince.
 
