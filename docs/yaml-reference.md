@@ -54,6 +54,7 @@ rewrite_unicode: auto                 # optional: auto, on, off
 build_draft: false                    # optional: figures as boxes (same as --draft)
 build_progressive: false              # optional: staged PDF builds (same as --progressive)
 build_preamble_format: true           # optional: false disables the precompiled preamble (same as --no-preamble-format)
+build_synctex: true                   # optional: false writes no SyncTeX file (same as --no-synctex)
 ```
 
 See the [Figure paths](figures.md), [Multi-file projects](multi-file.md),
@@ -119,6 +120,12 @@ draft's references (with `--draft`: the draft with references resolved). See [Pr
 `build_preamble_format: false` (or `--no-preamble-format`) compiles without
 the precompiled preamble that pdflatex builds use by default. See
 [Precompiled preamble](build-backends.md#precompiled-preamble).
+
+### build_synctex
+
+`build_synctex: false` (or `--no-synctex`) compiles without the SyncTeX file
+that is otherwise published next to the PDF. See
+[SyncTeX](build-backends.md#synctex).
 
 ### journal.options
 

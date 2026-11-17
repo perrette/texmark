@@ -162,8 +162,8 @@ PDF finds the matching SyncTeX file.
 
 PDF viewers with SyncTeX support (GNOME Papers, Evince, Okular, zathura) and
 the `synctex` command use it for forward and backward search between the
-`.tex` files and the PDF. `--no-synctex` turns it off and removes the
-published SyncTeX file.
+`.tex` files and the PDF. `--no-synctex` (YAML: `build_synctex: false`)
+turns it off and removes the published SyncTeX file.
 
 > **Unicode and HTML in bibliographies / body text** — texmark transparently
 > rewrites non-ASCII Unicode and CrossRef-style HTML markup

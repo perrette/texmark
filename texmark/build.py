@@ -1155,10 +1155,11 @@ def _build_parser():
                              'resolved). Companion documents are compiled in stage 2 only. With '
                              '--watch, stage 1 after a change to chapters only typesets those '
                              'chapters. YAML key: build_progressive.')
-    parser.add_argument('--no-synctex', dest='synctex', action='store_false', default=True,
+    parser.add_argument('--no-synctex', dest='synctex', action='store_false', default=None,
                         help='Do not write the SyncTeX file. By default, the LaTeX runs write '
                              'one, published next to the PDF as <pdf-stem>.synctex.gz, for '
-                             'forward and backward search between the .tex and the PDF.')
+                             'forward and backward search between the .tex and the PDF. '
+                             'YAML key: build_synctex.')
     parser.add_argument('--packages', nargs='*', help='custom latex packages to include')
     parser.add_argument('--no-cache', action='store_true',
                         help='Convert every embedded document (chapter) again, instead of '
@@ -1278,8 +1279,11 @@ def _use_preamble_format(plan):
 
 
 def _use_synctex(plan):
-    """False with --no-synctex."""
-    return getattr(plan.args, 'synctex', True) is not False
+    """--no-synctex, else YAML build_synctex (default true)."""
+    if getattr(plan.args, 'synctex', None) is False:
+        return False
+    yaml_meta = load_markdown(open(plan.primary_input).read()).metadata
+    return yaml_meta.get('build_synctex', True) is not False
 
 
 def _check_draft_options(plan, backend, draft, progressive):

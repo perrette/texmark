@@ -159,3 +159,13 @@ def test_publish_without_job_synctex_removes_stale_one(tmp_path):
     B.publish_job_pdf(build / "doc.tex", out, build, draft=True)
     assert out.read_bytes() == b"%PDF new"
     assert not (tmp_path / "paper.synctex.gz").exists()
+
+
+def test_build_synctex_yaml_key(tmp_path, monkeypatch):
+    """build_synctex: false in the front matter is the same as --no-synctex."""
+    monkeypatch.chdir(tmp_path)
+    build = tmp_path / "build"
+    _texmark(monkeypatch, _doc(tmp_path, DOC.replace("---\n\n", "build_synctex: false\n---\n\n", 1)),
+             "--pdf", "-d", build)
+    assert (build / "doc.pdf").exists()
+    assert not (build / "doc.synctex.gz").exists()
