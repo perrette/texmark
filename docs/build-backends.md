@@ -149,6 +149,22 @@ To disable it: `--no-preamble-format`, or in the YAML:
 build_preamble_format: false
 ```
 
+## SyncTeX
+
+Every LaTeX run writes a SyncTeX file (`-synctex=1`; `--synctex` for
+tectonic), which links positions in the PDF to lines of the generated `.tex`
+files. texmark publishes it next to the PDF with the same stem:
+`build/thesis.pdf` comes with `build/thesis.synctex.gz`, and `-o out/paper.pdf`
+with `out/paper.synctex.gz`. The draft and part jobs of `--draft` and
+`--progressive` publish their own SyncTeX file with their PDF. The SyncTeX
+file is renamed into place before the PDF, so a viewer that reloads the new
+PDF finds the matching SyncTeX file.
+
+PDF viewers with SyncTeX support (GNOME Papers, Evince, Okular, zathura) and
+the `synctex` command use it for forward and backward search between the
+`.tex` files and the PDF. `--no-synctex` turns it off and removes the
+published SyncTeX file.
+
 > **Unicode and HTML in bibliographies / body text** — texmark transparently
 > rewrites non-ASCII Unicode and CrossRef-style HTML markup
 > (`<i>δ</i><sup>18</sup>O`) into LaTeX commands at build time, so pdflatex

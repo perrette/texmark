@@ -189,12 +189,12 @@ def test_progressive_with_companions_draft_stages_root_only(tmp_path, monkeypatc
     events = []
 
     def fake_engine_pass(tex_name, build_dir, engine="pdflatex", jobname=None, pretex="",
-                         fmt=None):
+                         fmt=None, synctex=True):
         events.append(("pass", tex_name, jobname))
         return True
 
     def fake_driver(backend, tex_name, build_dir, engine="pdflatex", biblatex=False,
-                    jobname=None, pretex="", force=False, fmt=None):
+                    jobname=None, pretex="", force=False, fmt=None, synctex=True):
         events.append(("driver", tex_name, jobname))
 
     def fake_compile(input_tex, output_pdf, **kw):

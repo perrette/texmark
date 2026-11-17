@@ -96,7 +96,7 @@ def test_output_pdf_replaced_atomically(tmp_path, monkeypatch):
     _texmark(monkeypatch, src, "--pdf", "-d", build, "-o", out)
     assert out.stat().st_ino != inode
     assert out.read_bytes() == (build / "doc.pdf").read_bytes()
-    assert sorted(p.name for p in out_dir.iterdir()) == ["paper.pdf"]
+    assert sorted(p.name for p in out_dir.iterdir()) == ["paper.pdf", "paper.synctex.gz"]
 
 
 FIG_DOC = """---
@@ -186,7 +186,8 @@ def test_draft_raw_backend_command(tmp_path, monkeypatch):
     monkeypatch.setattr(B, "run", lambda cmd, **k: calls.append(cmd))
     B.compile_pdf(str(tex), str(tmp_path / "out.pdf"), build_dir=str(tmp_path),
                   bib_file="", backend="raw", draft=True)
-    assert calls[0] == ["pdflatex", "-interaction=nonstopmode", "-jobname=doc-draft",
+    assert calls[0] == ["pdflatex", "-interaction=nonstopmode", "-synctex=1",
+                        "-jobname=doc-draft",
                         "\\PassOptionsToPackage{draft}{graphicx}\\input{doc.tex}"]
     assert ["bibtex", "doc-draft.aux"] in calls
     assert (tmp_path / "out.pdf").exists()

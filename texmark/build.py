@@ -715,11 +715,13 @@ def prepare_build_dir(input_tex, build_dir, bib_file='', resource_path='',
     stage_bibliography(bib_file, build_dir, engine, rewrite_unicode)
 
 
-def _engine_cmd(engine, tex_name, jobname=None, pretex='', fmt=None):
+def _engine_cmd(engine, tex_name, jobname=None, pretex='', fmt=None, synctex=True):
     cmd = [engine]
     if fmt:
         cmd.append(f'-fmt={fmt}')
     cmd.append('-interaction=nonstopmode')
+    if synctex:
+        cmd.append('-synctex=1')
     if jobname:
         cmd.append(f'-jobname={jobname}')
     cmd.append(pretex + '\\input{' + tex_name + '}' if pretex else tex_name)
@@ -727,14 +729,15 @@ def _engine_cmd(engine, tex_name, jobname=None, pretex='', fmt=None):
 
 
 def engine_pass(tex_name, build_dir, engine='pdflatex', jobname=None, pretex='',
-                fmt=None):
+                fmt=None, synctex=True):
     """One engine pass. Returns True when the engine exited without error.
     ``fmt``: format file to start from (see texmark.preamble_format).
+    ``synctex``: write ``<job>.synctex.gz``.
 
     Incomplete .aux files are restored or deleted first, and the pass is run
     once more when it failed on an .aux that ended too early (see
     texmark.auxfiles)."""
-    cmd = _engine_cmd(engine, tex_name, jobname, pretex, fmt)
+    cmd = _engine_cmd(engine, tex_name, jobname, pretex, fmt, synctex)
     job = jobname or Path(tex_name).stem
     for attempt in range(2):
         _auxfiles.check_aux_files(build_dir)
@@ -771,7 +774,7 @@ def latex_errors(log_file, context=2):
 
 
 def run_latexmk(tex_name, build_dir, engine='pdflatex', jobname=None, pretex='',
-                force=False, fmt=None):
+                force=False, fmt=None, synctex=True):
     """latexmk to completion: bibtex/biber and as many engine passes as the
     .aux/.bbl need, none when nothing changed since its last run."""
     build_dir = Path(build_dir)
@@ -800,6 +803,10 @@ def run_latexmk(tex_name, build_dir, engine='pdflatex', jobname=None, pretex='',
     cmd = ['latexmk', engine_flag, '-interaction=nonstopmode', '-f']
     if force:
         cmd.append('-g')
+    if synctex:
+        # latexmk passes it to the engine through %O, also with the
+        # -<engine>=... command of the precompiled preamble below.
+        cmd.append('-synctex=1')
     if jobname:
         cmd.append(f'-jobname={jobname}')
     if pretex:
@@ -816,44 +823,52 @@ def run_latexmk(tex_name, build_dir, engine='pdflatex', jobname=None, pretex='',
 
 
 def run_raw(tex_name, build_dir, engine='pdflatex', biblatex=False,
-            jobname=None, pretex='', fmt=None):
+            jobname=None, pretex='', fmt=None, synctex=True):
     """engine → bibtex (or biber) → engine → engine, unconditionally."""
     job = jobname or Path(tex_name).stem
-    engine_pass(tex_name, build_dir, engine, jobname, pretex, fmt)
+    engine_pass(tex_name, build_dir, engine, jobname, pretex, fmt, synctex)
     bibcmd = ['biber', job] if biblatex else ['bibtex', f'{job}.aux']
     run(bibcmd, cwd=build_dir, check=False)
-    engine_pass(tex_name, build_dir, engine, jobname, pretex, fmt)
-    engine_pass(tex_name, build_dir, engine, jobname, pretex, fmt)
+    engine_pass(tex_name, build_dir, engine, jobname, pretex, fmt, synctex)
+    engine_pass(tex_name, build_dir, engine, jobname, pretex, fmt, synctex)
 
 
-def run_tectonic(tex_name, build_dir):
-    run(['tectonic', '--keep-intermediates', '--keep-logs', tex_name],
-        cwd=build_dir, check=False)
+def run_tectonic(tex_name, build_dir, synctex=True):
+    cmd = ['tectonic', '--keep-intermediates', '--keep-logs']
+    if synctex:
+        cmd.append('--synctex')
+    run(cmd + [tex_name], cwd=build_dir, check=False)
 
 
 def run_driver(backend, tex_name, build_dir, engine='pdflatex', biblatex=False,
-               jobname=None, pretex='', force=False, fmt=None):
+               jobname=None, pretex='', force=False, fmt=None, synctex=True):
     """Run the selected backend to completion on one job."""
     if backend == 'latexmk':
-        run_latexmk(tex_name, build_dir, engine, jobname, pretex, force=force, fmt=fmt)
+        run_latexmk(tex_name, build_dir, engine, jobname, pretex, force=force, fmt=fmt,
+                    synctex=synctex)
     elif backend == 'raw':
-        run_raw(tex_name, build_dir, engine, biblatex, jobname, pretex, fmt)
+        run_raw(tex_name, build_dir, engine, biblatex, jobname, pretex, fmt, synctex)
     elif backend == 'tectonic':
         if jobname or pretex or fmt:
             raise ValueError("the tectonic backend does not support draft jobs")
-        run_tectonic(tex_name, build_dir)
+        run_tectonic(tex_name, build_dir, synctex)
     else:
         raise ValueError(f"Unknown backend {backend!r}; use 'latexmk', 'raw', or 'tectonic'.")
 
 
 def publish_pdf(src, dst):
-    """Copy ``src`` to ``dst`` atomically: copy to a temporary file in the
-    destination directory, then rename it over ``dst``.
+    """Copy the PDF ``src`` to ``dst`` atomically (see publish_file).
 
     A viewer that reloads while the copy is in progress would otherwise read
     a half-written PDF. The rename gives ``dst`` a new inode; viewers that
     watch the file for changes reload it (checked with GNOME Papers).
     """
+    publish_file(src, dst)
+
+
+def publish_file(src, dst):
+    """Copy ``src`` to ``dst`` atomically: copy to a temporary file in the
+    destination directory, then rename it over ``dst``."""
     dst = Path(dst)
     tmp = dst.with_name(f".{dst.name}.{os.getpid()}.tmp")
     try:
@@ -864,23 +879,43 @@ def publish_pdf(src, dst):
         raise
 
 
-def publish_job_pdf(input_tex, output_pdf, build_dir, draft=False, jobname=None):
+def synctex_file(pdf):
+    """The SyncTeX file that goes with ``pdf``: same directory and stem,
+    suffix .synctex.gz."""
+    pdf = Path(pdf)
+    return pdf.with_name(pdf.stem + '.synctex.gz')
+
+
+def publish_job_pdf(input_tex, output_pdf, build_dir, draft=False, jobname=None,
+                    synctex=True):
     """Publish the PDF of the full job (or of the draft job, or of the job
     ``jobname``) to ``output_pdf``.
 
     The job PDF stays in ``build_dir``: latexmk checks for it, and without
     it reruns the engine on every build even when nothing changed.
+
+    The job's SyncTeX file is published next to ``output_pdf``, with the
+    same stem, before the PDF: a viewer that sees the new PDF also finds its
+    SyncTeX file. When there is none (or with ``synctex`` False), an older
+    one there is deleted, so that it does not describe another PDF.
     """
     build_dir = Path(build_dir)
     full_pdf = build_dir / f'{Path(input_tex).stem}.pdf'
     if jobname is None and draft:
         jobname = draft_jobname(input_tex)
     job_pdf = build_dir / f'{jobname}.pdf' if jobname else full_pdf
+    job_synctex = synctex_file(job_pdf)
+    if not synctex:
+        job_synctex.unlink(missing_ok=True)
     output_pdf = Path(output_pdf)
     if output_pdf.resolve() == job_pdf.resolve():
         return
     if job_pdf != full_pdf and output_pdf.resolve() == full_pdf.resolve():
         _draft_marker(build_dir, input_tex).touch()
+    if job_synctex.exists():
+        publish_file(job_synctex, synctex_file(output_pdf))
+    else:
+        synctex_file(output_pdf).unlink(missing_ok=True)
     publish_pdf(job_pdf, output_pdf)
 
 
@@ -920,7 +955,7 @@ def run_job(runner, build_dir, tex_name, engine, backend, draft=False,
 def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
                 bib_file='references.bib', resource_path='', backend='latexmk',
                 biblatex=False, rewrite_unicode=None, draft=False,
-                preamble_format=True, publish=True):
+                preamble_format=True, publish=True, synctex=True):
     """
     Step 2: Compile LaTeX source into PDF.
 
@@ -947,6 +982,9 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
 
     publish: copy the job PDF to ``output_pdf`` (else the caller does it,
     with publish_job_pdf).
+
+    synctex: write the SyncTeX file, published next to ``output_pdf``
+    (see publish_job_pdf).
     """
     build_dir = Path(build_dir)
     prepare_build_dir(input_tex, build_dir, bib_file, resource_path,
@@ -956,14 +994,14 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
         run_job(lambda fmt, pretex, force: run_driver(
                     backend, tex_name, build_dir, engine, biblatex,
                     jobname=draft_jobname(input_tex), pretex=pretex, fmt=fmt,
-                    force=force),
+                    force=force, synctex=synctex),
                 build_dir, tex_name, engine, backend, draft=True,
                 preamble_format=preamble_format)
     else:
         marker = _draft_marker(build_dir, input_tex)
         run_job(lambda fmt, pretex, force: run_driver(
                     backend, tex_name, build_dir, engine, biblatex,
-                    force=force or marker.exists(), fmt=fmt),
+                    force=force or marker.exists(), fmt=fmt, synctex=synctex),
                 build_dir, tex_name, engine, backend,
                 preamble_format=preamble_format)
         marker.unlink(missing_ok=True)
@@ -975,7 +1013,7 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
         logger.warning(f"texmark: LaTeX errors, the PDF may be incomplete "
                        f"(see {build_dir / job}.log):\n{errors}")
     if publish:
-        publish_job_pdf(input_tex, output_pdf, build_dir, draft=draft)
+        publish_job_pdf(input_tex, output_pdf, build_dir, draft=draft, synctex=synctex)
 
 
 MAX_PASSES = 4
@@ -1117,6 +1155,10 @@ def _build_parser():
                              'resolved). Companion documents are compiled in stage 2 only. With '
                              '--watch, stage 1 after a change to chapters only typesets those '
                              'chapters. YAML key: build_progressive.')
+    parser.add_argument('--no-synctex', dest='synctex', action='store_false', default=True,
+                        help='Do not write the SyncTeX file. By default, the LaTeX runs write '
+                             'one, published next to the PDF as <pdf-stem>.synctex.gz, for '
+                             'forward and backward search between the .tex and the PDF.')
     parser.add_argument('--packages', nargs='*', help='custom latex packages to include')
     parser.add_argument('--no-cache', action='store_true',
                         help='Convert every embedded document (chapter) again, instead of '
@@ -1235,6 +1277,11 @@ def _use_preamble_format(plan):
     return yaml_meta.get('build_preamble_format', True) is not False
 
 
+def _use_synctex(plan):
+    """False with --no-synctex."""
+    return getattr(plan.args, 'synctex', True) is not False
+
+
 def _check_draft_options(plan, backend, draft, progressive):
     """Drop the draft and progressive options where they are not supported,
     with a warning. Returns the (draft, progressive) to apply."""
@@ -1264,6 +1311,7 @@ def _compile_documents(plan, targets, engine, backend, rewrite_unicode, draft=Fa
     companion PDFs are always published.
     """
     use_format = _use_preamble_format(plan)
+    synctex = _use_synctex(plan)
     if plan.project.companion_files:
         prev_snapshot = None
         for _pass_idx in range(1, MAX_PASSES + 1):
@@ -1271,7 +1319,8 @@ def _compile_documents(plan, targets, engine, backend, rewrite_unicode, draft=Fa
                 compile_pdf(in_tex, out_pdf, engine=engine, build_dir=plan.args.build,
                             bib_file=bib, resource_path=rp, backend=backend,
                             biblatex=bl, rewrite_unicode=rewrite_unicode,
-                            preamble_format=use_format, publish=publish or i > 0)
+                            preamble_format=use_format, publish=publish or i > 0,
+                            synctex=synctex)
             cur_snapshot = _aux_files_snapshot(plan.project, plan.build_dir)
             if prev_snapshot is not None and cur_snapshot == prev_snapshot:
                 break
@@ -1286,7 +1335,7 @@ def _compile_documents(plan, targets, engine, backend, rewrite_unicode, draft=Fa
         compile_pdf(in_tex, out_pdf, engine=engine, build_dir=plan.args.build,
                     bib_file=bib, resource_path=rp, backend=backend,
                     biblatex=bl, rewrite_unicode=rewrite_unicode, draft=draft,
-                    preamble_format=use_format, publish=publish)
+                    preamble_format=use_format, publish=publish, synctex=synctex)
 
 
 def _mtime(path):
@@ -1347,10 +1396,11 @@ def compile_stages(plan, conv, chapters=()):
     job = draft_jobname(in_tex)
     job_pdf = build_dir / f'{job}.pdf'
     use_format = _use_preamble_format(plan)
+    synctex = _use_synctex(plan)
 
     def publisher(jobname=None, draft=False):
         return lambda: publish_job_pdf(in_tex, out_pdf, build_dir, draft=draft,
-                                       jobname=jobname)
+                                       jobname=jobname, synctex=synctex)
 
     if not progressive:
         def build():
@@ -1366,7 +1416,7 @@ def compile_stages(plan, conv, chapters=()):
         before = _mtime(pdf)
         if not run_job(lambda fmt, pretex, _force: engine_pass(
                            tex_name, build_dir, engine, jobname=jobname,
-                           pretex=pretex, fmt=fmt),
+                           pretex=pretex, fmt=fmt, synctex=synctex),
                        build_dir, tex_name, engine, backend, draft=True,
                        preamble_format=use_format, single_pass=True,
                        jobname=jobname):
@@ -1399,7 +1449,8 @@ def compile_stages(plan, conv, chapters=()):
         before = _mtime(job_pdf)
         run_job(lambda fmt, pretex, force: run_driver(
                     backend, tex_name, build_dir, engine, bl,
-                    jobname=job, pretex=pretex, fmt=fmt, force=force),
+                    jobname=job, pretex=pretex, fmt=fmt, force=force,
+                    synctex=synctex),
                 build_dir, tex_name, engine, backend, draft=True,
                 preamble_format=use_format)
         now = _mtime(job_pdf)
