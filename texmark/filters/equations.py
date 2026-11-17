@@ -278,7 +278,7 @@ def _merge_trailer_blocks(blocks):
             if attr is not None:
                 blk.content = (
                     list(blk.content)
-                    + [pf.Space(), pf.Str("{" + attr + "}")]
+                    + [pf.SoftBreak(), pf.Str("{" + attr + "}")]
                     + rest
                 )
                 del blocks[i + 1]
@@ -301,7 +301,10 @@ def _merge_leading_equation_blocks(blocks):
             _starts_with_display_math(blk)
             and isinstance(prev, (pf.Para, pf.Plain))
         ):
-            prev.content = list(prev.content) + [pf.Space()] + list(blk.content)
+            # A SoftBreak, not a Space: the same for LaTeX, and with
+            # --wrap=preserve the equation keeps a line of its own in the
+            # .tex, as in the Markdown (SyncTeX maps it to that line).
+            prev.content = list(prev.content) + [pf.SoftBreak()] + list(blk.content)
         else:
             result.append(blk)
     return result

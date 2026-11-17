@@ -311,6 +311,12 @@ def _render_latex(ast_json_str, journal_template, metadata, pandoc_args):
     """The pandoc writer pass of ``_render_body``."""
     body_fmt = body_formats.get(journal_template, body_formats['default'])
     body_args = ['--template', rootpath / "templates" / body_fmt['template']] + pandoc_args
+    # Keep the line breaks of the Markdown, so that the lines of a paragraph
+    # in the .tex are those of the source (SyncTeX, texmark.sync); LaTeX
+    # reads a line break as a space, so the PDF is the same. A --wrap in the
+    # document's pandoc_args takes precedence.
+    if not any(str(a).startswith('--wrap') for a in pandoc_args):
+        body_args.append('--wrap=preserve')
     # Beamer frames are sliced at --slide-level (heading depth that starts a new
     # frame). Surfaced from `beamer.slide_level` (default 2 -> "## Frame" begins a
     # frame); passed explicitly so behavior is deterministic. Only the beamer
