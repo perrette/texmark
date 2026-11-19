@@ -19,7 +19,8 @@ lists every element-local built-in filter; a filter added to a chain without
 being listed there walks the document on its own.
 
 To add a journal: add a ``JOURNALS`` entry (and a matching template under
-``templates/<name>/``). Keys:
+``templates/<name>/``, whose first line ``{# texmark-template: <description>
+-#}`` gives its description in ``texmark schema``). Keys:
 
   aliases                 alternative template names for the same chain
   cite                    optional citation rewriter hook, inserted after the

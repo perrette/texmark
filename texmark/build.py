@@ -1156,7 +1156,7 @@ class ProjectPlan:
 
 def _build_parser():
     parser = argparse.ArgumentParser(description='Two-step build: Markdown → LaTeX → PDF')
-    parser.add_argument('--version', action='version', version=f'%(prog)s {texmark.__version__}')
+    parser.add_argument('--version', action='version', version=f'texmark {texmark.__version__}')
     parser.add_argument('inputs', nargs='+', help='Input markdown file(s). The first is the root document.')
     parser.add_argument('-j', '--journal-template', help='Pandoc LaTeX + filter template family. Update journal -> template yaml field)')
     parser.add_argument('-t', '--template', help='Pandoc LaTeX template. Update template yaml field)')
@@ -1836,6 +1836,9 @@ def main():
         # does this without importing the build).
         from texmark.sync import main as sync_main
         sys.exit(sync_main(sys.argv[2:]))
+    if len(sys.argv) > 1 and sys.argv[1] == 'schema' and not os.path.exists('schema'):
+        from texmark.schema import main as schema_main
+        sys.exit(schema_main(sys.argv[2:]))
     from texmark.logs import setup_console_logging
     setup_console_logging()
     args = _build_parser().parse_args()

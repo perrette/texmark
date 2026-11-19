@@ -135,6 +135,24 @@ and **override** `journal.draft`. Use this when you need a specific class
 variant the `draft` flag does not cover; the per-journal docs pages under
 [Journal templates](journals/index.md) list each class's full option set.
 
+## JSON Schema for editors
+
+```bash
+texmark schema            # JSON Schema (draft 2020-12) of the front matter, on stdout
+texmark schema --indent 0 # the same on one line
+texmark --version         # "texmark <version>": the schema can be cached per version
+```
+
+The schema lists the keys above (and the section-style keys below) with their
+type, a one-line description and the default value where there is one, so
+that an editor can complete the keys and values of the front matter and show
+the descriptions. `journal.template` (or a bare `journal: <name>`) takes the
+built-in template names and their aliases (`nature` for `springernature`),
+read from the template folders of the installed texmark: each is an entry
+`{"const": <name>, "description": ...}` of the `oneOf` in
+`$defs/template`. Other keys are allowed (`additionalProperties: true`):
+pandoc reads its own.
+
 ## Section-style metadata
 
 Section-style metadata can also be given as markdown `# ...` headings. Any

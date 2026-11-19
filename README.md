@@ -78,6 +78,10 @@ metadata, or pass `-j` for a quick test:
 texmark example.md --pdf -j science -o build/example-science.pdf --tex build/example-science.tex
 ```
 
+`texmark schema` prints the JSON Schema of the yaml metadata, for editor
+completion (see the
+[YAML reference](https://perrette.github.io/texmark/yaml-reference/#json-schema-for-editors)).
+
 See the [quickstart](https://perrette.github.io/texmark/quickstart/) and
 [journal templates](https://perrette.github.io/texmark/journals/) pages for more.
 
