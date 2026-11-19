@@ -75,6 +75,19 @@ when there is a good copy there, and deleted otherwise. If a run still stops
 with "File ended while scanning use of ..." or "File ended within \read" on
 an `.aux`, that file is deleted and the run is repeated once.
 
+The `.aux` files of a build under another template can stop LaTeX too: they
+call macros that the new document class does not define (switching from
+`copernicus`, which loads `lineno`, to `nature` leaves `\@LN` lines, and
+pdflatex stops with "Undefined control sequence" before it writes a new
+`.aux`). texmark records the document class of each `.tex` in
+`<build>/<stem>.texmark-class`; when it differs from the class of the
+previous build, the `.aux`, `.bbl`, `.toc`, `.lof`, `.lot` and `.out` files of
+the document's jobs (and the chapter `.aux` files they read) are deleted
+before the run. The bibliography is rebuilt by bibtex in the same build. In
+other cases (a package removed from the preamble, a build directory from a
+texmark version without the record), a run whose first error comes while it
+reads an `.aux` file deletes that file and is repeated once.
+
 A change saved while the markdown is being converted to LaTeX is picked up
 when the conversion has finished.
 

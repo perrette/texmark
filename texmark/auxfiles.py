@@ -23,6 +23,16 @@ the snapshot has a copy that passes, and deleted otherwise, with one info
 line. ``runaway_aux`` is the safety net for what these rules miss: it finds,
 in the log of a failed run, the .aux file being read when such an error
 occurred, so that the caller can delete it and run once more.
+
+A complete .aux can also stop LaTeX: one written under another document
+class or package set calls macros the current preamble does not define (the
+\\@LN lines of lineno after a switch from the copernicus template), and the
+run stops before it writes a new one. ``reset_on_class_change`` records the
+document class of each .tex in ``<stem>.texmark-class`` and, when it
+changes, deletes the .aux/.bbl/... of the document's jobs before the run.
+``aux_with_error`` is the safety net for other cases (a package removed, a
+build directory without a record): the .aux being read at the first error
+of a failed run, which the caller deletes before running once more.
 """
 import re
 import shutil
@@ -159,3 +169,79 @@ def runaway_aux(log_file):
     files = {f: _read(f) or '' for f in log_file.parent.glob('*.aux')}
     chapters = _chapters(files)
     return [f for f, text in files.items() if aux_problem(text, f.name in chapters)]
+
+
+def aux_with_error(log_file):
+    """The .aux file that the failed run of ``log_file`` was reading when
+    LaTeX reported its first error (``! ...``), as a list of one path, or
+    an empty list when the first error came from elsewhere.
+
+    An .aux written under another document class or package set can call
+    macros that the current preamble does not define (lineno's ``\\@LN``
+    after a switch away from a class that loads lineno): every run then
+    stops in it, before it can write a new one."""
+    log_file = Path(log_file)
+    log = _read(log_file)
+    if log is None:
+        return []
+    error = re.search(r'^! ', log, re.M)
+    if error is None:
+        return []
+    hit = error.start()
+    opened = list(re.finditer(r'\((?:\./)?([^()\s]+\.aux)', log[:hit]))
+    if not opened:
+        return []
+    last = opened[-1]
+    after = log[last.end():hit]
+    if after.count('(') >= after.count(')'):
+        return [log_file.parent / Path(last.group(1)).name]
+    return []
+
+
+# ---------------------------------------------------------------------------
+# Document class of the files in the build directory
+# ---------------------------------------------------------------------------
+
+CLASS_RECORD = '.texmark-class'   # <stem>.texmark-class
+_DOCUMENTCLASS = re.compile(r'^[ \t]*\\documentclass[ \t]*(?:\[[^\]]*\])?\s*\{([^}]*)\}', re.M)
+
+
+def documentclass(tex_text):
+    """The class name of the ``\\documentclass`` line of ``tex_text``, or
+    None."""
+    m = _DOCUMENTCLASS.search(tex_text)
+    return m.group(1).strip() if m else None
+
+
+def reset_on_class_change(build_dir, tex_name, jobs, suffixes):
+    """Delete the files of the jobs ``jobs`` (``<job><suffix>`` for each of
+    ``suffixes``) and the chapter .aux files they read, when the document
+    class of ``<build_dir>/<tex_name>`` differs from the one recorded in
+    ``<stem>.texmark-class`` by the previous call. These files were written
+    under the other class and can make LaTeX stop with errors before it
+    writes new ones. Records the current class. Without a record (first
+    build, or a build directory of an older texmark), nothing is deleted:
+    ``aux_with_error`` covers that case after the run. Returns the names of
+    the deleted files."""
+    build_dir = Path(build_dir)
+    text = _read(build_dir / tex_name)
+    cls = documentclass(text) if text is not None else None
+    if cls is None:
+        return []
+    record = build_dir / (Path(tex_name).stem + CLASS_RECORD)
+    old = _read(record)
+    deleted = []
+    if old is not None and old.strip() != cls:
+        files = [build_dir / f'{job}{suffix}' for job in jobs for suffix in suffixes]
+        for f in [f for f in files if f.suffix == '.aux']:
+            for name in _INPUT.findall(_read(f) or ''):
+                files.append(build_dir / Path(name).name)
+        for f in dict.fromkeys(files):
+            if f.exists():
+                f.unlink()
+                deleted.append(f.name)
+        logger.info(f"texmark: the document class changed from {old.strip()} to {cls}; "
+                    f"deleted the files of the previous build: {', '.join(deleted) or 'none'}")
+    if old is None or old.strip() != cls:
+        record.write_text(cls + '\n')
+    return deleted

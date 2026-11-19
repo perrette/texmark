@@ -718,6 +718,11 @@ def prepare_build_dir(input_tex, build_dir, bib_file='', resource_path='',
         src = Path(input_tex)
         if src.exists() and src.parent.resolve() != build_dir.resolve():
             shutil.copy2(src, build_dir)
+        # After a change of template (document class), the .aux/.bbl/...
+        # of the previous build can stop LaTeX before it writes new ones.
+        _auxfiles.reset_on_class_change(
+            build_dir, src.name,
+            [src.stem, draft_jobname(src), part_jobname(src)], _SEED_SUFFIXES)
     # Bibliography staging. By default (rewrite_unicode='auto') and when
     # the engine is pdflatex, non-ASCII codepoints in the .bib are replaced
     # with pylatexenc-supplied LaTeX equivalents and CrossRef-style HTML
@@ -763,13 +768,23 @@ def engine_pass(tex_name, build_dir, engine='pdflatex', jobname=None, pretex='',
 
 
 def _delete_runaway_aux(build_dir, job):
-    """Delete the .aux files on which the last run of ``job`` failed with a
-    runaway-argument error. Returns True when there were any."""
-    files = _auxfiles.runaway_aux(Path(build_dir) / f'{job}.log')
+    """Delete the .aux files on which the last run of ``job`` failed: with a
+    runaway-argument error (an incomplete file), or with any other first
+    error while reading it (one written under another class or package set,
+    see texmark.auxfiles.aux_with_error). Returns True when there were any."""
+    log = Path(build_dir) / f'{job}.log'
+    files = _auxfiles.runaway_aux(log)
     for f in files:
         f.unlink(missing_ok=True)
         logger.info(f"texmark: the LaTeX run stopped on the incomplete {f}; "
                     "deleted it and running again")
+    if files:
+        return True
+    files = [f for f in _auxfiles.aux_with_error(log) if f.exists()]
+    for f in files:
+        f.unlink()
+        logger.info(f"texmark: the LaTeX run stopped on an error in {f} (written by "
+                    "an earlier build); deleted it and running again")
     return bool(files)
 
 

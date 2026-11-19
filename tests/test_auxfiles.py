@@ -201,3 +201,100 @@ def test_valid_aux_files_untouched(tmp_path, monkeypatch):
     assert len(mtimes) >= 5
     assert auxfiles.check_aux_files(build) == []
     assert {f.name: f.stat().st_mtime_ns for f in build.glob("*.aux")} == mtimes
+
+
+# ---------------------------------------------------------------------------
+# .aux files of another document class or package set
+# ---------------------------------------------------------------------------
+
+def test_aux_with_error_names_the_aux_open_at_the_first_error(tmp_path):
+    log = tmp_path / "doc.log"
+    log.write_text("(./doc.aux\n! Undefined control sequence.\nl.26 \\@LN@col\n"
+                   "! LaTeX Error: Missing \\begin{document}.\n")
+    assert auxfiles.aux_with_error(log) == [tmp_path / "doc.aux"]
+    log.write_text("(./doc.aux (./ch1.aux\n! Undefined control sequence.\n")
+    assert auxfiles.aux_with_error(log) == [tmp_path / "ch1.aux"]
+    # the .aux files were read without error; the error is in the document
+    log.write_text("(./doc.aux (./ch1.aux)) (./ch1.tex\n! Undefined control sequence.\n")
+    assert auxfiles.aux_with_error(log) == []
+    log.write_text("(./doc.aux)\nno error\n")
+    assert auxfiles.aux_with_error(log) == []
+
+
+def test_documentclass():
+    assert auxfiles.documentclass("% \\documentclass{old}\n\\documentclass[a,\n b]{sn-jnl}\n") \
+        == "sn-jnl"
+    assert auxfiles.documentclass("\\documentclass{article}\n") == "article"
+    assert auxfiles.documentclass("no class\n") is None
+
+
+def test_reset_on_class_change(tmp_path, caplog):
+    import logging
+    suffixes = (".aux", ".bbl", ".out")
+    jobs = ["doc", "doc-draft"]
+    tex = tmp_path / "doc.tex"
+    tex.write_text("\\documentclass[11pt]{copernicus}\n")
+    for name in ("doc.aux", "doc-draft.aux", "doc.bbl", "doc.out", "ch1.aux", "doc.log"):
+        (tmp_path / name).write_text("\\@input{ch1.aux}\n" if name == "doc.aux" else "x\n")
+    # no record yet: nothing deleted, the class recorded
+    assert auxfiles.reset_on_class_change(tmp_path, "doc.tex", jobs, suffixes) == []
+    assert (tmp_path / "doc.texmark-class").read_text() == "copernicus\n"
+    # same class
+    assert auxfiles.reset_on_class_change(tmp_path, "doc.tex", jobs, suffixes) == []
+    # another class: the job files and the chapter .aux they read
+    tex.write_text("\\documentclass[sn-nature]{sn-jnl}\n")
+    with caplog.at_level(logging.INFO, logger="texmark"):
+        deleted = auxfiles.reset_on_class_change(tmp_path, "doc.tex", jobs, suffixes)
+    assert sorted(deleted) == ["ch1.aux", "doc-draft.aux", "doc.aux", "doc.bbl", "doc.out"]
+    assert (tmp_path / "doc.log").exists()
+    assert (tmp_path / "doc.texmark-class").read_text() == "sn-jnl\n"
+    assert any("changed from copernicus to sn-jnl" in r.getMessage() for r in caplog.records)
+
+
+def _article(src, template="default", text="Edited."):
+    (src / "doc.md").write_text(
+        f"---\ntitle: T\njournal:\n  template: {template}\n---\n\n"
+        f"# One {{#sec:one}}\n\n{text} See Section \\ref{{sec:one}}.\n")
+
+
+def _add_lineno_lines(build):
+    """What the .aux files of a build under a class that loads lineno look
+    like to a class that does not: \\@LN is undefined."""
+    for f in build.glob("doc*.aux"):
+        first, rest = f.read_text().split("\n", 1)
+        lines = "".join(f"\\@LN{{{k}}}{{1}}\n" for k in range(120))
+        f.write_text(first + "\n" + lines + rest)
+
+
+@needs_latex
+@pytest.mark.parametrize("switch", [True, False])
+def test_aux_of_another_class(tmp_path, monkeypatch, caplog, switch):
+    """.aux files whose lines the current class cannot read (lineno's \\@LN,
+    after a switch from a class that loads lineno): deleted before the run
+    when the document class changed since the last build, or after the run
+    that stopped on them otherwise. The build succeeds, references resolved."""
+    import logging
+    src = tmp_path / "src"
+    src.mkdir()
+    build = tmp_path / "build"
+    _article(src, text="First.")
+    monkeypatch.chdir(src)
+
+    def texmark():
+        monkeypatch.setattr(sys, "argv", ["texmark", "doc.md", "--pdf", "--progressive",
+                                          "-d", str(build), "-o", str(build / "doc.pdf")])
+        B.main()
+
+    texmark()
+    _add_lineno_lines(build)
+    _article(src, "report" if switch else "default")
+    caplog.clear()
+    with caplog.at_level(logging.INFO, logger="texmark"):
+        texmark()
+    messages = [r.getMessage() for r in caplog.records]
+    assert any("changed from article to report" in m for m in messages) == switch
+    assert any("stopped on an error in" in m for m in messages) != switch
+    assert not any("build failed" in m for m in messages)
+    text = _pdftext(build / "doc.pdf")
+    assert "Edited" in text and "??" not in text
+    assert all("\\@LN" not in f.read_text() for f in build.glob("doc*.aux"))
