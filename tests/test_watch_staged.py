@@ -443,3 +443,37 @@ def test_signal_stops_watch_cleanly(tmp_path, sig):
     assert not (build / watch.SNAPSHOT_DIR).exists()
     with watch.BuildLock(build, watch=True):   # free again
         pass
+
+
+@needs_latex
+def test_failed_build_reported_and_watch_goes_on(tmp_path, monkeypatch, caplog):
+    """A change that makes LaTeX write no PDF: no "written" line, and the
+    last line says that the build failed and the session goes on; the next
+    good change builds again."""
+    import logging
+    monkeypatch.chdir(tmp_path)
+    doc = tmp_path / "doc.md"
+    good = "---\ntitle: T\n---\n\n# One\n\nText.\n"
+    doc.write_text(good)
+    build = tmp_path / "build"
+    with caplog.at_level(logging.INFO, logger="texmark"):
+        with Watcher(["doc.md", "--pdf", "--progressive", "-d", build,
+                      "-o", build / "doc.pdf"]) as w:
+            assert w.idle()
+            caplog.clear()
+            edit(doc, good + "\n\\input{does-not-exist}\n")
+            assert wait_for(lambda: any("watching for next" in r.getMessage()
+                                        for r in caplog.records), 120)
+            assert w.idle()
+            failed = [r.getMessage() for r in caplog.records]
+            caplog.clear()
+            edit(doc, good + "\nMore.\n")
+            assert wait_for(lambda: any("watching for next" in r.getMessage()
+                                        for r in caplog.records), 120)
+            assert w.idle()
+            fixed = [r.getMessage() for r in caplog.records]
+    assert not any(" written: " in m or "build OK" in m for m in failed)
+    assert failed[-2].startswith("texmark: build failed: LaTeX wrote no PDF")
+    assert failed[-1] == "texmark: build FAILED; watching for next change."
+    assert fixed[-1] == "texmark: build OK; watching for next change."
+    assert "More." in pdftext(build / "doc.pdf")

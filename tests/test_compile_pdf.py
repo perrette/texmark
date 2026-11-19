@@ -263,3 +263,33 @@ def test_progressive_draft_stops_after_draft_stages(tmp_path, monkeypatch):
     assert all(job == "doc-draft" for job, _ in published)
     assert (build / "doc.log").stat().st_mtime_ns == full_log
     assert out.read_bytes() == (build / "doc-draft.pdf").read_bytes()
+
+
+@needs_latexmk
+@pytest.mark.parametrize("progressive", [False, True])
+def test_no_pdf_is_a_failed_build(tmp_path, monkeypatch, caplog, progressive):
+    """A LaTeX run that writes no PDF (fatal error) fails the build: exit
+    status 1, no "written" line, although the PDF of the previous build is
+    still there."""
+    import logging
+    monkeypatch.chdir(tmp_path)
+    import texmark.build as B
+    src = _write_doc(tmp_path)
+    build = tmp_path / "build"
+    args = [src, "--pdf", "-d", build, "-o", build / "doc.pdf"]
+    if progressive:
+        args.append("--progressive")
+    _texmark(monkeypatch, *args)
+    mtime = (build / "doc.pdf").stat().st_mtime_ns
+
+    _write_doc(tmp_path, DOC + "\n\\input{does-not-exist}\n")
+    caplog.clear()
+    with caplog.at_level(logging.INFO, logger="texmark"):
+        with pytest.raises(SystemExit) as exc:
+            _texmark(monkeypatch, *args)
+    assert exc.value.code == 1
+    messages = [r.getMessage() for r in caplog.records]
+    assert not any(" written: " in m for m in messages)
+    assert messages[-1].startswith("texmark: build failed: LaTeX wrote no PDF")
+    # pdflatex deletes the PDF it had started; else it is the old one
+    assert B._mtime(build / "doc.pdf") in (None, mtime)

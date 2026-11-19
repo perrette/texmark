@@ -248,6 +248,14 @@ def run_stages(stages, snapshot=None, t0=None, output=None, publish=_publish_now
                         f"({time.monotonic() - t0:.1f} s)")
 
 
+def report_failure(e):
+    """Log a failed build of a watch session: the reason, then a last line
+    that says the session goes on (an editor reading the log takes a last
+    line with "watching" for an idle session)."""
+    logger.error(f"texmark: build failed: {e}")
+    logger.error("texmark: build FAILED; watching for next change.")
+
+
 class Worker:
     """Runs the stages of the latest change in a background thread.
 
@@ -285,7 +293,7 @@ class Worker:
                     logger.info("texmark: stopped the running build (newer change "
                                 "or shutdown); its .aux files were restored.")
                 except Exception as e:
-                    logger.error(f"texmark: build failed: {e}")
+                    report_failure(e)
                 else:
                     logger.info("texmark: build OK; watching for next change.")
 
@@ -380,7 +388,7 @@ def watch_loop(do_build, paths, interval=0.5, stop=None):
                 try:
                     do_build(changed)
                 except Exception as e:
-                    logger.error(f"texmark: build failed: {e}")
+                    report_failure(e)
     except KeyboardInterrupt:
         pass
     logger.info("texmark: stopped watching.")

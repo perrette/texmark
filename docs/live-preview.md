@@ -88,6 +88,23 @@ other cases (a package removed from the preamble, a build directory from a
 texmark version without the record), a run whose first error comes while it
 reads an `.aux` file deletes that file and is repeated once.
 
+## A failed build
+
+When LaTeX writes no PDF (a fatal error, such as a missing `\input` file),
+the build has failed: no "written" line is printed, and the PDF of the
+previous build, if still there, is not announced as new. A one-off build
+exits with status 1. In `--watch` mode, texmark prints the reason, then a
+last line, and goes on watching:
+
+```
+texmark: build failed: LaTeX wrote no PDF (see build/main.log)
+texmark: build FAILED; watching for next change.
+```
+
+A successful build ends with `texmark: build OK; watching for next change.`
+LaTeX errors that still leave a PDF are reported as warnings and the PDF is
+published.
+
 A change saved while the markdown is being converted to LaTeX is picked up
 when the conversion has finished.
 

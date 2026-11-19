@@ -805,7 +805,8 @@ def latex_errors(log_file, context=2):
 def run_latexmk(tex_name, build_dir, engine='pdflatex', jobname=None, pretex='',
                 force=False, fmt=None, synctex=True):
     """latexmk to completion: bibtex/biber and as many engine passes as the
-    .aux/.bbl need, none when nothing changed since its last run."""
+    .aux/.bbl need, none when nothing changed since its last run. Returns
+    True when latexmk exited without error."""
     build_dir = Path(build_dir)
     # -f keeps latexmk going (matching the raw backend's check=False reruns)
     # even when an engine pass returns nonzero, so the .pdf still appears
@@ -844,43 +845,47 @@ def run_latexmk(tex_name, build_dir, engine='pdflatex', jobname=None, pretex='',
         cmd.append(f'-{engine}={engine} -fmt={fmt} %O %S')
     cmd.append(tex_name)
     _auxfiles.check_aux_files(build_dir)
-    run(cmd, cwd=build_dir, check=False)
+    result = run(cmd, cwd=build_dir, check=False)
     if _delete_runaway_aux(build_dir, job):
         if '-g' not in cmd:
             cmd.insert(cmd.index('-f') + 1, '-g')
-        run(cmd, cwd=build_dir, check=False)
+        result = run(cmd, cwd=build_dir, check=False)
+    return getattr(result, 'returncode', 0) == 0
 
 
 def run_raw(tex_name, build_dir, engine='pdflatex', biblatex=False,
             jobname=None, pretex='', fmt=None, synctex=True):
-    """engine → bibtex (or biber) → engine → engine, unconditionally."""
+    """engine → bibtex (or biber) → engine → engine, unconditionally.
+    Returns True when the last engine pass exited without error."""
     job = jobname or Path(tex_name).stem
     engine_pass(tex_name, build_dir, engine, jobname, pretex, fmt, synctex)
     bibcmd = ['biber', job] if biblatex else ['bibtex', f'{job}.aux']
     run(bibcmd, cwd=build_dir, check=False)
     engine_pass(tex_name, build_dir, engine, jobname, pretex, fmt, synctex)
-    engine_pass(tex_name, build_dir, engine, jobname, pretex, fmt, synctex)
+    return engine_pass(tex_name, build_dir, engine, jobname, pretex, fmt, synctex)
 
 
 def run_tectonic(tex_name, build_dir, synctex=True):
     cmd = ['tectonic', '--keep-intermediates', '--keep-logs']
     if synctex:
         cmd.append('--synctex')
-    run(cmd + [tex_name], cwd=build_dir, check=False)
+    result = run(cmd + [tex_name], cwd=build_dir, check=False)
+    return getattr(result, 'returncode', 0) == 0
 
 
 def run_driver(backend, tex_name, build_dir, engine='pdflatex', biblatex=False,
                jobname=None, pretex='', force=False, fmt=None, synctex=True):
-    """Run the selected backend to completion on one job."""
+    """Run the selected backend to completion on one job. Returns True when
+    it exited without error."""
     if backend == 'latexmk':
-        run_latexmk(tex_name, build_dir, engine, jobname, pretex, force=force, fmt=fmt,
-                    synctex=synctex)
+        return run_latexmk(tex_name, build_dir, engine, jobname, pretex, force=force,
+                           fmt=fmt, synctex=synctex)
     elif backend == 'raw':
-        run_raw(tex_name, build_dir, engine, biblatex, jobname, pretex, fmt, synctex)
+        return run_raw(tex_name, build_dir, engine, biblatex, jobname, pretex, fmt, synctex)
     elif backend == 'tectonic':
         if jobname or pretex or fmt:
             raise ValueError("the tectonic backend does not support draft jobs")
-        run_tectonic(tex_name, build_dir, synctex)
+        return run_tectonic(tex_name, build_dir, synctex)
     else:
         raise ValueError(f"Unknown backend {backend!r}; use 'latexmk', 'raw', or 'tectonic'.")
 
@@ -994,6 +999,27 @@ def run_job(runner, build_dir, tex_name, engine, backend, draft=False,
     return runner(None, DRAFT_PRETEX if draft else '', False)
 
 
+class LatexFailed(RuntimeError):
+    """LaTeX wrote no PDF."""
+
+
+def pdf_written(pdf, before, ok):
+    """Whether the run that ended with status ``ok`` (True: no error) wrote
+    ``pdf``, whose mtime (texmark.build._mtime) was ``before``. A PDF left
+    unchanged counts when the run succeeded: latexmk does nothing when no
+    input changed. A failed run that left it unchanged (or a missing PDF)
+    wrote none: an existing PDF is that of an earlier build."""
+    now = _mtime(pdf)
+    return now is not None and (now != before or bool(ok))
+
+
+def check_pdf_written(pdf, before, ok):
+    """Raise LatexFailed unless ``pdf_written``."""
+    if not pdf_written(pdf, before, ok):
+        log = Path(pdf).with_suffix('.log')
+        raise LatexFailed(f"LaTeX wrote no PDF (see {log})")
+
+
 def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
                 bib_file='references.bib', resource_path='', backend='latexmk',
                 biblatex=False, rewrite_unicode=None, draft=False,
@@ -1035,8 +1061,11 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
     prepare_build_dir(input_tex, build_dir, bib_file, resource_path,
                       engine, rewrite_unicode)
     tex_name = Path(input_tex).name
+    job = draft_jobname(input_tex) if draft else Path(input_tex).stem
+    job_pdf = build_dir / f'{job}.pdf'
+    before = _mtime(job_pdf)
     if draft:
-        run_job(lambda fmt, pretex, force: run_driver(
+        ok = run_job(lambda fmt, pretex, force: run_driver(
                     backend, tex_name, build_dir, engine, biblatex,
                     jobname=draft_jobname(input_tex), pretex=pretex, fmt=fmt,
                     force=force, synctex=synctex),
@@ -1044,19 +1073,22 @@ def compile_pdf(input_tex, output_pdf, engine='pdflatex', build_dir='build',
                 preamble_format=preamble_format)
     else:
         marker = _draft_marker(build_dir, input_tex)
-        run_job(lambda fmt, pretex, force: run_driver(
+        ok = run_job(lambda fmt, pretex, force: run_driver(
                     backend, tex_name, build_dir, engine, biblatex,
                     force=force or marker.exists(), fmt=fmt, synctex=synctex),
                 build_dir, tex_name, engine, backend,
                 preamble_format=preamble_format)
         marker.unlink(missing_ok=True)
     # latexmk -f and the raw backend go on after a LaTeX error and usually
-    # still write a PDF, which is published: report the errors.
-    job = draft_jobname(input_tex) if draft else Path(input_tex).stem
+    # still write a PDF, which is published: report the errors. When no PDF
+    # was written, the build failed (check_pdf_written).
+    written = pdf_written(job_pdf, before, ok)
     errors = latex_errors(build_dir / f'{job}.log')
     if errors:
-        logger.warning(f"texmark: LaTeX errors, the PDF may be incomplete "
+        what = "the PDF may be incomplete" if written else "no PDF written"
+        logger.warning(f"texmark: LaTeX errors, {what} "
                        f"(see {build_dir / job}.log):\n{errors}")
+    check_pdf_written(job_pdf, before, ok)
     if publish:
         publish_job_pdf(input_tex, output_pdf, build_dir, draft=draft, synctex=synctex,
                         units=units)
@@ -1502,12 +1534,13 @@ def compile_stages(plan, conv, chapters=()):
 
     def references():
         before = _mtime(job_pdf)
-        run_job(lambda fmt, pretex, force: run_driver(
+        ok = run_job(lambda fmt, pretex, force: run_driver(
                     backend, tex_name, build_dir, engine, bl,
                     jobname=job, pretex=pretex, fmt=fmt, force=force,
                     synctex=synctex),
                 build_dir, tex_name, engine, backend, draft=True,
                 preamble_format=use_format)
+        check_pdf_written(job_pdf, before, ok)
         now = _mtime(job_pdf)
         if now is not None and (part or now != before):
             return publisher(draft=True)
@@ -1828,6 +1861,9 @@ def main():
                 build_project(plan)
     except _watch.BuildDirBusy as e:
         logger.error(str(e))
+        sys.exit(1)
+    except LatexFailed as e:
+        logger.error(f"texmark: build failed: {e}")
         sys.exit(1)
 
 
