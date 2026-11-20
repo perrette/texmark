@@ -1,0 +1,1858 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Write scientific articles in Markdown and convert them to journal-ready LaTeX/PDF">
+      
+      
+      
+        <link rel="canonical" href="https://perrette.github.io/texmark/synctex-design/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
+    
+    
+      
+        <title>Design notes: source ↔ PDF synchronisation (SyncTeX for Markdown) - texmark</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.57a0d79d.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.fb2fffe2.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#design-notes-source-pdf-synchronisation-synctex-for-markdown" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="texmark" class="md-header__button md-logo" aria-label="texmark" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            texmark
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Design notes: source ↔ PDF synchronisation (SyncTeX for Markdown)
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/perrette/texmark" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    perrette/texmark
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="texmark" class="md-nav__button md-logo" aria-label="texmark" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    texmark
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/perrette/texmark" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+  </div>
+  <div class="md-source__repository">
+    perrette/texmark
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Getting started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quickstart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Guides
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Guides
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../equations/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Numbered equations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../figures/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Figures
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../tables/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tables
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cross-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cross-references
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../track-changes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Track changes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../multi-file/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multi-file projects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../preamble/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom preamble
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../encoding/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Encoding (Unicode & HTML)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../build-backends/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Build backends and engines
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../live-preview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Live preview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../editor/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Editor setup (VS Code)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../custom-templates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Custom LaTeX templates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Reference
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Reference
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../yaml-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    YAML reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Journal templates
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Journal templates
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../journals/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../journals/copernicus/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Copernicus / EGU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../journals/science/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AAAS Science
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../journals/ametsoc/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AMS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../journals/agujournal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    AGU
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../journals/elsarticle/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Elsevier
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../journals/springernature/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Springer Nature
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../journals/pnas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PNAS
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../journals/arxiv/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    arXiv / preprint
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../journals/beamer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Beamer (slides)
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../journals/book/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    book
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../journals/report/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    report
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../journals/memoir/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    memoir
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../journals/classicthesis/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    classicthesis
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#goal" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Goal
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#current-state-as-found-on-2026-11-17" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Current state (as found on 2026-11-17)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#design" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Design">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-synctex-output" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. SyncTeX output
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-the-markdown-tex-map-the-new-part" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. The Markdown → TeX map (the new part)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2b-cost-the-map-must-not-slow-the-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2b. Cost: the map must not slow the build
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2c-how-an-editor-finds-the-files-no-editor-settings" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2c. How an editor finds the files (no editor settings)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-a-cli-for-consumers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. A CLI for consumers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-consumers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Consumers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#5-edge-cases-to-handle-or-document" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Edge cases to handle or document
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#6-tests" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. Tests
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#7-order-of-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. Order of work
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+    <a href="https://github.com/perrette/texmark/edit/main/synctex-design.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
+    </a>
+  
+  
+
+
+<h1 id="design-notes-source-pdf-synchronisation-synctex-for-markdown">Design notes: source ↔ PDF synchronisation (SyncTeX for Markdown)<a class="headerlink" href="#design-notes-source-pdf-synchronisation-synctex-for-markdown" title="Permanent link">&para;</a></h1>
+<p>Status: steps 1–4 implemented (SyncTeX output, lighter map, <code>texmark sync</code>,
+<code>--wrap=preserve</code>). The block-level map (3b) is not planned: the lighter map
+with word matching finds the exact line for most lines (153 of 167 typeset
+lines of the thesis chapters round-trip exactly). Step 5 (Evince/Papers helper,
+VS Code commands) is on hold. Written for the agent that implements it in
+texmark; the consumers are papers-write, VS Code (texmark-vscode) and GNOME
+Papers/Evince.</p>
+<h2 id="goal">Goal<a class="headerlink" href="#goal" title="Permanent link">&para;</a></h2>
+<p>For a document built with texmark:</p>
+<ul>
+<li><strong>Forward search</strong>: a position in a Markdown source (file, line, optionally
+  column) → the place in the PDF (page and a rectangle).</li>
+<li><strong>Backward search</strong>: a point in the PDF (page, x, y) → the Markdown source
+  file and line.</li>
+</ul>
+<p>It must work for one-file papers and for multi-file books (<code>\include</code>d
+chapters, <code>--only</code>, <code>--keep-pages</code>), with the caches (texcache, blockcache),
+<code>--progressive</code> and <code>--watch</code>. Consumers must not need to know texmark's
+internals: they use a stable file format or a CLI.</p>
+<h2 id="current-state-as-found-on-2026-11-17">Current state (as found on 2026-11-17)<a class="headerlink" href="#current-state-as-found-on-2026-11-17" title="Permanent link">&para;</a></h2>
+<ul>
+<li>No SyncTeX: neither <code>_engine_cmd</code> (build.py ~718) nor the latexmk command
+  (build.py ~800) passes <code>-synctex=1</code>; tectonic is not given <code>--synctex</code>.</li>
+<li>No Markdown → TeX position information: <code>parse_markdown</code>
+  (project.py ~80–95) reads with pandoc <code>markdown+footnotes</code>, which keeps no
+  source positions; CriticMarkup is rewritten into spans before pandoc
+  (project.py ~90).</li>
+<li>blockcache.py already splits a document into top-level blocks and reuses
+  their LaTeX; chapters are separate <code>.tex</code> files under <code>\include</code>.</li>
+<li><code>synctex</code> (TeX Live's CLI) is installed at /usr/bin/synctex.</li>
+</ul>
+<h2 id="design">Design<a class="headerlink" href="#design" title="Permanent link">&para;</a></h2>
+<h3 id="1-synctex-output">1. SyncTeX output<a class="headerlink" href="#1-synctex-output" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Pass <code>-synctex=1</code> to every engine run (pdflatex/xelatex/lualatex directly,
+  through latexmk with <code>-synctex=1</code>, tectonic with <code>--synctex</code>). Default on;
+  <code>--no-synctex</code> turns it off.</li>
+<li>The <code>.synctex.gz</code> must sit next to the published PDF with the same stem
+  (<code>build/thesis.pdf</code> → <code>build/thesis.synctex.gz</code>). Tools find it by name.
+  When <code>-o</code> renames the PDF or a job name differs (<code>&lt;stem&gt;-draft</code>,
+  <code>&lt;stem&gt;-part-draft</code> in <code>--progressive</code>), copy or rename the synctex file
+  the same way.</li>
+<li>In <code>--watch</code>, publish the synctex file together with the PDF, synctex
+  first, then the PDF, both by write-to-temp and rename. That way a consumer
+  that sees a new PDF also sees its matching synctex file.</li>
+<li>Draft passes (<code>--progressive</code>, figures as boxes) produce valid synctex
+  data for their PDF too; publish it with the draft PDF.</li>
+</ul>
+<h3 id="2-the-markdown-tex-map-the-new-part">2. The Markdown → TeX map (the new part)<a class="headerlink" href="#2-the-markdown-tex-map-the-new-part" title="Permanent link">&para;</a></h3>
+<p>SyncTeX links PDF positions to <strong>TeX</strong> lines. texmark adds a map from
+generated TeX lines back to Markdown lines.</p>
+<p><strong>Producing positions.</strong> pandoc's <code>markdown</code> reader gives no positions, and
+switching to <code>commonmark_x+sourcepos</code> would change the accepted syntax. Do
+not do that. Instead:</p>
+<ol>
+<li>Find the source line range of each top-level block by texmark's own
+   scan of the Markdown. Blank-line-separated blocks, fenced code, lists,
+   tables, YAML front matter, footnote definitions and HTML comments must be
+   handled. Match the scanned blocks to pandoc's top-level blocks in order,
+   and check the count. blockcache already reasons about top-level blocks;
+   reuse its segmentation if possible.</li>
+<li>Account for the CriticMarkup rewrite (project.py ~90). Either keep it
+   line-preserving (the rewritten text has the same number of lines; check
+   this), or record an offset table during the rewrite.</li>
+<li>Write each block's LaTeX with a marker comment on the line before it:
+   <code>%%md introduction.md:123</code>. Comments do not change the output. Add the
+   markers when the LaTeX is assembled, not in the pieces that blockcache
+   stores: a cached block keeps its hash when the text above it moves, so a
+   stored line number would go stale.</li>
+<li>Within a block, use pandoc <code>--wrap=preserve</code>, so that a paragraph's TeX
+   lines follow its Markdown lines. Check that this does not change the
+   output or break blockcache's byte-for-byte guarantee. Where it cannot be
+   used, map to the block's first line only.</li>
+</ol>
+<p><strong>The map file.</strong> After writing the <code>.tex</code> files, write
+<code>&lt;pdf-stem&gt;.srcmap.json</code> next to the published PDF from the markers. This
+file is the contract: consumers read it, not the comments. The block map is
+the <code>blocks</code> key of the same file that holds the lighter map's <code>units</code>
+(2b); <code>units</code> is always present.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="p">{</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="nt">"pdf"</span><span class="p">:</span><span class="w"> </span><span class="s2">"thesis.pdf"</span><span class="p">,</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="nt">"pdf_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">1234567</span><span class="p">,</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="nt">"generated"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-11-17T12:00:00Z"</span><span class="p">,</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="nt">"build"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sha256:&lt;hex digest of the published PDF&gt;"</span><span class="p">,</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="nt">"units"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="w"> </span><span class="err">…</span><span class="w"> </span><span class="p">],</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="nt">"blocks"</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">    </span><span class="nt">"/abs/build/thesis.tex"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">      </span><span class="p">{</span><span class="nt">"tex"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">120</span><span class="p">,</span><span class="w"> </span><span class="mi">134</span><span class="p">],</span><span class="w"> </span><span class="nt">"md"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/abs/thesis.md"</span><span class="p">,</span><span class="w"> </span><span class="nt">"line"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">40</span><span class="p">,</span><span class="w"> </span><span class="mi">52</span><span class="p">]}</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">    </span><span class="p">],</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">    </span><span class="nt">"/abs/build/introduction.tex"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">      </span><span class="p">{</span><span class="nt">"tex"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">9</span><span class="p">],</span><span class="w"> </span><span class="nt">"md"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/abs/introduction.md"</span><span class="p">,</span><span class="w"> </span><span class="nt">"line"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">9</span><span class="p">],</span><span class="w"> </span><span class="nt">"exact"</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">}</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">    </span><span class="p">]</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a><span class="p">}</span>
+</code></pre></div>
+<ul>
+<li><code>version</code>: 1. Readers ignore keys they do not know, so adding a key does
+  not change the version; it changes only when a key changes meaning.</li>
+<li><code>build</code>: <code>sha256:</code> and the hex digest of the published PDF. <code>pdf_size</code>:
+  its size in bytes. A reader compares the size first and hashes the PDF
+  only when the sizes match.</li>
+<li><code>blocks</code>: per <code>.tex</code> file, the blocks it holds. <code>tex</code>: an inclusive range of TeX lines. <code>md</code> and <code>line</code>: the source file
+  and its inclusive line range. <code>exact: true</code> means the lines correspond one
+  to one (<code>--wrap=preserve</code> held). Otherwise lines inside the range are
+  interpolated, or mapped to the first line.</li>
+<li>Paths are absolute with symlinks resolved (realpath), in the map and in
+  what texmark passes to <code>synctex</code>. SyncTeX records <code>/abs/build/./x.tex</code>;
+  normalise it the same way. <code>synctex view</code> only matches a TeX file given by
+  its absolute path.</li>
+<li>Lines that come from the template (preamble, title page, bibliography)
+  have no entry. A lookup there finds nothing, or the nearest block before.</li>
+<li>Publish it with the PDF and synctex file: synctex file, map, PDF. Each
+  stage of <code>--progressive</code> publishes its own (the <code>build</code> differs).</li>
+</ul>
+<h3 id="2b-cost-the-map-must-not-slow-the-build">2b. Cost: the map must not slow the build<a class="headerlink" href="#2b-cost-the-map-must-not-slow-the-build" title="Permanent link">&para;</a></h3>
+<p>Requirement: with synctex and the map on, a build (and each <code>--watch</code>
+rebuild) is not measurably slower than without; aim for less than 2% of the
+build time, measured on the thesis (<code>make watch</code> / <code>make full</code>).</p>
+<p>Expected costs, to measure and not assume:</p>
+<ul>
+<li><code>-synctex=1</code>: a few percent of each LaTeX run, plus writing a gzip file.
+  This is the usual price of SyncTeX in every LaTeX editor.</li>
+<li>The block scan: one pass over each Markdown file, done only when the file
+  changed. texcache and blockcache already skip unchanged chapters and
+  blocks, and their markers come with their cached LaTeX.</li>
+<li>Writing <code>srcmap.json</code>: small, one file per build.</li>
+<li><code>--wrap=preserve</code>: no cost, but it may change the output. Check this.</li>
+</ul>
+<p>If block-level mapping costs too much, or if keeping markers through
+blockcache gets complicated, use the <strong>lighter map</strong> below and find the exact
+place on demand.</p>
+<p><strong>Lighter map (fallback).</strong> <code>srcmap.json</code> maps only coarse units, and the
+consumer finds the exact line by searching the text when asked:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">"pdf"</span><span class="p">:</span><span class="w"> </span><span class="s2">"synopsis.pdf"</span><span class="p">,</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">"pdf_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">1234567</span><span class="p">,</span>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">  </span><span class="nt">"generated"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-11-17T12:00:00Z"</span><span class="p">,</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">  </span><span class="nt">"build"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sha256:…"</span><span class="p">,</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">  </span><span class="nt">"units"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="p">{</span><span class="nt">"md"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/abs/introduction.md"</span><span class="p">,</span><span class="w"> </span><span class="nt">"line"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">410</span><span class="p">],</span><span class="w"> </span><span class="nt">"tex"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/abs/build/introduction.tex"</span><span class="p">,</span><span class="w"> </span><span class="nt">"texline"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">380</span><span class="p">],</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">     </span><span class="nt">"sections"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Introduction"</span><span class="p">,</span><span class="w"> </span><span class="nt">"line"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nt">"texline"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">},</span><span class="w"> </span><span class="p">{</span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Sea level"</span><span class="p">,</span><span class="w"> </span><span class="nt">"line"</span><span class="p">:</span><span class="w"> </span><span class="mi">37</span><span class="p">,</span><span class="w"> </span><span class="nt">"texline"</span><span class="p">:</span><span class="w"> </span><span class="mi">33</span><span class="p">}]}</span>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="p">}</span>
+</code></pre></div>
+<ul>
+<li><code>units</code>: one per source file (chapter) with its line ranges in Markdown
+  and TeX. <code>sections</code>: each heading's Markdown and TeX line. texmark knows
+  both while it writes the chapter, so this costs almost nothing.</li>
+<li><strong>Backward:</strong> SyncTeX gives <code>TEXFILE:TEXLINE</code>. The unit and section narrow
+  it to a stretch of Markdown. The consumer takes the words of the TeX line
+  (or of the PDF text clicked), with LaTeX commands stripped, and searches
+  for them in that stretch with a tolerant pattern (whitespace and
+  punctuation loose, Markdown emphasis ignored).</li>
+<li><strong>Forward:</strong> the section of the Markdown line gives a TeX range. Search
+  the TeX for the line's words in that range, then run
+  <code>synctex view</code> on the line found.</li>
+</ul>
+<p>Both maps coexist in one file: the consumer uses <code>blocks</code> when present,
+otherwise <code>units</code>. <code>sections[].title</code> is the heading's plain text. A heading
+that a filter moved out of the body (an abstract section) has no TeX line
+and is left out. With <code>--only</code>, <code>units</code> lists the root and the chapters
+typeset; companion documents have their own PDF and map. Start with whichever proves cheap enough; the lighter map is enough
+for multi-file documents, which is its main use.</p>
+<h3 id="2c-how-an-editor-finds-the-files-no-editor-settings">2c. How an editor finds the files (no editor settings)<a class="headerlink" href="#2c-how-an-editor-finds-the-files-no-editor-settings" title="Permanent link">&para;</a></h3>
+<p>The files beside the PDF are the whole contract; editors need no
+configuration.</p>
+<ul>
+<li><strong>From a PDF</strong> <code>X.pdf</code>: read <code>X.synctex.gz</code> and <code>X.srcmap.json</code> from the
+  same folder.</li>
+<li>Both present: Markdown positions.</li>
+<li>Only <code>X.synctex.gz</code>: TeX positions. This also covers a pure LaTeX
+    project built with <code>-synctex=1</code> by any tool.</li>
+<li>Neither: the editor may fall back to searching the clicked text in the
+    project's source files.</li>
+<li><strong>From a source file</strong> <code>F.md</code>: find the PDF whose <code>srcmap.json</code> lists <code>F.md</code>.
+  Look in the build folders under the project (<code>build/</code>, <code>build-*/</code>). If
+  several PDFs list it (a synopsis and a full build), take the most recently
+  built one, or ask. For a <code>.tex</code> source, look for a <code>.synctex.gz</code> that
+  mentions it.</li>
+<li>The map's <code>build</code> field must match the PDF it sits beside (compare
+  <code>pdf_size</code> first, then the sha256). A map that does not match (a build
+  that failed half-way) is ignored.</li>
+</ul>
+<h3 id="3-a-cli-for-consumers">3. A CLI for consumers<a class="headerlink" href="#3-a-cli-for-consumers" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>texmark sync forward  SOURCE.md:LINE[:COL] [--pdf build/thesis.pdf]   → JSON
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>texmark sync backward --pdf build/thesis.pdf PAGE X Y                → JSON
+</code></pre></div>
+<ul>
+<li><strong>forward</strong>: map <code>SOURCE.md:LINE</code> to <code>TEXFILE:TEXLINE</code> with the map, run
+  <code>synctex view -i TEXLINE:COL:TEXFILE -o PDF</code>, and print
+  <code>{"page", "x", "y", "width", "height"}</code> (PDF points, origin top left, as
+  synctex gives them; say so in the output). If there are several records,
+  print a list.</li>
+<li><strong>backward</strong>: run <code>synctex edit -o PAGE:X:Y:PDF</code> to get <code>TEXFILE:TEXLINE</code>,
+  map back with the map, and print <code>{"file", "line", "column"}</code>. Column may
+  be null.</li>
+<li>When <code>--pdf</code> is omitted, find the PDF from the project
+  (<code>build/&lt;root-stem&gt;.pdf</code>, or <code>-o</code> as recorded in the map).</li>
+<li>Exit with a non-zero status and a JSON error when the map or synctex file
+  is missing, or when the map's <code>build</code> does not match the PDF (stale).</li>
+<li>Also expose the same two functions in Python (<code>texmark.sync</code>).</li>
+</ul>
+<h3 id="4-consumers">4. Consumers<a class="headerlink" href="#4-consumers" title="Permanent link">&para;</a></h3>
+<ul>
+<li><strong>papers-write</strong> (the Tauri app): a Ctrl+click in its pdf.js view gives
+  (page, x, y) and calls <code>texmark sync backward</code>, or reads
+  <code>&lt;stem&gt;.srcmap.json</code> and runs <code>synctex</code> itself. It then opens the source at
+  that line. "Show in PDF" from the editor uses <code>forward</code>. For a pure LaTeX
+  project, papers-write uses synctex directly without the map.</li>
+<li><strong>GNOME Papers / Evince</strong> (the current viewer of the thesis workflow):
+  they speak SyncTeX over D-Bus with <strong>TeX</strong> file names:</li>
+<li>backward: the <code>SyncSource</code> signal gives a TeX file and line;</li>
+<li>forward: the <code>SyncView</code> method takes a TeX file and line.</li>
+</ul>
+<p>A small helper, <code>texmark sync evince [--editor "code -g {file}:{line}"]</code>,
+  can listen for <code>SyncSource</code>, map it to Markdown and run the editor command.
+  For forward search it maps Markdown to TeX and calls <code>SyncView</code>. This
+  gives the existing VS Code + Papers setup both directions without a new
+  viewer. The D-Bus interface is <code>org.gnome.evince.Daemon</code> /
+  <code>org.gnome.evince.Window</code>; check the names for GNOME Papers, which may
+  have renamed it.
+- <strong>VS Code (texmark-vscode)</strong>: add commands <em>texmark: Show in PDF</em>
+  (forward, via the CLI, then focus the viewer) and a handler for the
+  backward direction, either from the Evince helper or from LaTeX Workshop's
+  viewer if it is used. Keep it optional; the extension today only extends
+  the Markdown preview.</p>
+<h3 id="5-edge-cases-to-handle-or-document">5. Edge cases to handle or document<a class="headerlink" href="#5-edge-cases-to-handle-or-document" title="Permanent link">&para;</a></h3>
+<ul>
+<li><code>--only</code> / <code>--keep-pages</code>: the map covers the chapters that were built.
+  Pages kept blank have no records.</li>
+<li>Figures, tables and equations: map to the block containing them. Floats
+  that move to another page still map back to their source block.</li>
+<li>Footnotes: their text is defined elsewhere in the Markdown (<code>[^1]: …</code>).
+  Map the footnote's TeX to the definition's lines if the scan can tell;
+  otherwise to the referencing paragraph.</li>
+<li>Citations and cross-references: inline, no special handling.</li>
+<li>Journal templates that move the abstract or other blocks out of the body:
+  the marker travels with the block, so the map still holds.</li>
+<li>Precompiled preamble (<code>.fmt</code>): no effect; the body is still read from the
+  <code>.tex</code> files.</li>
+<li>Windows paths and non-ASCII file names: SyncTeX quirks. Normalise paths
+  and test one non-ASCII name.</li>
+</ul>
+<h3 id="6-tests">6. Tests<a class="headerlink" href="#6-tests" title="Permanent link">&para;</a></h3>
+<ul>
+<li>A fixture project: front matter, headings, paragraphs (several lines
+  each), a list, a footnote, a figure, display math with a label,
+  CriticMarkup, and two chapters under <code>\include</code>.</li>
+<li>Build with synctex on. For a sample of Markdown lines in each block,
+  <code>forward</code> then <code>backward</code> must return the same file and a line within ±1
+  (exact blocks: the same line).</li>
+<li>The map must be the same whether a chapter came from blockcache or a full
+  conversion. Build twice, edit one paragraph, build again, and compare.</li>
+<li><code>--watch</code>: after a change, the published PDF, synctex file and map carry
+  the same <code>build</code>.</li>
+<li>Skip the synctex-dependent tests when <code>synctex</code> is not installed.</li>
+</ul>
+<h3 id="7-order-of-work">7. Order of work<a class="headerlink" href="#7-order-of-work" title="Permanent link">&para;</a></h3>
+<ol>
+<li><code>-synctex=1</code> everywhere, with the synctex file published next to the PDF.
+   This alone gives pure-LaTeX users forward and backward search.</li>
+<li><code>srcmap.json</code> with the lighter map (units and sections, 2b): cheap and
+   enough for multi-file documents.</li>
+<li><code>texmark sync forward|backward</code> and the Python API. It runs on each
+   click in an editor: keep its start-up time short, and measure it.
+3b. The block-level map (block scan, markers, single-file documents first,
+   then <code>\include</code>d chapters and blockcache), measured against the 2%
+   budget and added only if it stays within it. The markers are added when
+   the LaTeX is assembled, not stored in blockcache's pieces: a cached block
+   keeps its hash when the text above it moves, so a stored line number
+   would go stale.</li>
+<li><code>--wrap=preserve</code> for line-exact paragraphs, if it keeps outputs
+   identical.</li>
+<li>The Evince/Papers helper, then the VS Code commands.</li>
+</ol>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.instant", "navigation.tracking", "navigation.sections", "navigation.top", "toc.follow", "search.suggest", "search.highlight", "content.code.copy", "content.action.edit"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.a5f9d56c.min.js"></script>
+      
+    
+  </body>
+</html>

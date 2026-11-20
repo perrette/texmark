@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -792,6 +792,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#a-failed-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A failed build
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#chapter-edits-in-a-book" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1494,6 +1505,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#a-failed-build" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        A failed build
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#chapter-edits-in-a-book" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1625,6 +1647,30 @@ by a run killed from outside, for example) is restored from the snapshot
 when there is a good copy there, and deleted otherwise. If a run still stops
 with "File ended while scanning use of ..." or "File ended within \read" on
 an <code>.aux</code>, that file is deleted and the run is repeated once.</p>
+<p>The <code>.aux</code> files of a build under another template can stop LaTeX too: they
+call macros that the new document class does not define (switching from
+<code>copernicus</code>, which loads <code>lineno</code>, to <code>nature</code> leaves <code>\@LN</code> lines, and
+pdflatex stops with "Undefined control sequence" before it writes a new
+<code>.aux</code>). texmark records the document class of each <code>.tex</code> in
+<code>&lt;build&gt;/&lt;stem&gt;.texmark-class</code>; when it differs from the class of the
+previous build, the <code>.aux</code>, <code>.bbl</code>, <code>.toc</code>, <code>.lof</code>, <code>.lot</code> and <code>.out</code> files of
+the document's jobs (and the chapter <code>.aux</code> files they read) are deleted
+before the run. The bibliography is rebuilt by bibtex in the same build. In
+other cases (a package removed from the preamble, a build directory from a
+texmark version without the record), a run whose first error comes while it
+reads an <code>.aux</code> file deletes that file and is repeated once.</p>
+<h2 id="a-failed-build">A failed build<a class="headerlink" href="#a-failed-build" title="Permanent link">&para;</a></h2>
+<p>When LaTeX writes no PDF (a fatal error, such as a missing <code>\input</code> file),
+the build has failed: no "written" line is printed, and the PDF of the
+previous build, if still there, is not announced as new. A one-off build
+exits with status 1. In <code>--watch</code> mode, texmark prints the reason, then a
+last line, and goes on watching:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>texmark: build failed: LaTeX wrote no PDF (see build/main.log)
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>texmark: build FAILED; watching for next change.
+</code></pre></div>
+<p>A successful build ends with <code>texmark: build OK; watching for next change.</code>
+LaTeX errors that still leave a PDF are reported as warnings and the PDF is
+published.</p>
 <p>A change saved while the markdown is being converted to LaTeX is picked up
 when the conversion has finished.</p>
 <h2 id="chapter-edits-in-a-book">Chapter edits in a book<a class="headerlink" href="#chapter-edits-in-a-book" title="Permanent link">&para;</a></h2>
@@ -1653,7 +1699,7 @@ chapter outside the list) run the usual stage 1.</p>
 one-off build for its duration, a watch session until it stops. A second
 texmark on the same build directory waits for a one-off build to finish,
 and exits with an error when a watch session holds the directory:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>texmark: the build directory build is used by a texmark --watch session (pid 12345); stop it or build in another directory (-d).
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>texmark: the build directory build is used by a texmark --watch session (pid 12345); stop it or build in another directory (-d).
 </code></pre></div>
 <h2 id="stopping">Stopping<a class="headerlink" href="#stopping" title="Permanent link">&para;</a></h2>
 <p>Ctrl+C, SIGTERM or SIGHUP (closing the terminal) stop the watch session: the

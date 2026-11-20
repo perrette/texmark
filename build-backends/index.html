@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -774,6 +774,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#synctex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SyncTeX
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1471,6 +1482,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#synctex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SyncTeX
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1632,6 +1654,62 @@ custom templates without the marker line never use a format.</p>
 <p>To disable it: <code>--no-preamble-format</code>, or in the YAML:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nt">build_preamble_format</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
 </code></pre></div>
+<h2 id="synctex">SyncTeX<a class="headerlink" href="#synctex" title="Permanent link">&para;</a></h2>
+<p>Every LaTeX run writes a SyncTeX file (<code>-synctex=1</code>; <code>--synctex</code> for
+tectonic), which links positions in the PDF to lines of the generated <code>.tex</code>
+files. texmark publishes it next to the PDF with the same stem:
+<code>build/thesis.pdf</code> comes with <code>build/thesis.synctex.gz</code>, and <code>-o out/paper.pdf</code>
+with <code>out/paper.synctex.gz</code>. The draft and part jobs of <code>--draft</code> and
+<code>--progressive</code> publish their own SyncTeX file with their PDF. The SyncTeX
+file is renamed into place before the PDF, so a viewer that reloads the new
+PDF finds the matching SyncTeX file.</p>
+<p>PDF viewers with SyncTeX support (GNOME Papers, Evince, Okular, zathura) and
+the <code>synctex</code> command use it for forward and backward search between the
+<code>.tex</code> files and the PDF. <code>--no-synctex</code> (YAML: <code>build_synctex: false</code>)
+turns it off and removes the published SyncTeX file.</p>
+<p>SyncTeX knows the <code>.tex</code> files, not the Markdown. texmark also publishes a
+source map next to the PDF, <code>&lt;pdf-stem&gt;.srcmap.json</code>, written after the
+SyncTeX file and before the PDF. For each Markdown file the PDF typesets (the
+root document and the chapters, or those of <code>--only</code>) it gives the file's
+line range, the range of <code>.tex</code> lines it became, and the Markdown and <code>.tex</code>
+line of each heading:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">"version"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">"pdf"</span><span class="p">:</span><span class="w"> </span><span class="s2">"thesis.pdf"</span><span class="p">,</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span><span class="nt">"pdf_size"</span><span class="p">:</span><span class="w"> </span><span class="mi">1234567</span><span class="p">,</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span><span class="nt">"generated"</span><span class="p">:</span><span class="w"> </span><span class="s2">"2026-11-17T12:00:00Z"</span><span class="p">,</span>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span><span class="nt">"build"</span><span class="p">:</span><span class="w"> </span><span class="s2">"sha256:…"</span><span class="p">,</span>
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span><span class="nt">"units"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">    </span><span class="p">{</span><span class="nt">"md"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/abs/introduction.md"</span><span class="p">,</span><span class="w"> </span><span class="nt">"line"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="mi">410</span><span class="p">],</span>
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">     </span><span class="nt">"tex"</span><span class="p">:</span><span class="w"> </span><span class="s2">"/abs/build/introduction.tex"</span><span class="p">,</span><span class="w"> </span><span class="nt">"texline"</span><span class="p">:</span><span class="w"> </span><span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">380</span><span class="p">],</span>
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">     </span><span class="nt">"sections"</span><span class="p">:</span><span class="w"> </span><span class="p">[{</span><span class="nt">"title"</span><span class="p">:</span><span class="w"> </span><span class="s2">"Introduction"</span><span class="p">,</span><span class="w"> </span><span class="nt">"line"</span><span class="p">:</span><span class="w"> </span><span class="mi">5</span><span class="p">,</span><span class="w"> </span><span class="nt">"texline"</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">}]}</span>
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">  </span><span class="p">]</span>
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="p">}</span>
+</code></pre></div>
+<p>Paths are absolute, with symlinks resolved. <code>build</code> is the sha256 of the PDF
+the map was published with, and <code>pdf_size</code> its size: a map that does not
+match the PDF next to it is out of date. A heading that the template moves
+out of the body (an abstract section) has no <code>.tex</code> line and is not listed.
+The format and its use by editors are described in
+<a href="../synctex-design/">the design notes</a>.</p>
+<p><code>texmark sync</code> does forward and backward search with these two files and the
+<code>synctex</code> command, and prints JSON (for editors and viewers):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>texmark sync forward  intro.md:42 [--pdf build/thesis.pdf]
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>{"page": 5, "x": 72.0, "y": 260.9, "width": 451.3, "height": 9.6}
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>texmark sync backward --pdf build/thesis.pdf 5 100 270
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>{"file": "/abs/intro.md", "line": 42, "column": null}
+</code></pre></div>
+<p>Coordinates are PDF points with the origin at the top left of the page, as
+<code>synctex</code> gives them; <code>forward</code> prints a list when the line has several
+places. Without <code>--pdf</code>, <code>forward</code> takes the most recent PDF whose map lists
+the file, in the file's folder or a folder above it (up to the git root),
+directly or in a <code>build*</code> folder. Between two headings, the line is the one
+whose words match best. On an error (no map or SyncTeX file, a map that does
+not match the PDF, a file not in the PDF) the exit status is 1 and the output
+is <code>{"error": "...", "code": "..."}</code>. The same functions are in Python:
+<code>texmark.sync.forward(source, line, pdf=None)</code> and
+<code>texmark.sync.backward(pdf, page, x, y)</code>.</p>
 <blockquote>
 <p><strong>Unicode and HTML in bibliographies / body text</strong> — texmark transparently
 rewrites non-ASCII Unicode and CrossRef-style HTML markup

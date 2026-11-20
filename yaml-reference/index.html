@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.1">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -980,6 +980,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#build_synctex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        build_synctex
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#journaloptions" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -992,6 +1003,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#json-schema-for-editors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JSON Schema for editors
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1567,6 +1589,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#build_synctex" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        build_synctex
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#journaloptions" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1579,6 +1612,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#json-schema-for-editors" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        JSON Schema for editors
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1671,6 +1715,7 @@
 <a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a><span class="nt">build_draft</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">                    </span><span class="c1"># optional: figures as boxes (same as --draft)</span>
 <a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a><span class="nt">build_progressive</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span><span class="w">              </span><span class="c1"># optional: staged PDF builds (same as --progressive)</span>
 <a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a><span class="nt">build_preamble_format</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">           </span><span class="c1"># optional: false disables the precompiled preamble (same as --no-preamble-format)</span>
+<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a><span class="nt">build_synctex</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">                   </span><span class="c1"># optional: false writes no SyncTeX file (same as --no-synctex)</span>
 </code></pre></div>
 <p>See the <a href="../figures/">Figure paths</a>, <a href="../multi-file/">Multi-file projects</a>,
 <a href="../preamble/">Custom preamble</a> and <a href="../track-changes/">Track changes</a> pages for
@@ -1728,12 +1773,30 @@ draft's references (with <code>--draft</code>: the draft with references resolve
 <p><code>build_preamble_format: false</code> (or <code>--no-preamble-format</code>) compiles without
 the precompiled preamble that pdflatex builds use by default. See
 <a href="../build-backends/#precompiled-preamble">Precompiled preamble</a>.</p>
+<h3 id="build_synctex">build_synctex<a class="headerlink" href="#build_synctex" title="Permanent link">&para;</a></h3>
+<p><code>build_synctex: false</code> (or <code>--no-synctex</code>) compiles without the SyncTeX file
+that is otherwise published next to the PDF. See
+<a href="../build-backends/#synctex">SyncTeX</a>.</p>
 <h3 id="journaloptions">journal.options<a class="headerlink" href="#journaloptions" title="Permanent link">&para;</a></h3>
 <p>Raw document-class options, given as a string (<code>twocol</code>) or a list
 (<code>[final, 5p, times]</code>). When set, these are passed to <code>\documentclass</code> verbatim
 and <strong>override</strong> <code>journal.draft</code>. Use this when you need a specific class
 variant the <code>draft</code> flag does not cover; the per-journal docs pages under
 <a href="../journals/">Journal templates</a> list each class's full option set.</p>
+<h2 id="json-schema-for-editors">JSON Schema for editors<a class="headerlink" href="#json-schema-for-editors" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>texmark<span class="w"> </span>schema<span class="w">            </span><span class="c1"># JSON Schema (draft 2020-12) of the front matter, on stdout</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>texmark<span class="w"> </span>schema<span class="w"> </span>--indent<span class="w"> </span><span class="m">0</span><span class="w"> </span><span class="c1"># the same on one line</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>texmark<span class="w"> </span>--version<span class="w">         </span><span class="c1"># "texmark &lt;version&gt;": the schema can be cached per version</span>
+</code></pre></div>
+<p>The schema lists the keys above (and the section-style keys below) with their
+type, a one-line description and the default value where there is one, so
+that an editor can complete the keys and values of the front matter and show
+the descriptions. <code>journal.template</code> (or a bare <code>journal: &lt;name&gt;</code>) takes the
+built-in template names and their aliases (<code>nature</code> for <code>springernature</code>),
+read from the template folders of the installed texmark: each is an entry
+<code>{"const": &lt;name&gt;, "description": ...}</code> of the <code>oneOf</code> in
+<code>$defs/template</code>. Other keys are allowed (<code>additionalProperties: true</code>):
+pandoc reads its own.</p>
 <h2 id="section-style-metadata">Section-style metadata<a class="headerlink" href="#section-style-metadata" title="Permanent link">&para;</a></h2>
 <p>Section-style metadata can also be given as markdown <code># ...</code> headings. Any
 of <code># Abstract</code>, <code># Acknowledgments</code>, <code># Data Availability</code>, <code># Appendix</code>,
